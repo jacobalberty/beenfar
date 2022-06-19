@@ -145,8 +145,8 @@ func (p *InformPD) decryptCBC() {
 	var block cipher.Block
 	var err error
 
-	if len(p.payload) < aes.BlockSize {
-		log.Println("ciphertext is too short")
+	if len(p.key) != 16 {
+		log.Println("invalid key")
 		return
 	}
 	if len(p.payload)%aes.BlockSize != 0 {
@@ -159,7 +159,7 @@ func (p *InformPD) decryptCBC() {
 		log.Printf("error initializing cipher: %s", err)
 		return
 	}
-
+	p.compressedPayload = make([]byte, len(p.payload))
 	cbc := cipher.NewCBCDecrypter(block, p.initVector)
 	cbc.CryptBlocks(p.compressedPayload, p.payload)
 }
