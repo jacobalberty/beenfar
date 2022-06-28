@@ -10,7 +10,7 @@ import (
 
 func main() {
 	if len(os.Args) == 1 {
-		log.Println("You must provide at leasr one argument")
+		log.Println("You must provide at least one argument")
 		return
 	}
 
