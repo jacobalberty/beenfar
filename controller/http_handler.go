@@ -2,6 +2,7 @@ package controller
 
 import (
 	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -44,5 +45,5 @@ func (h *HttpHandler) informHandler(c *gin.Context) {
 }
 
 func (h *HttpHandler) getDeviceList(c *gin.Context) {
-	c.ShouldBindJSON(h.devices)
+	c.JSON(http.StatusOK, h.devices)
 }
