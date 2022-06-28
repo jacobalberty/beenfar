@@ -1,28 +1,48 @@
 package controller
 
 import (
-	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jacobalberty/beenfar/util"
 )
 
-type HttpHandler struct{}
+type HttpHandler struct {
+	devices devices
+}
+
+type devices struct {
+	Pending map[string]*pending `json:"pending,omitempty"`
+}
+
+type pending struct {
+	Timestamp int64 `json:"-"`
+}
 
 func (h *HttpHandler) RegisterHandlers() {
 	router := gin.Default()
 
-	router.GET("/inform", h.InformHandler)
+	router.GET("/inform", h.informHandler)
+	router.GET("/api/device/list", h.getDeviceList)
 
 	router.Run()
 }
 
-func (h *HttpHandler) InformHandler(c *gin.Context) {
+func (h *HttpHandler) informHandler(c *gin.Context) {
 	bodyBuffer, _ := ioutil.ReadAll(c.Request.Body)
-	fn := fmt.Sprintf("tmp/%d", time.Now().Unix())
-	os.WriteFile(fn, bodyBuffer, 0644)
-	log.Printf("Wrote %d bytes to %s\n", len(bodyBuffer), fn)
+	ipd, err := util.NewInformPD(bodyBuffer)
+	if err != nil {
+		// Do err
+	}
+	if _, ok := h.devices.Pending[ipd.Mac]; !ok {
+		h.devices.Pending[ipd.Mac] = &pending{time.Now().Unix()}
+	} else {
+		h.devices.Pending[ipd.Mac].Timestamp = time.Now().Unix()
+
+	}
+}
+
+func (h *HttpHandler) getDeviceList(c *gin.Context) {
+	c.ShouldBindJSON(h.devices)
 }
