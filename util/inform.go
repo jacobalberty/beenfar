@@ -22,22 +22,22 @@ var (
 )
 
 type InformPD struct {
-	key               []byte
-	magic             int
-	packetVersion     string
-	mac               string
-	flags             int64
-	encrypted         bool
-	zlib              bool
-	snappy            bool
-	aesgcm            bool
-	initVector        []byte
 	payloadVersion    string
-	payloadLength     int64
-	aad               []byte
-	payload           []byte
+	packetVersion     string
+	Mac               string
 	tag               []byte
+	payload           []byte
+	aad               []byte
+	key               []byte
+	initVector        []byte
 	compressedPayload []byte
+	payloadLength     int64
+	flags             int64
+	magic             int
+	snappy            bool
+	zlib              bool
+	encrypted         bool
+	aesgcm            bool
 }
 
 func NewInformPD(packet []byte) (*InformPD, error) {
@@ -54,7 +54,7 @@ func (p *InformPD) Init(packet []byte) (err error) {
 
 	p.magic = int(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
 	p.packetVersion = hex.EncodeToString(packet[4:8])
-	p.mac = fmt.Sprintf("%x", packet[8:14])
+	p.Mac = fmt.Sprintf("%x", packet[8:14])
 	p.flags, err = strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 64)
 	if err != nil {
 		return
