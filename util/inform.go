@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"strconv"
 
 	"github.com/golang/snappy"
@@ -22,7 +23,7 @@ var (
 
 type InformPD struct {
 	key               []byte
-	magic             []byte
+	magic             int
 	packetVersion     string
 	mac               string
 	flags             int64
@@ -51,7 +52,7 @@ func (p *InformPD) Init(packet []byte) (err error) {
 	// Need to support pulling per device keys from database
 	p.key = MASTER_KEY
 
-	p.magic = packet[0:4]
+	p.magic = int(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
 	p.packetVersion = hex.EncodeToString(packet[4:8])
 	p.mac = fmt.Sprintf("%x", packet[8:14])
 	p.flags, err = strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 64)
@@ -95,6 +96,10 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 }
 
 func (p InformPD) dump() {
+	fmt.Println(p)
+}
+
+func (p InformPD) String() string {
 	var h [16]byte
 	h = md5.Sum(p.payload)
 	p.payload = h[:]
@@ -102,7 +107,7 @@ func (p InformPD) dump() {
 	p.aad = h[:]
 	h = md5.Sum(p.tag)
 	p.tag = h[:]
-	log.Printf("%+v", p)
+	return fmt.Sprintf("%#v", p)
 
 }
 
