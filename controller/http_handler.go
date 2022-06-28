@@ -24,13 +24,13 @@ type pending struct {
 func (h *HttpHandler) RegisterHandlers() {
 	router := gin.Default()
 
-	router.GET("/inform", h.informHandler)
+	router.POST("/inform", h.postInformHandler)
 	router.GET("/api/device/list", h.getDeviceList)
 
 	router.Run()
 }
 
-func (h *HttpHandler) informHandler(c *gin.Context) {
+func (h *HttpHandler) postInformHandler(c *gin.Context) {
 	bodyBuffer, _ := ioutil.ReadAll(c.Request.Body)
 	ipd, err := util.NewInformPD(bodyBuffer)
 	if err != nil {
