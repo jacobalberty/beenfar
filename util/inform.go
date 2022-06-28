@@ -96,7 +96,7 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 }
 
 func (p InformPD) dump() {
-	fmt.Println(p)
+	log.Println(p)
 }
 
 func (p InformPD) String() string {
