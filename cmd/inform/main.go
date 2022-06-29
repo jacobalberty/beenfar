@@ -26,6 +26,7 @@ func main() {
 		return
 	}
 
+	ipd.Decrypt()
 	json, err := ipd.Uncompress()
 	if err != nil {
 		log.Fatalf("Error decompressing inform packet: %v", err)
