@@ -28,7 +28,7 @@ type InformPD struct {
 	tag               []byte
 	payload           []byte
 	aad               []byte
-	key               []byte
+	Key               []byte
 	initVector        []byte
 	compressedPayload []byte
 	payloadLength     int64
@@ -47,11 +47,6 @@ func NewInformPD(packet []byte) (*InformPD, error) {
 }
 
 func (p *InformPD) Init(packet []byte) (err error) {
-	log.Printf("Packet length: %d", len(packet))
-
-	// Need to support pulling per device keys from database
-	p.key = MASTER_KEY
-
 	p.magic = int(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
 	p.packetVersion = hex.EncodeToString(packet[4:8])
 	p.Mac = fmt.Sprintf("%x", packet[8:14])
@@ -76,9 +71,6 @@ func (p *InformPD) Init(packet []byte) (err error) {
 	p.payload = packet[40 : 40+p.payloadLength]
 	p.tag = packet[:len(packet)-16]
 
-	p.dump()
-	p.decrypt()
-
 	return
 }
 
@@ -95,10 +87,6 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 	return nil, fmt.Errorf("Unimplemented compression")
 }
 
-func (p InformPD) dump() {
-	log.Println(p)
-}
-
 func (p InformPD) String() string {
 	var h [16]byte
 	h = md5.Sum(p.payload)
@@ -111,7 +99,10 @@ func (p InformPD) String() string {
 
 }
 
-func (p *InformPD) decrypt() {
+func (p *InformPD) Decrypt() {
+	if len(p.Key) == 0 {
+		p.Key = MASTER_KEY
+	}
 	if !p.encrypted {
 		log.Println("Note: packet was not marked encrypted")
 		p.compressedPayload = p.payload
@@ -128,7 +119,7 @@ func (p *InformPD) decryptGCM() {
 	var block cipher.Block
 	var err error
 
-	block, err = aes.NewCipher(p.key)
+	block, err = aes.NewCipher(p.Key)
 	if err != nil {
 		log.Printf("error initializing cipher: %s", err)
 		return
@@ -150,7 +141,7 @@ func (p *InformPD) decryptCBC() {
 	var block cipher.Block
 	var err error
 
-	if len(p.key) != 16 {
+	if len(p.Key) != 16 {
 		log.Println("invalid key")
 		return
 	}
@@ -159,7 +150,7 @@ func (p *InformPD) decryptCBC() {
 		return
 	}
 
-	block, err = aes.NewCipher(p.key)
+	block, err = aes.NewCipher(p.Key)
 	if err != nil {
 		log.Printf("error initializing cipher: %s", err)
 		return

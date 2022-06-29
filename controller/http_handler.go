@@ -2,19 +2,27 @@ package controller
 
 import (
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/google/jsonapi"
 	"github.com/jacobalberty/beenfar/util"
+	"github.com/julienschmidt/httprouter"
 )
 
 type HttpHandler struct {
+	key     []byte
 	devices devices
 }
 
 type devices struct {
-	Pending map[string]*pending `json:"pending,omitempty"`
+	Adopted map[string]*adopted `jsonapi:"attr,adopted,omitempty"`
+	Pending map[string]*pending `jsonapi:"attr,pending,omitempty"`
+}
+
+type adopted struct {
+	Timestamp int64 `json:"-"`
 }
 
 type pending struct {
@@ -22,28 +30,61 @@ type pending struct {
 }
 
 func (h *HttpHandler) RegisterHandlers() {
-	router := gin.Default()
+	h.devices.Pending = make(map[string]*pending)
+	h.devices.Adopted = make(map[string]*adopted)
+	router := httprouter.New()
 
+	// UniFi specific api
 	router.POST("/inform", h.postInformHandler)
+
+	router.POST("/api/device/adopt/:mac", h.postDeviceAdopt)
 	router.GET("/api/device/list", h.getDeviceList)
 
-	router.Run()
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-func (h *HttpHandler) postInformHandler(c *gin.Context) {
-	bodyBuffer, _ := ioutil.ReadAll(c.Request.Body)
-	ipd, err := util.NewInformPD(bodyBuffer)
+func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var (
+		ipd *util.InformPD
+		err error
+	)
+
+	bodyBuffer, _ := ioutil.ReadAll(r.Body)
+
+	ipd, err = util.NewInformPD(bodyBuffer)
 	if err != nil {
 		// Do err
 	}
-	if _, ok := h.devices.Pending[ipd.Mac]; !ok {
-		h.devices.Pending[ipd.Mac] = &pending{time.Now().Unix()}
+	if _, ok := h.devices.Adopted[ipd.Mac]; ok {
+		// Adopted
 	} else {
-		h.devices.Pending[ipd.Mac].Timestamp = time.Now().Unix()
-
+		// Pending adoption
+		if _, ok := h.devices.Pending[ipd.Mac]; !ok {
+			log.Printf("New adoption request from %v", ipd.Mac)
+			h.devices.Pending[ipd.Mac] = &pending{time.Now().Unix()}
+		} else {
+			h.devices.Pending[ipd.Mac].Timestamp = time.Now().Unix()
+		}
 	}
 }
 
-func (h *HttpHandler) getDeviceList(c *gin.Context) {
-	c.JSON(http.StatusOK, h.devices)
+func (h *HttpHandler) getDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", jsonapi.MediaType)
+	w.WriteHeader(http.StatusOK)
+	if err := jsonapi.MarshalPayload(w, &h.devices); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+}
+
+func (h *HttpHandler) postDeviceAdopt(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", jsonapi.MediaType)
+	w.WriteHeader(http.StatusNotImplemented)
+	if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
+		Title:  "Device Adoption",
+		Detail: "Device adoption is not yet implemented",
+		Status: "501",
+	}}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
