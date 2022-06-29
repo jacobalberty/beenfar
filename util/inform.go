@@ -95,7 +95,7 @@ func (p *InformPD) Compress(payload []byte) error {
 	)
 	if p.zlib {
 		w := zlib.NewWriter(&b)
-
+		defer w.Close()
 		_, err = w.Write(payload)
 		if err != nil {
 			return err
@@ -103,8 +103,8 @@ func (p *InformPD) Compress(payload []byte) error {
 		p.compressedPayload = b.Bytes()
 
 	} else if p.snappy {
-		w := snappy.NewWriter(&b)
-
+		w := snappy.NewBufferedWriter(&b)
+		defer w.Close()
 		_, err = w.Write(payload)
 		if err != nil {
 			return err

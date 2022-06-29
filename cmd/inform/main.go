@@ -27,5 +27,12 @@ func main() {
 	}
 
 	json, err := ipd.Uncompress()
-	io.Copy(os.Stdout, json)
+	if err != nil {
+		log.Fatalf("Error decompressing inform packet: %v", err)
+	}
+
+	_, err = io.Copy(os.Stdout, json)
+	if err != nil {
+		log.Fatalf("Error outputing json to terminal: %v", err)
+	}
 }

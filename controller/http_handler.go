@@ -53,6 +53,7 @@ func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, 
 	}
 	if _, ok := h.devices.Adopted[ipd.Mac]; ok {
 		// Adopted
+		ipd.Key = h.key
 	} else {
 		// Pending adoption
 		if _, ok := h.devices.Pending[ipd.Mac]; !ok {
@@ -67,8 +68,14 @@ func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, 
 		Interval:      300, // 5 minutes
 		ServerTimeUTC: time.Now().Unix(),
 	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 
-	w.Write(response)
+	_, err = w.Write(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (h *HttpHandler) getDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
