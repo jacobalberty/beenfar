@@ -37,6 +37,7 @@ func (h *HttpHandler) RegisterHandlers() {
 	// UniFi specific api
 	router.POST("/inform", h.postInformHandler)
 
+	// Unstable apis
 	router.POST("/api/device/adopt/:mac", h.postDeviceAdopt)
 	router.GET("/api/device/list", h.getDeviceList)
 
@@ -44,16 +45,11 @@ func (h *HttpHandler) RegisterHandlers() {
 }
 
 func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var (
-		ipd *util.InformPD
-		err error
-	)
-
 	bodyBuffer, _ := ioutil.ReadAll(r.Body)
 
-	ipd, err = util.NewInformPD(bodyBuffer)
+	ipd, err := util.NewInformPD(bodyBuffer)
 	if err != nil {
-		// Do err
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	if _, ok := h.devices.Adopted[ipd.Mac]; ok {
 		// Adopted
@@ -66,6 +62,13 @@ func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, 
 			h.devices.Pending[ipd.Mac].Timestamp = time.Now().Unix()
 		}
 	}
+	response, err := ipd.BuildResponse(util.InformResponse{
+		Type:          "noop",
+		Interval:      300, // 5 minutes
+		ServerTimeUTC: time.Now().Unix(),
+	})
+
+	w.Write(response)
 }
 
 func (h *HttpHandler) getDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

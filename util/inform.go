@@ -7,6 +7,7 @@ import (
 	"crypto/cipher"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -87,6 +88,34 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 	return nil, fmt.Errorf("Unimplemented compression")
 }
 
+func (p *InformPD) Compress(payload []byte) error {
+	var (
+		b   bytes.Buffer
+		err error
+	)
+	if p.zlib {
+		w := zlib.NewWriter(&b)
+
+		_, err = w.Write(payload)
+		if err != nil {
+			return err
+		}
+		p.compressedPayload = b.Bytes()
+
+	} else if p.snappy {
+		w := snappy.NewWriter(&b)
+
+		_, err = w.Write(payload)
+		if err != nil {
+			return err
+		}
+		p.compressedPayload = b.Bytes()
+
+	}
+
+	return nil
+}
+
 func (p InformPD) String() string {
 	var h [16]byte
 	h = md5.Sum(p.payload)
@@ -113,6 +142,43 @@ func (p *InformPD) Decrypt() {
 	} else {
 		p.decryptCBC()
 	}
+}
+
+func (p *InformPD) Encrypt() {
+	if len(p.Key) == 0 {
+		p.Key = MASTER_KEY
+	}
+	if !p.encrypted {
+		log.Println("Note: packet was not marked encrypted")
+		p.payload = p.compressedPayload
+		return
+	}
+	if p.aesgcm {
+		p.encryptGCM()
+	} else {
+		p.encryptCBC()
+	}
+}
+
+func (p InformPD) BuildResponse(r InformResponse) ([]byte, error) {
+	var err error
+
+	b, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.Compress(b)
+	if err != nil {
+		return nil, err
+	}
+
+	p.Encrypt()
+
+	// Build the rest of the packet
+	log.Printf("TODO: Build the rest of the packet")
+
+	return nil, err
 }
 
 func (p *InformPD) decryptGCM() {
@@ -158,4 +224,12 @@ func (p *InformPD) decryptCBC() {
 	p.compressedPayload = make([]byte, len(p.payload))
 	cbc := cipher.NewCBCDecrypter(block, p.initVector)
 	cbc.CryptBlocks(p.compressedPayload, p.payload)
+}
+
+func (p *InformPD) encryptGCM() {
+	log.Printf("oops no GCM encryption supported yet")
+}
+
+func (p *InformPD) encryptCBC() {
+	log.Printf("oops no CBC encryption supported yet")
 }
