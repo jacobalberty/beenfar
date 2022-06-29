@@ -72,19 +72,7 @@ func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, 
 		} else {
 			h.devices.Pending[ipd.Mac].Timestamp = time.Now().Unix()
 		}
-	}
-	response, err := ipd.BuildResponse(util.InformResponse{
-		Type:          "noop",
-		Interval:      300, // 5 minutes
-		ServerTimeUTC: time.Now().Unix(),
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-
-	_, err = w.Write(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "", http.StatusNotFound)
 	}
 }
 
