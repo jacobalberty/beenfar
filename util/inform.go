@@ -6,12 +6,14 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"math/big"
+	"math/rand"
 	"strconv"
 
 	"github.com/golang/snappy"
@@ -33,8 +35,8 @@ type InformPD struct {
 	initVector        []byte
 	compressedPayload []byte
 	payloadLength     int64
-	flags             int64
-	magic             int
+	flags             int16
+	magic             int32
 	snappy            bool
 	zlib              bool
 	encrypted         bool
@@ -48,13 +50,14 @@ func NewInformPD(packet []byte) (*InformPD, error) {
 }
 
 func (p *InformPD) Init(packet []byte) (err error) {
-	p.magic = int(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
+	p.magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
 	p.packetVersion = hex.EncodeToString(packet[4:8])
-	p.Mac = fmt.Sprintf("%x", packet[8:14])
-	p.flags, err = strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 64)
+	p.Mac = hex.EncodeToString(packet[8:14])
+	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 64)
 	if err != nil {
 		return
 	}
+	p.flags = int16(flagtmp)
 
 	p.encrypted = (p.flags & 0x1) == 1
 	p.zlib = (p.flags & 0x2) == 2
@@ -88,34 +91,6 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 	return nil, fmt.Errorf("Unimplemented compression")
 }
 
-func (p *InformPD) Compress(payload []byte) error {
-	var (
-		b   bytes.Buffer
-		err error
-	)
-	if p.zlib {
-		w := zlib.NewWriter(&b)
-		defer w.Close()
-		_, err = w.Write(payload)
-		if err != nil {
-			return err
-		}
-		p.compressedPayload = b.Bytes()
-
-	} else if p.snappy {
-		w := snappy.NewBufferedWriter(&b)
-		defer w.Close()
-		_, err = w.Write(payload)
-		if err != nil {
-			return err
-		}
-		p.compressedPayload = b.Bytes()
-
-	}
-
-	return nil
-}
-
 func (p InformPD) String() string {
 	var h [16]byte
 	h = md5.Sum(p.payload)
@@ -144,23 +119,23 @@ func (p *InformPD) Decrypt() {
 	}
 }
 
-func (p *InformPD) Encrypt() {
+func (p *InformPD) Encrypt(b []byte) error {
 	if len(p.Key) == 0 {
 		p.Key = MASTER_KEY
 	}
 	if !p.encrypted {
 		log.Println("Note: packet was not marked encrypted")
 		p.payload = p.compressedPayload
-		return
+		return nil
 	}
 	if p.aesgcm {
-		p.encryptGCM()
+		return p.encryptGCM(b)
 	} else {
-		p.encryptCBC()
+		return p.encryptCBC(b)
 	}
 }
 
-func (p InformPD) BuildResponse(r InformResponse) ([]byte, error) {
+func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	var err error
 
 	b, err := json.Marshal(r)
@@ -168,17 +143,59 @@ func (p InformPD) BuildResponse(r InformResponse) ([]byte, error) {
 		return nil, err
 	}
 
-	err = p.Compress(b)
+	p.compressedPayload = b
+	err = p.Encrypt(b)
+	if err != nil {
+		return nil, err
+	}
+	buf := new(bytes.Buffer)
+
+	err = binary.Write(buf, binary.BigEndian, p.magic)
+	if err != nil {
+		return nil, err
+	}
+	b, err = hex.DecodeString(p.packetVersion)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	b, err = hex.DecodeString(p.Mac)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, p.flags)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(p.initVector)
+	if err != nil {
+		return nil, err
+	}
+	b, err = hex.DecodeString(p.payloadVersion)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(p.payload)
 	if err != nil {
 		return nil, err
 	}
 
-	p.Encrypt()
-
-	// Build the rest of the packet
-	log.Printf("TODO: Build the rest of the packet")
-
-	return nil, err
+	return buf.Bytes(), nil
 }
 
 func (p *InformPD) decryptGCM() {
@@ -226,10 +243,40 @@ func (p *InformPD) decryptCBC() {
 	cbc.CryptBlocks(p.compressedPayload, p.payload)
 }
 
-func (p *InformPD) encryptGCM() {
-	log.Printf("oops no GCM encryption supported yet")
+func (p *InformPD) encryptGCM(b []byte) error {
+	block, err := aes.NewCipher(p.Key)
+	if err != nil {
+		return err
+	}
+
+	nonce := make([]byte, 12)
+	if n, err := rand.Read(nonce); err != nil || n != 12 {
+		return fmt.Errorf("error generating nonce")
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+	p.payload = aesgcm.Seal(nil, nonce, b, nil)
+	return nil
 }
 
-func (p *InformPD) encryptCBC() {
-	log.Printf("oops no CBC encryption supported yet")
+func (p *InformPD) encryptCBC(b []byte) error {
+	block, _ := aes.NewCipher(p.Key)
+	plainText := PKCS5Padding(b, aes.BlockSize, len(b))
+	p.payload = make([]byte, len(plainText))
+	n, err := rand.Read(p.initVector)
+	if err != nil || n != 16 {
+		return fmt.Errorf("error creating IV")
+	}
+
+	mode := cipher.NewCBCEncrypter(block, p.initVector)
+	mode.CryptBlocks(p.payload, plainText)
+	return nil
+}
+
+func PKCS5Padding(ciphertext []byte, blockSize int, after int) []byte {
+	padding := (blockSize - len(ciphertext)%blockSize)
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(ciphertext, padtext...)
 }
