@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/rand"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -32,6 +33,15 @@ type pending struct {
 func (h *HttpHandler) RegisterHandlers() {
 	h.devices.Pending = make(map[string]*pending)
 	h.devices.Adopted = make(map[string]*adopted)
+	if len(h.key) != 16 {
+		h.key = make([]byte, 16)
+		n, err := rand.Read(h.key)
+		if n != 16 || err != nil {
+			log.Fatal("error generating key")
+		}
+		log.Printf("Generated new key: %x", h.key)
+	}
+
 	router := httprouter.New()
 
 	// UniFi specific api
