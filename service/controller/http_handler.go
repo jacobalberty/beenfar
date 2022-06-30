@@ -10,7 +10,6 @@ import (
 )
 
 type HttpHandler struct {
-	key     []byte
 	devices *model.Devices
 }
 
