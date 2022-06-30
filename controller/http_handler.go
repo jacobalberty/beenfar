@@ -54,6 +54,13 @@ func (h *HttpHandler) RegisterHandlers() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
+// postInformHandler swagger:route POST /inform unifi postInform
+//
+// Handles communication between the controller and UniFi equipment.
+//
+// Responses:
+//   200: informResponse
+//   404: description:Returned to equipment that has not been adopted yet.
 func (h *HttpHandler) postInformHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	bodyBuffer, _ := ioutil.ReadAll(r.Body)
 

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	_ "github.com/jacobalberty/beenfar/docs"
 	"github.com/jacobalberty/beenfar/util"
 )
 
