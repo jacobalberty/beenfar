@@ -1,6 +1,6 @@
 package main
 
-import "github.com/jacobalberty/beenfar/controller"
+import "github.com/jacobalberty/beenfar/service/controller"
 
 func main() {
 	h := &controller.HttpHandler{}
