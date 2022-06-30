@@ -6,9 +6,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jacobalberty/beenfar/service/model"
 	"github.com/jacobalberty/beenfar/util"
-	"github.com/julienschmidt/httprouter"
 )
 
 type unifiHandler struct {
@@ -16,7 +16,7 @@ type unifiHandler struct {
 	devices *model.Devices
 }
 
-func (h *unifiHandler) Init(router *httprouter.Router, devices *model.Devices) {
+func (h *unifiHandler) Init(router *chi.Mux, devices *model.Devices) {
 	if len(h.key) != 16 {
 		h.key = make([]byte, 16)
 		n, err := rand.Read(h.key)
@@ -29,7 +29,7 @@ func (h *unifiHandler) Init(router *httprouter.Router, devices *model.Devices) {
 	h.devices = devices
 
 	// UniFi specific api
-	router.POST("/inform", h.postInformHandler)
+	router.Post("/inform", h.postInformHandler)
 
 }
 
@@ -40,7 +40,7 @@ func (h *unifiHandler) Init(router *httprouter.Router, devices *model.Devices) {
 // Responses:
 //   200: informResponse
 //   404: description:Returned to equipment that has not been adopted yet.
-func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request) {
 	bodyBuffer, _ := ioutil.ReadAll(r.Body)
 
 	ipd, err := util.NewInformPD(bodyBuffer)
