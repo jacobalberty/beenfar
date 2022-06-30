@@ -2,11 +2,10 @@ package model
 
 import (
 	"log"
-	"time"
 )
 
 func (d *Devices) Init() {
-	d.Pending = make(map[string]*pending)
+	d.Pending = make(map[string]*InterfacePendingDevice)
 	d.Adopted = make(map[string]*adopted)
 }
 
@@ -23,14 +22,18 @@ type pending struct {
 	Timestamp int64 `json:"-"`
 }
 
-type pendingMap map[string]*pending
+type InterfacePendingDevice interface {
+	Refresh()
+	IsExpired() bool
+	GetMac() string
+}
 
-func (p pendingMap) Save(mac string) {
-	if _, ok := p[mac]; !ok {
-		log.Printf("New adoption request from %v", mac)
-		p[mac] = &pending{Timestamp: time.Now().Unix()}
-	} else {
-		p[mac].Timestamp = time.Now().Unix()
+type pendingMap map[string]*InterfacePendingDevice
+
+func (p pendingMap) Save(device InterfacePendingDevice) {
+	device.Refresh()
+	if _, ok := p[device.GetMac()]; !ok {
+		log.Printf("New adoption request from %v", device.GetMac())
+		p[device.GetMac()] = &device
 	}
-
 }
