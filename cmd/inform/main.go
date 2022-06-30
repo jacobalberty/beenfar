@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	_ "github.com/jacobalberty/beenfar/docs"
 	"github.com/jacobalberty/beenfar/util"
@@ -15,7 +16,7 @@ func main() {
 		return
 	}
 
-	b, err := os.ReadFile(os.Args[1])
+	b, err := os.ReadFile(filepath.Clean(os.Args[1]))
 	if err != nil {
 		log.Printf("Error reading file '%s': %s", os.Args[1], err)
 		return
