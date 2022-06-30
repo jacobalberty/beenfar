@@ -6,20 +6,12 @@ import (
 
 func (d *Devices) Init() {
 	d.Pending = make(map[string]*InterfacePendingDevice)
-	d.Adopted = make(map[string]*adopted)
+	d.Adopted = make(map[string]*InterfaceAdoptedDevice)
 }
 
 type Devices struct {
-	Adopted map[string]*adopted `jsonapi:"attr,adopted,omitempty"`
-	Pending pendingMap          `jsonapi:"attr,pending,omitempty"`
-}
-
-type adopted struct {
-	Timestamp int64 `json:"-"`
-}
-
-type pending struct {
-	Timestamp int64 `json:"-"`
+	Adopted adoptedMap `jsonapi:"attr,adopted,omitempty"`
+	Pending pendingMap `jsonapi:"attr,pending,omitempty"`
 }
 
 type InterfacePendingDevice interface {
@@ -27,6 +19,10 @@ type InterfacePendingDevice interface {
 	IsExpired() bool
 	GetMac() string
 }
+
+type InterfaceAdoptedDevice interface{}
+
+type adoptedMap map[string]*InterfaceAdoptedDevice
 
 type pendingMap map[string]*InterfacePendingDevice
 
