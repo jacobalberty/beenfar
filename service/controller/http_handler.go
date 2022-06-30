@@ -36,6 +36,7 @@ func (h *HttpHandler) RegisterHandlers() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
+// Gets a list of all devices
 func (h *HttpHandler) getDeviceList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 	w.WriteHeader(http.StatusOK)
@@ -45,6 +46,7 @@ func (h *HttpHandler) getDeviceList(w http.ResponseWriter, r *http.Request, _ ht
 
 }
 
+// Adopts a device by MAC address
 func (h *HttpHandler) postDeviceAdopt(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 	w.WriteHeader(http.StatusNotImplemented)
@@ -101,6 +103,7 @@ func (h *HttpHandler) putWifi(w http.ResponseWriter, r *http.Request, params htt
 	h.wifiNetworks[WifiNetwork.Ssid] = *WifiNetwork
 }
 
+// deletes a wifi network by SSID
 func (h *HttpHandler) deleteWifi(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 
@@ -118,6 +121,7 @@ func (h *HttpHandler) deleteWifi(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Returns a list of all wifi networks
 func (h *HttpHandler) getWifiList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 	w.WriteHeader(http.StatusOK)
@@ -126,6 +130,7 @@ func (h *HttpHandler) getWifiList(w http.ResponseWriter, r *http.Request, _ http
 	}
 }
 
+// Returns a wifi network with the given SSID
 func (h *HttpHandler) getWifiBySSID(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 
