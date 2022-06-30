@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/jacobalberty/beenfar/service/model"
 	"github.com/jacobalberty/beenfar/util"
@@ -53,12 +52,7 @@ func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request,
 		ipd.Key = h.key
 	} else {
 		// Pending adoption
-		if _, ok := h.devices.Pending[ipd.Mac]; !ok {
-			log.Printf("New adoption request from %v", ipd.Mac)
-			h.devices.Pending.Add(ipd.Mac)
-		} else {
-			h.devices.Pending[ipd.Mac].Timestamp = time.Now().Unix()
-		}
+		h.devices.Pending.Save(ipd.Mac)
 		http.Error(w, "", http.StatusNotFound)
 	}
 }

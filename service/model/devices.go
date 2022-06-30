@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"log"
+	"time"
+)
 
 func (d *Devices) Init() {
 	d.Pending = make(map[string]*pending)
@@ -9,7 +12,7 @@ func (d *Devices) Init() {
 
 type Devices struct {
 	Adopted map[string]*adopted `jsonapi:"attr,adopted,omitempty"`
-	Pending map[string]*pending `jsonapi:"attr,pending,omitempty"`
+	Pending pendingMap          `jsonapi:"attr,pending,omitempty"`
 }
 
 type adopted struct {
@@ -22,6 +25,12 @@ type pending struct {
 
 type pendingMap map[string]*pending
 
-func (m *pendingMap) Add(key string) {
-	(*m)[key] = &pending{Timestamp: time.Now().Unix()}
+func (p pendingMap) Save(mac string) {
+	if _, ok := p[mac]; !ok {
+		log.Printf("New adoption request from %v", mac)
+		p[mac] = &pending{Timestamp: time.Now().Unix()}
+	} else {
+		p[mac].Timestamp = time.Now().Unix()
+	}
+
 }
