@@ -26,6 +26,7 @@ func (h *HttpHandler) RegisterHandlers() {
 
 	// Unstable apis
 	router.POST("/api/device/adopt/:mac", h.postDeviceAdopt)
+	router.DELETE("/api/device/:mac", h.deleteDevice)
 	router.GET("/api/device/list", h.getDeviceList)
 	router.GET("/api/wifi/list", h.getWifiList)
 	router.GET("/api/wifi/:ssid", h.getWifiBySSID)
@@ -47,16 +48,35 @@ func (h *HttpHandler) getDeviceList(w http.ResponseWriter, r *http.Request, _ ht
 }
 
 // Adopts a device by MAC address
-func (h *HttpHandler) postDeviceAdopt(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h *HttpHandler) postDeviceAdopt(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
-	w.WriteHeader(http.StatusNotImplemented)
-	if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
-		Title:  "Device Adoption",
-		Detail: "Device adoption is not yet implemented",
-		Status: "501",
-	}}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	mac := params.ByName("mac")
+	if err := h.devices.Adopt(mac); err != nil {
+		if err2 := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
+			Title:  "Error adopting device",
+			Detail: err.Error(),
+			Status: "500",
+		}}); err2 != nil {
+			http.Error(w, err2.Error(), http.StatusInternalServerError)
+		}
 	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// Forgets a network device by MAC address
+func (h *HttpHandler) deleteDevice(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	w.Header().Set("Content-Type", jsonapi.MediaType)
+	mac := params.ByName("mac")
+	if err := h.devices.Delete(mac); err != nil {
+		if err2 := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
+			Title:  "Error forgetting device",
+			Detail: err.Error(),
+			Status: "500",
+		}}); err2 != nil {
+			http.Error(w, err2.Error(), http.StatusInternalServerError)
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Creates a new wifi network using model.WifiNetworkConfig

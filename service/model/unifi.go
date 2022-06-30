@@ -41,3 +41,22 @@ func (d UnifiPendingDevice) GetMac() string {
 func (d UnifiPendingDevice) IsExpired() bool {
 	return time.Now().Unix()-d.Timestamp > 60
 }
+
+func (d UnifiPendingDevice) Adopt() (InterfaceAdoptedDevice, error) {
+	adopted := UnifiAdoptedDevice{
+		Mac:       d.Mac,
+		Timestamp: time.Now().Unix(),
+		InformPD:  d.InformPD,
+	}
+	return &adopted, nil
+}
+
+type UnifiAdoptedDevice struct {
+	Timestamp int64          `json:"last_seen"`
+	Mac       string         `json:"mac"`
+	InformPD  *util.InformPD `json:"-"`
+}
+
+func (d *UnifiAdoptedDevice) Delete() error {
+	return nil
+}
