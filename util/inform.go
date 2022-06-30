@@ -5,7 +5,7 @@ import (
 	"compress/zlib"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -92,12 +92,12 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 }
 
 func (p InformPD) String() string {
-	var h [16]byte
-	h = md5.Sum(p.payload)
+	var h [32]byte
+	h = sha256.Sum256(p.payload)
 	p.payload = h[:]
-	h = md5.Sum(p.aad)
+	h = sha256.Sum256(p.aad)
 	p.aad = h[:]
-	h = md5.Sum(p.tag)
+	h = sha256.Sum256(p.tag)
 	p.tag = h[:]
 	return fmt.Sprintf("%#v", p)
 
