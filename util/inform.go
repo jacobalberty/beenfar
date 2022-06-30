@@ -53,7 +53,7 @@ func (p *InformPD) Init(packet []byte) (err error) {
 	p.magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
 	p.packetVersion = hex.EncodeToString(packet[4:8])
 	p.Mac = hex.EncodeToString(packet[8:14])
-	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 64)
+	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 16)
 	if err != nil {
 		return
 	}
