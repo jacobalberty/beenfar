@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -33,10 +34,10 @@ func (h *HttpHandler) RegisterHandlers() {
 	h.mux.Delete("/api/device/{mac:[[:alnum:]:]+}", h.DeleteDevice)
 	h.mux.Get("/api/device/list", h.GetDeviceList)
 	h.mux.Get("/api/wifi/list", h.GetWifiList)
-	h.mux.Get("/api/wifi/network/{ssid:[[:alnum:] ]}", h.GetWifiBySSID)
+	h.mux.Get("/api/wifi/{ssid:[[:alnum:] ]+}", h.GetWifiBySSID)
 	h.mux.Post("/api/wifi", h.PostWifi)
-	h.mux.Put("/api/wifi", h.PutWifi)
-	h.mux.Delete("/api/wifi/{ssid:[[:alnum:] ]}", h.DeleteWifi)
+	h.mux.Put("/api/wifi/{ssid:[[:alnum:] ]+}", h.PutWifi)
+	h.mux.Delete("/api/wifi/{ssid:[[:alnum:] ]+}", h.DeleteWifi)
 
 }
 
@@ -112,13 +113,14 @@ func (h *HttpHandler) PostWifi(w http.ResponseWriter, r *http.Request) {
 func (h *HttpHandler) PutWifi(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 
+	ssid := chi.URLParam(r, "ssid")
 	WifiNetwork := new(model.WifiNetworkConfig)
 	if err := jsonapi.UnmarshalPayload(r.Body, WifiNetwork); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if _, ok := h.wifiNetworks[WifiNetwork.Ssid]; !ok {
+	if _, ok := h.wifiNetworks[ssid]; !ok {
 		if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Not Found",
 			Detail: "Wifi network with SSID " + WifiNetwork.Ssid + " does not exist",
@@ -129,6 +131,9 @@ func (h *HttpHandler) PutWifi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	if WifiNetwork.Ssid != ssid {
+		delete(h.wifiNetworks, ssid)
+	}
 	h.wifiNetworks[WifiNetwork.Ssid] = *WifiNetwork
 }
 
@@ -161,20 +166,27 @@ func (h *HttpHandler) GetWifiList(w http.ResponseWriter, r *http.Request) {
 
 // Returns a wifi network with the given SSID
 func (h *HttpHandler) GetWifiBySSID(w http.ResponseWriter, r *http.Request) {
+	var (
+		buf bytes.Buffer
+	)
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 
 	ssid := chi.URLParam(r, "ssid")
 	if _, ok := h.wifiNetworks[ssid]; !ok {
-		if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
+		if err := jsonapi.MarshalErrors(&buf, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Not Found",
 			Detail: "Wifi network with SSID " + ssid + " does not exist",
 			Status: "404",
 		}}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(buf.Bytes())
 		return
 	}
-	if err := jsonapi.MarshalPayload(w, h.wifiNetworks[ssid]); err != nil {
+	network := h.wifiNetworks[ssid]
+	if err := jsonapi.MarshalPayloadWithoutIncluded(w, &network); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
