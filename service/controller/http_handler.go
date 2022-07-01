@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -182,7 +183,10 @@ func (h *HttpHandler) GetWifiBySSID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write(buf.Bytes())
+		_, err := w.Write(buf.Bytes())
+		if err != nil {
+			log.Println(err.Error())
+		}
 		return
 	}
 	network := h.wifiNetworks[ssid]

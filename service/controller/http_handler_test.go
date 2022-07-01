@@ -63,7 +63,7 @@ func TestWifiNetwork(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
 	}
 
-	jsonapi.UnmarshalPayload(response.Body, &testWifi)
+	err = jsonapi.UnmarshalPayload(response.Body, &testWifi)
 	if err != nil {
 		t.Fatal(err)
 	}
