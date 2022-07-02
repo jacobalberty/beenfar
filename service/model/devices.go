@@ -53,21 +53,9 @@ type Devices struct {
 	Pending pendingList `jsonapi:"attr,pending,omitempty"`
 }
 
-type InterfacePendingDevice interface {
-	Refresh()
-	IsExpired() bool
-	GetMac() string
-	Adopt() (InterfaceAdoptedDevice, error)
-}
+type adoptedList []Device
 
-type InterfaceAdoptedDevice interface {
-	GetMac() string
-	Delete() error
-}
-
-type adoptedList []InterfaceAdoptedDevice
-
-type pendingList []InterfacePendingDevice
+type pendingList []Device
 
 // Check if device is already in pending list
 func (p pendingList) Contains(mac string) bool {
@@ -91,30 +79,20 @@ func (p *pendingList) Remove(mac string) {
 }
 
 // Get device from pending list
-func (p pendingList) Get(mac string) InterfacePendingDevice {
+func (p pendingList) Get(mac string) *Device {
 	for _, d := range p {
 		if d.GetMac() == mac {
-			return d
+			return &d
 		}
 	}
 	return nil
 }
 
-// Get all pending devices
-func (p pendingList) GetAll() []InterfacePendingDevice {
-	return p
-}
-
-// Get all adopted devices
-func (a adoptedList) GetAll() []InterfaceAdoptedDevice {
-	return a
-}
-
 // Get device from adopted list
-func (a adoptedList) Get(mac string) InterfaceAdoptedDevice {
+func (a adoptedList) Get(mac string) *Device {
 	for _, d := range a {
 		if d.GetMac() == mac {
-			return d
+			return &d
 		}
 	}
 	return nil
@@ -142,7 +120,7 @@ func (a adoptedList) Contains(mac string) bool {
 }
 
 // Save device to adopted list
-func (a *adoptedList) Save(device InterfaceAdoptedDevice) {
+func (a *adoptedList) Save(device Device) {
 	found := false
 	for _, d := range *a {
 		if d.GetMac() == device.GetMac() {
@@ -157,7 +135,7 @@ func (a *adoptedList) Save(device InterfaceAdoptedDevice) {
 }
 
 // Save device to pending list
-func (p *pendingList) Save(device InterfacePendingDevice) {
+func (p *pendingList) Save(device Device) {
 	device.Refresh()
 	found := false
 	for _, d := range *p {

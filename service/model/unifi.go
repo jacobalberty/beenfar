@@ -6,62 +6,45 @@ import (
 	"github.com/jacobalberty/beenfar/util"
 )
 
-func UnifiPendingDeviceFromInformPD(informPD *util.InformPD) UnifiPendingDevice {
-	return UnifiPendingDevice{
+func UnifiPendingDeviceFromInformPD(informPD *util.InformPD) Device {
+	return Device{
 		Mac:       informPD.Mac,
 		Timestamp: time.Now().Unix(),
 		InformPD:  informPD,
 	}
 }
 
-// Implements models.InterfacePendingDevice
-type UnifiPendingDevice struct {
-	Timestamp int64          `json:"last_seen"`
+type Device struct {
+	Timestamp int64          `json:"timestamp"`
 	Mac       string         `json:"mac"`
 	InformPD  *util.InformPD `json:"-"`
 }
 
-func (d *UnifiPendingDevice) Init(informPD *util.InformPD) {
+func (d *Device) Init(informPD *util.InformPD) {
 	d.Mac = informPD.Mac
 	d.InformPD = informPD
 }
 
-func (d *UnifiPendingDevice) Refresh() {
+func (d *Device) Refresh() {
 	d.Timestamp = time.Now().Unix()
 }
 
-func (d UnifiPendingDevice) GetTimestamp() int64 {
+func (d Device) GetTimestamp() int64 {
 	return d.Timestamp
 }
 
-func (d UnifiPendingDevice) GetMac() string {
+func (d Device) GetMac() string {
 	return d.Mac
 }
 
-func (d UnifiPendingDevice) IsExpired() bool {
+func (d Device) IsExpired() bool {
 	return time.Now().Unix()-d.Timestamp > 60
 }
 
-func (d UnifiPendingDevice) Adopt() (InterfaceAdoptedDevice, error) {
-	adopted := UnifiAdoptedDevice{
-		Mac:       d.Mac,
-		Timestamp: time.Now().Unix(),
-		InformPD:  d.InformPD,
-	}
-	return &adopted, nil
+func (d Device) Adopt() (Device, error) {
+	return d, nil
 }
 
-type UnifiAdoptedDevice struct {
-	Timestamp int64          `json:"last_seen"`
-	Mac       string         `json:"mac"`
-	InformPD  *util.InformPD `json:"-"`
-}
-
-// Return MAC address of the device
-func (d UnifiAdoptedDevice) GetMac() string {
-	return d.Mac
-}
-
-func (d *UnifiAdoptedDevice) Delete() error {
+func (d Device) Delete() error {
 	return nil
 }
