@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"log"
+	"time"
 )
 
 var (
@@ -149,4 +150,48 @@ func (p *pendingList) Save(device Device) {
 		log.Printf("New adoption request from %v", device.GetMac())
 		*p = append(*p, device)
 	}
+}
+
+type InterfaceDevice interface {
+	GetMac() string
+	Refresh()
+	Adopt() error
+	Delete() error
+}
+
+type Device struct {
+	Timestamp int64  `json:"timestamp"`
+	Mac       string `json:"mac"`
+	base      InterfaceDevice
+}
+
+func (d *Device) Init(id InterfaceDevice) {
+	d.Mac = id.GetMac()
+	d.base = id
+}
+
+func (d *Device) Refresh() {
+	d.Timestamp = time.Now().Unix()
+	d.base.Refresh()
+}
+
+func (d Device) GetTimestamp() int64 {
+	return d.Timestamp
+}
+
+func (d Device) GetMac() string {
+	return d.Mac
+}
+
+func (d Device) IsExpired() bool {
+	return time.Now().Unix()-d.Timestamp > 60
+}
+
+func (d Device) Adopt() (Device, error) {
+
+	return d, d.base.Adopt()
+}
+
+func (d Device) Delete() error {
+	return d.base.Delete()
 }

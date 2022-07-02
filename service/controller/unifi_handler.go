@@ -52,9 +52,11 @@ func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request)
 		ipd.Key = h.key
 	} else {
 		// Pending adoption
-		pd := model.Device{}
+		pd := model.UnifiDevice{}
 		pd.Init(ipd)
-		h.devices.Pending.Save(pd)
+		d := model.Device{}
+		d.Init(pd)
+		h.devices.Pending.Save(d)
 		http.Error(w, "", http.StatusNotFound)
 	}
 }
