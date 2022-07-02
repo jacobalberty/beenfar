@@ -1,4 +1,4 @@
-package util
+package unifi
 
 // An InformResponse is a response to an Inform request.
 //

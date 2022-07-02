@@ -1,4 +1,4 @@
-package util
+package unifi
 
 import (
 	"bytes"

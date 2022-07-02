@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	_ "github.com/jacobalberty/beenfar/docs"
-	"github.com/jacobalberty/beenfar/util"
+	"github.com/jacobalberty/beenfar/service/adapter/unifi"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 		return
 	}
 
-	ipd, err := util.NewInformBuilder(b)
+	ipd, err := unifi.NewInformBuilder(b)
 	if err != nil {
 		log.Printf("Error decoding packet: %s", err)
 		return

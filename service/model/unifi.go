@@ -1,14 +1,14 @@
 package model
 
 import (
-	"github.com/jacobalberty/beenfar/util"
+	"github.com/jacobalberty/beenfar/service/adapter/unifi"
 )
 
 type UnifiDevice struct {
-	informPD *util.InformBuilder `json:"-"`
+	informPD *unifi.InformBuilder `json:"-"`
 }
 
-func (ud *UnifiDevice) Init(informPD *util.InformBuilder) {
+func (ud *UnifiDevice) Init(informPD *unifi.InformBuilder) {
 	ud.informPD = informPD
 }
 

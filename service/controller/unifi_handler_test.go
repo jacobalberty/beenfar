@@ -7,16 +7,16 @@ import (
 	"testing"
 
 	"github.com/google/jsonapi"
+	"github.com/jacobalberty/beenfar/service/adapter/unifi"
 	"github.com/jacobalberty/beenfar/service/controller"
 	"github.com/jacobalberty/beenfar/service/model"
-	"github.com/jacobalberty/beenfar/util"
 )
 
 func TestUnifiPending(t *testing.T) {
 	var (
 		err      error
-		ipd      util.InformPD
-		ib       util.InformBuilder
+		ipd      unifi.InformPD
+		ib       unifi.InformBuilder
 		b        []byte
 		h        *controller.HttpHandler
 		req      *http.Request

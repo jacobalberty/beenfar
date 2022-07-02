@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jacobalberty/beenfar/service/adapter/unifi"
 	"github.com/jacobalberty/beenfar/service/model"
-	"github.com/jacobalberty/beenfar/util"
 )
 
 type unifiHandler struct {
@@ -43,7 +43,7 @@ func (h *unifiHandler) Init(router *chi.Mux, devices *model.Devices) {
 func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request) {
 	bodyBuffer, _ := ioutil.ReadAll(r.Body)
 
-	ipd, err := util.NewInformBuilder(bodyBuffer)
+	ipd, err := unifi.NewInformBuilder(bodyBuffer)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
