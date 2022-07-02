@@ -11,6 +11,12 @@ var (
 	ErrDeviceAlreadyAdopted = errors.New("device already adopted")
 )
 
+func NewDevices() *Devices {
+	var d = new(Devices)
+	d.Init()
+	return d
+}
+
 func (d *Devices) Init() {
 
 }

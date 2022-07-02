@@ -11,12 +11,12 @@ import (
 	"github.com/jacobalberty/beenfar/service/model"
 )
 
-type unifiHandler struct {
+type UnifiHandler struct {
 	key     []byte
 	devices *model.Devices
 }
 
-func (h *unifiHandler) Init(router *chi.Mux, devices *model.Devices) {
+func (h *UnifiHandler) Init(router *chi.Mux, configData *model.ConfigData, devices *model.Devices) {
 	if len(h.key) != 16 {
 		h.key = make([]byte, 16)
 		n, err := rand.Read(h.key)
@@ -40,7 +40,7 @@ func (h *unifiHandler) Init(router *chi.Mux, devices *model.Devices) {
 // Responses:
 //   200: informResponse
 //   404: description:Returned to equipment that has not been adopted yet.
-func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UnifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request) {
 	bodyBuffer, _ := ioutil.ReadAll(r.Body)
 
 	ipd, err := unifi.NewInformBuilder(bodyBuffer)

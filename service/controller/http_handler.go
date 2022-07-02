@@ -11,24 +11,20 @@ import (
 )
 
 type HttpHandler struct {
-	devices      *model.Devices
-	wifiNetworks map[string]model.WifiNetworkConfig
-	mux          *chi.Mux
+	devices    *model.Devices
+	configData *model.ConfigData
+	mux        *chi.Mux
 }
 
 func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
 
-func (h *HttpHandler) RegisterHandlers() {
-	h.wifiNetworks = make(map[string]model.WifiNetworkConfig)
-	h.devices = new(model.Devices)
-	h.devices.Init()
+func (h *HttpHandler) Init(router *chi.Mux, configData *model.ConfigData, devices *model.Devices) {
 
-	h.mux = chi.NewRouter()
-
-	unifi := unifiHandler{}
-	unifi.Init(h.mux, h.devices)
+	h.mux = router
+	h.configData = configData
+	h.devices = devices
 
 	// Unstable apis
 	h.mux.Post("/api/device/adopt/{mac:^([[:xdigit:]]{2}[:-]?){6}$}", h.PostDeviceAdopt)
@@ -97,7 +93,7 @@ func (h *HttpHandler) PostWifi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := h.wifiNetworks[WifiNetwork.Ssid]; ok {
+	if _, ok := h.configData.WifiNetworks[WifiNetwork.Ssid]; ok {
 		if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Already Exists",
 			Detail: "Wifi network with SSID " + WifiNetwork.Ssid + " already exists",
@@ -107,7 +103,7 @@ func (h *HttpHandler) PostWifi(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusCreated)
-	h.wifiNetworks[WifiNetwork.Ssid] = *WifiNetwork
+	h.configData.WifiNetworks[WifiNetwork.Ssid] = *WifiNetwork
 }
 
 // Update existing wifi network using model.WifiNetworkConfig
@@ -121,7 +117,7 @@ func (h *HttpHandler) PutWifi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := h.wifiNetworks[ssid]; !ok {
+	if _, ok := h.configData.WifiNetworks[ssid]; !ok {
 		if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Not Found",
 			Detail: "Wifi network with SSID " + WifiNetwork.Ssid + " does not exist",
@@ -133,15 +129,15 @@ func (h *HttpHandler) PutWifi(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	if WifiNetwork.Ssid != ssid {
-		delete(h.wifiNetworks, ssid)
+		delete(h.configData.WifiNetworks, ssid)
 	}
-	h.wifiNetworks[WifiNetwork.Ssid] = *WifiNetwork
+	h.configData.WifiNetworks[WifiNetwork.Ssid] = *WifiNetwork
 }
 
 // deletes a wifi network by SSID
 func (h *HttpHandler) DeleteWifi(w http.ResponseWriter, r *http.Request) {
 	ssid := chi.URLParam(r, "ssid")
-	if _, ok := h.wifiNetworks[ssid]; !ok {
+	if _, ok := h.configData.WifiNetworks[ssid]; !ok {
 		w.Header().Set("Content-Type", jsonapi.MediaType)
 		if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Not Found",
@@ -154,7 +150,7 @@ func (h *HttpHandler) DeleteWifi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-	delete(h.wifiNetworks, ssid)
+	delete(h.configData.WifiNetworks, ssid)
 }
 
 // Returns a list of all wifi networks
@@ -162,8 +158,8 @@ func (h *HttpHandler) GetWifiList(w http.ResponseWriter, r *http.Request) {
 	var (
 		networkList []*model.WifiNetworkConfig
 	)
-	networkList = make([]*model.WifiNetworkConfig, 0, len(h.wifiNetworks))
-	for _, network := range h.wifiNetworks {
+	networkList = make([]*model.WifiNetworkConfig, 0, len(h.configData.WifiNetworks))
+	for _, network := range h.configData.WifiNetworks {
 		network := network
 		networkList = append(networkList, &network)
 	}
@@ -182,7 +178,7 @@ func (h *HttpHandler) GetWifiBySSID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
 
 	ssid := chi.URLParam(r, "ssid")
-	if _, ok := h.wifiNetworks[ssid]; !ok {
+	if _, ok := h.configData.WifiNetworks[ssid]; !ok {
 		if err := jsonapi.MarshalErrors(&buf, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Not Found",
 			Detail: "Wifi network with SSID " + ssid + " does not exist",
@@ -198,7 +194,7 @@ func (h *HttpHandler) GetWifiBySSID(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	network := h.wifiNetworks[ssid]
+	network := h.configData.WifiNetworks[ssid]
 	if err := jsonapi.MarshalPayloadWithoutIncluded(w, &network); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

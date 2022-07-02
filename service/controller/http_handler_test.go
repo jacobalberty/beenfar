@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/jsonapi"
-	"github.com/jacobalberty/beenfar/service/controller"
+	"github.com/jacobalberty/beenfar/service"
 	"github.com/jacobalberty/beenfar/service/model"
 )
 
@@ -16,7 +16,7 @@ func TestWifiNetworkList(t *testing.T) {
 	var (
 		err          error
 		req          *http.Request
-		h            *controller.HttpHandler
+		h            *service.BeenFarService
 		bTmp         bytes.Buffer
 		response     *httptest.ResponseRecorder
 		wifiNetworks []interface{}
@@ -24,8 +24,8 @@ func TestWifiNetworkList(t *testing.T) {
 
 	t.Parallel()
 
-	h = new(controller.HttpHandler)
-	h.RegisterHandlers()
+	h = service.NewBeenFarService()
+	h.Init()
 
 	// Get an empty wifi network list
 	if req, err = http.NewRequest("GET", "/api/wifi", nil); err != nil {
@@ -112,15 +112,15 @@ func TestWifiNetworkList(t *testing.T) {
 
 func TestWifiNetwork(t *testing.T) {
 	var (
-		h        *controller.HttpHandler
+		h        *service.BeenFarService
 		bTmp     bytes.Buffer
 		response *httptest.ResponseRecorder
 		testWifi model.WifiNetworkConfig
 	)
 	t.Parallel()
 
-	h = new(controller.HttpHandler)
-	h.RegisterHandlers()
+	h = service.NewBeenFarService()
+	h.Init()
 
 	// With a non-existent SSID
 	req, err := http.NewRequest("GET", "/api/wifi/test", nil)
@@ -241,8 +241,8 @@ func TestWifiNetwork(t *testing.T) {
 	}
 }
 
-func executeRequest(h *controller.HttpHandler, req *http.Request) *httptest.ResponseRecorder {
+func executeRequest(h http.Handler, req *http.Request) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
-	(*h).ServeHTTP(rr, req)
+	h.ServeHTTP(rr, req)
 	return rr
 }

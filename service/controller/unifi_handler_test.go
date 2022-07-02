@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/jsonapi"
+	"github.com/jacobalberty/beenfar/service"
 	"github.com/jacobalberty/beenfar/service/adapter/unifi"
-	"github.com/jacobalberty/beenfar/service/controller"
 	"github.com/jacobalberty/beenfar/service/model"
 )
 
@@ -18,7 +18,7 @@ func TestUnifiPending(t *testing.T) {
 		ipd      unifi.InformPD
 		ib       unifi.InformBuilder
 		b        []byte
-		h        *controller.HttpHandler
+		h        *service.BeenFarService
 		req      *http.Request
 		response *httptest.ResponseRecorder
 		devices  model.Devices
@@ -26,8 +26,8 @@ func TestUnifiPending(t *testing.T) {
 
 	t.Parallel()
 
-	h = new(controller.HttpHandler)
-	h.RegisterHandlers()
+	h = service.NewBeenFarService()
+	h.Init()
 
 	// Check to make sure no devices are pending or adopted
 	if req, err = http.NewRequest("GET", "/api/device", nil); err != nil {
