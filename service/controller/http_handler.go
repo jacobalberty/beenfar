@@ -31,14 +31,14 @@ func (h *HttpHandler) RegisterHandlers() {
 	unifi.Init(h.mux, h.devices)
 
 	// Unstable apis
-	h.mux.Post("/api/device/adopt/{mac:[[:alnum:]:]+}", h.PostDeviceAdopt)
-	h.mux.Delete("/api/device/{mac:[[:alnum:]:]+}", h.DeleteDevice)
+	h.mux.Post("/api/device/adopt/{mac:^([[:xdigit:]]{2}[:-]?){6}$}", h.PostDeviceAdopt)
+	h.mux.Delete("/api/device/{mac:^([[:xdigit:]]{2}[:-]?){6}$}", h.DeleteDevice)
 	h.mux.Get("/api/device", h.GetDeviceList)
 	h.mux.Get("/api/wifi", h.GetWifiList)
-	h.mux.Get("/api/wifi/{ssid:[[:alnum:] ]+}", h.GetWifiBySSID)
+	h.mux.Get("/api/wifi/{ssid:^[[:alnum:] ]+$}", h.GetWifiBySSID)
 	h.mux.Post("/api/wifi", h.PostWifi)
-	h.mux.Put("/api/wifi/{ssid:[[:alnum:] ]+}", h.PutWifi)
-	h.mux.Delete("/api/wifi/{ssid:[[:alnum:] ]+}", h.DeleteWifi)
+	h.mux.Put("/api/wifi/{ssid:^[[:alnum:] ]+$}", h.PutWifi)
+	h.mux.Delete("/api/wifi/{ssid:^[[:alnum:] ]+$}", h.DeleteWifi)
 
 }
 
