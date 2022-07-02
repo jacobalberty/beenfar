@@ -53,8 +53,9 @@ func NewInformPD(packet []byte) (*InformPD, error) {
 	return ipd, err
 }
 
-func (p *InformPD) Init(packet []byte) (err error) {
+func (p *InformPD) Init(packet []byte) error {
 	var (
+		err    error
 		tInt64 int64
 	)
 	p.Magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
@@ -68,15 +69,12 @@ func (p *InformPD) Init(packet []byte) (err error) {
 	p.Mac = hex.EncodeToString(packet[8:14])
 	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 16)
 	if err != nil {
-		return
+		return err
 	}
 
 	p.Flags = int16(flagtmp)
 
-	p.encrypted = (p.Flags & 0x1) == 1
-	p.zlib = (p.Flags & 0x2) == 2
-	p.snappy = (p.Flags & 0x4) == 4
-	p.aesgcm = (p.Flags & 0x8) == 8
+	p.parseFlags()
 
 	p.initVector = packet[16:32]
 	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[32:36]), 16, 32)
@@ -94,14 +92,14 @@ func (p *InformPD) Init(packet []byte) (err error) {
 
 	if int(p.dataLength) > len(packet[40:]) {
 		err = ErrDataLength
-		return
+		return err
 	}
 
 	p.aad = packet[:40]
 	p.payload = packet[40 : 40+p.dataLength]
 	p.tag = packet[:len(packet)-16]
 
-	return
+	return nil
 }
 
 func (p InformPD) Uncompress() (io.Reader, error) {
@@ -168,6 +166,11 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 		buf = new(bytes.Buffer)
 	)
 
+	if len(p.initVector) != 16 {
+		p.initVector = make([]byte, 16)
+	}
+	p.parseFlags()
+
 	b, err = json.Marshal(r)
 	if err != nil {
 		return nil, err
@@ -209,7 +212,7 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 		return nil, err
 	}
 
-	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
+	err = binary.Write(buf, binary.BigEndian, p.DataVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -225,6 +228,13 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func (p *InformPD) parseFlags() {
+	p.encrypted = (p.Flags & 0x1) == 1
+	p.zlib = (p.Flags & 0x2) == 2
+	p.snappy = (p.Flags & 0x4) == 4
+	p.aesgcm = (p.Flags & 0x8) == 8
 }
 
 func (p *InformPD) decryptGCM() {
