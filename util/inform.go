@@ -22,6 +22,8 @@ import (
 var (
 	// md5sum of "ubnt"
 	MASTER_KEY = []byte{0xba, 0x86, 0xf2, 0xbb, 0xe1, 0x07, 0xc7, 0xc5, 0x7e, 0xb5, 0xf2, 0x69, 0x07, 0x75, 0xc7, 0x12}
+
+	ErrDataLength = fmt.Errorf("Data length is larger than packet size")
 )
 
 type InformPD struct {
@@ -32,7 +34,7 @@ type InformPD struct {
 	Flags       int16  // encrypted, compressed, snappy, aesgcm
 	initVector  []byte // 16 bytes
 	DataVersion int32  //  must be < 1
-	dataLength  int64
+	dataLength  int32
 	payload     []byte
 
 	tag               []byte
@@ -83,9 +85,16 @@ func (p *InformPD) Init(packet []byte) (err error) {
 	}
 
 	p.DataVersion = int32(tInt64)
-	p.dataLength, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
+	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
 	if err != nil {
 		return err
+	}
+
+	p.dataLength = int32(tInt64)
+
+	if int(p.dataLength) > len(packet[40:]) {
+		err = ErrDataLength
+		return
 	}
 
 	p.aad = packet[:40]
