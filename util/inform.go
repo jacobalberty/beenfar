@@ -25,18 +25,20 @@ var (
 )
 
 type InformPD struct {
-	payloadVersion    string
-	packetVersion     string
-	Mac               string
+	// Layout of the packet:
+	Magic       int32  // must be 1414414933
+	Version     string // int32
+	Mac         string // 6 bytes
+	Flags       int16  // encrypted, compressed, snappy, aesgcm
+	initVector  []byte // 16 bytes
+	DataVersion string // int32 must be < 1
+	dataLength  int64
+	payload     []byte
+
 	tag               []byte
-	payload           []byte
 	aad               []byte
 	Key               []byte
-	initVector        []byte
 	compressedPayload []byte
-	payloadLength     int64
-	flags             int16
-	magic             int32
 	snappy            bool
 	zlib              bool
 	encrypted         bool
@@ -50,29 +52,29 @@ func NewInformPD(packet []byte) (*InformPD, error) {
 }
 
 func (p *InformPD) Init(packet []byte) (err error) {
-	p.magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
-	p.packetVersion = hex.EncodeToString(packet[4:8])
+	p.Magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
+	p.Version = hex.EncodeToString(packet[4:8])
 	p.Mac = hex.EncodeToString(packet[8:14])
 	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 16)
 	if err != nil {
 		return
 	}
-	p.flags = int16(flagtmp)
+	p.Flags = int16(flagtmp)
 
-	p.encrypted = (p.flags & 0x1) == 1
-	p.zlib = (p.flags & 0x2) == 2
-	p.snappy = (p.flags & 0x4) == 4
-	p.aesgcm = (p.flags & 0x8) == 8
+	p.encrypted = (p.Flags & 0x1) == 1
+	p.zlib = (p.Flags & 0x2) == 2
+	p.snappy = (p.Flags & 0x4) == 4
+	p.aesgcm = (p.Flags & 0x8) == 8
 
 	p.initVector = packet[16:32]
-	p.payloadVersion = hex.EncodeToString(packet[32:36])
-	p.payloadLength, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
+	p.DataVersion = hex.EncodeToString(packet[32:36])
+	p.dataLength, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
 	if err != nil {
 		return
 	}
 
 	p.aad = packet[:40]
-	p.payload = packet[40 : 40+p.payloadLength]
+	p.payload = packet[40 : 40+p.dataLength]
 	p.tag = packet[:len(packet)-16]
 
 	return
@@ -150,11 +152,11 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	}
 	buf := new(bytes.Buffer)
 
-	err = binary.Write(buf, binary.BigEndian, p.magic)
+	err = binary.Write(buf, binary.BigEndian, p.Magic)
 	if err != nil {
 		return nil, err
 	}
-	b, err = hex.DecodeString(p.packetVersion)
+	b, err = hex.DecodeString(p.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +172,7 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = binary.Write(buf, binary.BigEndian, p.flags)
+	err = binary.Write(buf, binary.BigEndian, p.Flags)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +180,7 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	b, err = hex.DecodeString(p.payloadVersion)
+	b, err = hex.DecodeString(p.DataVersion)
 	if err != nil {
 		return nil, err
 	}
