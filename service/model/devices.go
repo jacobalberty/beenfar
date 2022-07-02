@@ -140,15 +140,25 @@ func (a adoptedList) Contains(mac string) bool {
 }
 
 // Save device to adopted list
-func (a adoptedList) Save(device InterfaceAdoptedDevice) {
-	a = append(a, device)
+func (a *adoptedList) Save(device InterfaceAdoptedDevice) {
+	found := false
+	for _, d := range *a {
+		if d.GetMac() == device.GetMac() {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		*a = append(*a, device)
+	}
 }
 
-// Store save pending device to array
-func (p pendingList) Save(device InterfacePendingDevice) {
+// Save device to pending list
+func (p *pendingList) Save(device InterfacePendingDevice) {
 	device.Refresh()
 	found := false
-	for _, d := range p {
+	for _, d := range *p {
 		if d.GetMac() == device.GetMac() {
 			found = true
 			break
@@ -157,6 +167,6 @@ func (p pendingList) Save(device InterfacePendingDevice) {
 
 	if !found {
 		log.Printf("New adoption request from %v", device.GetMac())
-		p = append(p, device)
+		*p = append(*p, device)
 	}
 }
