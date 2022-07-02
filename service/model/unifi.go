@@ -57,6 +57,11 @@ type UnifiAdoptedDevice struct {
 	InformPD  *util.InformPD `json:"-"`
 }
 
+// Return MAC address of the device
+func (d UnifiAdoptedDevice) GetMac() string {
+	return d.Mac
+}
+
 func (d *UnifiAdoptedDevice) Delete() error {
 	return nil
 }

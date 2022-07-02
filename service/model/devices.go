@@ -11,42 +11,46 @@ var (
 )
 
 func (d *Devices) Init() {
-	d.Pending = make(map[string]InterfacePendingDevice)
-	d.Adopted = make(map[string]InterfaceAdoptedDevice)
+
 }
 
 func (d *Devices) Adopt(mac string) error {
-	if _, ok := d.Pending[mac]; !ok {
+	if !d.Pending.Contains(mac) {
 		return ErrDeviceNotFound
 	}
 
-	if _, ok := d.Adopted[mac]; ok {
+	if d.Adopted.Contains(mac) {
 		return ErrDeviceAlreadyAdopted
 	}
 
-	adopted, err := d.Pending[mac].Adopt()
+	pending := d.Pending.Get(mac)
+	adopted, err := pending.Adopt()
 	if err != nil {
 		return err
 	}
-	d.Adopted[mac] = adopted
-	delete(d.Pending, mac)
+
+	d.Adopted.Save(adopted)
+	d.Pending.Remove(mac)
 	return nil
 }
 
 func (d *Devices) Delete(mac string) error {
-	if _, ok := d.Adopted[mac]; !ok {
+	if !d.Adopted.Contains(mac) {
 		return ErrDeviceNotFound
 	}
-	if err := d.Adopted[mac].Delete(); err != nil {
+
+	adopted := d.Adopted.Get(mac)
+
+	if err := adopted.Delete(); err != nil {
 		return err
 	}
-	delete(d.Adopted, mac)
+	d.Adopted.Remove(mac)
 	return nil
 }
 
 type Devices struct {
-	Adopted adoptedMap `jsonapi:"attr,adopted,omitempty"`
-	Pending pendingMap `jsonapi:"attr,pending,omitempty"`
+	Adopted adoptedList `jsonapi:"attr,adopted,omitempty"`
+	Pending pendingList `jsonapi:"attr,pending,omitempty"`
 }
 
 type InterfacePendingDevice interface {
@@ -57,17 +61,102 @@ type InterfacePendingDevice interface {
 }
 
 type InterfaceAdoptedDevice interface {
+	GetMac() string
 	Delete() error
 }
 
-type adoptedMap map[string]InterfaceAdoptedDevice
+type adoptedList []InterfaceAdoptedDevice
 
-type pendingMap map[string]InterfacePendingDevice
+type pendingList []InterfacePendingDevice
 
-func (p pendingMap) Save(device InterfacePendingDevice) {
+// Check if device is already in pending list
+func (p pendingList) Contains(mac string) bool {
+	for _, d := range p {
+		if d.GetMac() == mac {
+			return true
+		}
+	}
+	return false
+}
+
+// Remove device from pending list
+func (p pendingList) Remove(mac string) {
+	for i, d := range p {
+		if d.GetMac() == mac {
+			p = append(p[:i], p[i+1:]...)
+			break
+		}
+	}
+}
+
+// Get device from pending list
+func (p pendingList) Get(mac string) InterfacePendingDevice {
+	for _, d := range p {
+		if d.GetMac() == mac {
+			return d
+		}
+	}
+	return nil
+}
+
+// Get all pending devices
+func (p pendingList) GetAll() []InterfacePendingDevice {
+	return p
+}
+
+// Get all adopted devices
+func (a adoptedList) GetAll() []InterfaceAdoptedDevice {
+	return a
+}
+
+// Get device from adopted list
+func (a adoptedList) Get(mac string) InterfaceAdoptedDevice {
+	for _, d := range a {
+		if d.GetMac() == mac {
+			return d
+		}
+	}
+	return nil
+}
+
+// Remove device from adopted list
+func (a adoptedList) Remove(mac string) {
+	for i, d := range a {
+		if d.GetMac() == mac {
+			a = append(a[:i], a[i+1:]...)
+			break
+		}
+	}
+}
+
+// Check if device is already in adopted list
+func (a adoptedList) Contains(mac string) bool {
+	for _, d := range a {
+		if d.GetMac() == mac {
+			return true
+		}
+	}
+	return false
+}
+
+// Save device to adopted list
+func (a adoptedList) Save(device InterfaceAdoptedDevice) {
+	a = append(a, device)
+}
+
+// Store save pending device to array
+func (p pendingList) Save(device InterfacePendingDevice) {
 	device.Refresh()
-	if _, ok := p[device.GetMac()]; !ok {
+	found := false
+	for _, d := range p {
+		if d.GetMac() == device.GetMac() {
+			found = true
+			break
+		}
+	}
+
+	if !found {
 		log.Printf("New adoption request from %v", device.GetMac())
-		p[device.GetMac()] = device
+		p = append(p, device)
 	}
 }

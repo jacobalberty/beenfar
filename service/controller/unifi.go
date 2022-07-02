@@ -47,7 +47,7 @@ func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	if _, ok := h.devices.Adopted[ipd.Mac]; ok {
+	if h.devices.Adopted.Contains(ipd.Mac) {
 		// Adopted
 		ipd.Key = h.key
 	} else {

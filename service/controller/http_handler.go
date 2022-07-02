@@ -45,7 +45,7 @@ func (h *HttpHandler) RegisterHandlers() {
 // Gets a list of all devices
 func (h *HttpHandler) GetDeviceList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", jsonapi.MediaType)
-	if err := jsonapi.MarshalPayload(w, &h.devices); err != nil {
+	if err := jsonapi.MarshalPayloadWithoutIncluded(w, h.devices); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
