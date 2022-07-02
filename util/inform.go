@@ -108,12 +108,9 @@ func NewInformBuilder(packet []byte) (*InformBuilder, error) {
 }
 
 func (p *InformBuilder) Init(ipd InformPD) {
-
 	p.packet = ipd
 
 	p.parseFlags()
-
-	return
 }
 
 func (p InformBuilder) Uncompress() (io.Reader, error) {
