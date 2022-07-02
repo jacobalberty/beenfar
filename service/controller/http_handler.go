@@ -33,8 +33,8 @@ func (h *HttpHandler) RegisterHandlers() {
 	// Unstable apis
 	h.mux.Post("/api/device/adopt/{mac:[[:alnum:]:]+}", h.PostDeviceAdopt)
 	h.mux.Delete("/api/device/{mac:[[:alnum:]:]+}", h.DeleteDevice)
-	h.mux.Get("/api/device/list", h.GetDeviceList)
-	h.mux.Get("/api/wifi/list", h.GetWifiList)
+	h.mux.Get("/api/device", h.GetDeviceList)
+	h.mux.Get("/api/wifi", h.GetWifiList)
 	h.mux.Get("/api/wifi/{ssid:[[:alnum:] ]+}", h.GetWifiBySSID)
 	h.mux.Post("/api/wifi", h.PostWifi)
 	h.mux.Put("/api/wifi/{ssid:[[:alnum:] ]+}", h.PutWifi)
@@ -140,10 +140,9 @@ func (h *HttpHandler) PutWifi(w http.ResponseWriter, r *http.Request) {
 
 // deletes a wifi network by SSID
 func (h *HttpHandler) DeleteWifi(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", jsonapi.MediaType)
-
 	ssid := chi.URLParam(r, "ssid")
 	if _, ok := h.wifiNetworks[ssid]; !ok {
+		w.Header().Set("Content-Type", jsonapi.MediaType)
 		if err := jsonapi.MarshalErrors(w, []*jsonapi.ErrorObject{{
 			Title:  "Wifi Network Not Found",
 			Detail: "Wifi network with SSID " + ssid + " does not exist",
@@ -153,14 +152,24 @@ func (h *HttpHandler) DeleteWifi(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	delete(h.wifiNetworks, ssid)
+
 	w.WriteHeader(http.StatusNoContent)
+	delete(h.wifiNetworks, ssid)
 }
 
 // Returns a list of all wifi networks
 func (h *HttpHandler) GetWifiList(w http.ResponseWriter, r *http.Request) {
+	var (
+		networkList []*model.WifiNetworkConfig
+	)
+	networkList = make([]*model.WifiNetworkConfig, 0, len(h.wifiNetworks))
+	for _, network := range h.wifiNetworks {
+		network := network
+		networkList = append(networkList, &network)
+	}
+
 	w.Header().Set("Content-Type", jsonapi.MediaType)
-	if err := jsonapi.MarshalPayload(w, h.wifiNetworks); err != nil {
+	if err := jsonapi.MarshalPayload(w, networkList); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
