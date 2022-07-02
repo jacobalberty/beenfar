@@ -27,11 +27,11 @@ var (
 type InformPD struct {
 	// Layout of the packet:
 	Magic       int32  // must be 1414414933
-	Version     string // int32
+	Version     int32  // int32
 	Mac         string // 6 bytes
 	Flags       int16  // encrypted, compressed, snappy, aesgcm
 	initVector  []byte // 16 bytes
-	DataVersion string // int32 must be < 1
+	DataVersion int32  //  must be < 1
 	dataLength  int64
 	payload     []byte
 
@@ -52,13 +52,23 @@ func NewInformPD(packet []byte) (*InformPD, error) {
 }
 
 func (p *InformPD) Init(packet []byte) (err error) {
+	var (
+		tInt64 int64
+	)
 	p.Magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
-	p.Version = hex.EncodeToString(packet[4:8])
+
+	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[4:8]), 16, 32)
+	if err != nil {
+		return err
+	}
+
+	p.Version = int32(tInt64)
 	p.Mac = hex.EncodeToString(packet[8:14])
 	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 16)
 	if err != nil {
 		return
 	}
+
 	p.Flags = int16(flagtmp)
 
 	p.encrypted = (p.Flags & 0x1) == 1
@@ -67,10 +77,15 @@ func (p *InformPD) Init(packet []byte) (err error) {
 	p.aesgcm = (p.Flags & 0x8) == 8
 
 	p.initVector = packet[16:32]
-	p.DataVersion = hex.EncodeToString(packet[32:36])
+	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[32:36]), 16, 32)
+	if err != nil {
+		return err
+	}
+
+	p.DataVersion = int32(tInt64)
 	p.dataLength, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
 	if err != nil {
-		return
+		return err
 	}
 
 	p.aad = packet[:40]
@@ -138,9 +153,13 @@ func (p *InformPD) Encrypt(b []byte) error {
 }
 
 func (p InformPD) BuildResponse(r any) ([]byte, error) {
-	var err error
+	var (
+		b   []byte
+		err error
+		buf = new(bytes.Buffer)
+	)
 
-	b, err := json.Marshal(r)
+	b, err = json.Marshal(r)
 	if err != nil {
 		return nil, err
 	}
@@ -150,48 +169,47 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	buf := new(bytes.Buffer)
 
 	err = binary.Write(buf, binary.BigEndian, p.Magic)
 	if err != nil {
 		return nil, err
 	}
-	b, err = hex.DecodeString(p.Version)
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.Write(b)
-	if err != nil {
-		return nil, err
-	}
-	b, err = hex.DecodeString(p.Mac)
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.Write(b)
-	if err != nil {
-		return nil, err
-	}
-	err = binary.Write(buf, binary.BigEndian, p.Flags)
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.Write(p.initVector)
-	if err != nil {
-		return nil, err
-	}
-	b, err = hex.DecodeString(p.DataVersion)
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.Write(b)
-	if err != nil {
-		return nil, err
-	}
+
 	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
 	if err != nil {
 		return nil, err
 	}
+
+	b, err = hex.DecodeString(p.Mac)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(b)
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.BigEndian, p.Flags)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(p.initVector)
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
+	if err != nil {
+		return nil, err
+	}
+
+	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = buf.Write(p.payload)
 	if err != nil {
 		return nil, err
