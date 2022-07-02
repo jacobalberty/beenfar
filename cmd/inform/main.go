@@ -22,7 +22,7 @@ func main() {
 		return
 	}
 
-	ipd, err := util.NewInformPD(b)
+	ipd, err := util.NewInformBuilder(b)
 	if err != nil {
 		log.Printf("Error decoding packet: %s", err)
 		return

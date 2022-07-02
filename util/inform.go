@@ -32,11 +32,20 @@ type InformPD struct {
 	Version     int32  // int32
 	Mac         string // 6 bytes
 	Flags       int16  // encrypted, compressed, snappy, aesgcm
-	initVector  []byte // 16 bytes
+	InitVector  []byte // 16 bytes
 	DataVersion int32  //  must be < 1
-	dataLength  int32
-	payload     []byte
+	DataLength  int32
+	Payload     []byte
 
+	// These fields are used for crypto
+	// AAD is the header of the packet
+	AAD []byte
+	// Tag is the last 16 bytes of the packet
+	Tag []byte
+}
+
+type InformBuilder struct {
+	packet            InformPD
 	tag               []byte
 	aad               []byte
 	Key               []byte
@@ -47,62 +56,67 @@ type InformPD struct {
 	aesgcm            bool
 }
 
-func NewInformPD(packet []byte) (*InformPD, error) {
-	ipd := &InformPD{}
-	err := ipd.Init(packet)
-	return ipd, err
-}
-
-func (p *InformPD) Init(packet []byte) error {
+func NewInformBuilder(packet []byte) (*InformBuilder, error) {
 	var (
+		ib     *InformBuilder
+		ipd    InformPD
 		err    error
 		tInt64 int64
 	)
-	p.Magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
+	ib = &InformBuilder{}
+
+	ipd.Magic = int32(big.NewInt(0).SetBytes(packet[0:4]).Uint64())
 
 	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[4:8]), 16, 32)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	p.Version = int32(tInt64)
-	p.Mac = hex.EncodeToString(packet[8:14])
-	flagtmp, err := strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 16)
+	ipd.Version = int32(tInt64)
+	ipd.Mac = hex.EncodeToString(packet[8:14])
+	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[14:16]), 16, 16)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	p.Flags = int16(flagtmp)
+	ipd.Flags = int16(tInt64)
+
+	ipd.InitVector = packet[16:32]
+	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[32:36]), 16, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	ipd.DataVersion = int32(tInt64)
+	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	ipd.DataLength = int32(tInt64)
+	if int(ipd.DataLength) > len(packet[40:]) {
+		return nil, ErrDataLength
+	}
+	ipd.Payload = packet[40 : 40+ipd.DataLength]
+
+	ipd.AAD = packet[:40]
+
+	ipd.Tag = packet[:len(packet)-16]
+
+	ib.Init(ipd)
+	return ib, err
+}
+
+func (p *InformBuilder) Init(ipd InformPD) {
+
+	p.packet = ipd
 
 	p.parseFlags()
 
-	p.initVector = packet[16:32]
-	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[32:36]), 16, 32)
-	if err != nil {
-		return err
-	}
-
-	p.DataVersion = int32(tInt64)
-	tInt64, err = strconv.ParseInt(hex.EncodeToString(packet[36:40]), 16, 32)
-	if err != nil {
-		return err
-	}
-
-	p.dataLength = int32(tInt64)
-
-	if int(p.dataLength) > len(packet[40:]) {
-		err = ErrDataLength
-		return err
-	}
-
-	p.aad = packet[:40]
-	p.payload = packet[40 : 40+p.dataLength]
-	p.tag = packet[:len(packet)-16]
-
-	return nil
+	return
 }
 
-func (p InformPD) Uncompress() (io.Reader, error) {
+func (p InformBuilder) Uncompress() (io.Reader, error) {
 	if p.zlib {
 		b := bytes.NewReader(p.compressedPayload)
 		return zlib.NewReader(b)
@@ -115,10 +129,14 @@ func (p InformPD) Uncompress() (io.Reader, error) {
 	return nil, fmt.Errorf("Unimplemented compression")
 }
 
-func (p InformPD) String() string {
+func (p InformBuilder) GetMac() string {
+	return p.packet.Mac
+}
+
+func (p InformBuilder) String() string {
 	var h [32]byte
-	h = sha256.Sum256(p.payload)
-	p.payload = h[:]
+	h = sha256.Sum256(p.packet.Payload)
+	p.packet.Payload = h[:]
 	h = sha256.Sum256(p.aad)
 	p.aad = h[:]
 	h = sha256.Sum256(p.tag)
@@ -127,13 +145,13 @@ func (p InformPD) String() string {
 
 }
 
-func (p *InformPD) Decrypt() {
+func (p *InformBuilder) Decrypt() {
 	if len(p.Key) == 0 {
 		p.Key = MASTER_KEY
 	}
 	if !p.encrypted {
 		log.Println("Note: packet was not marked encrypted")
-		p.compressedPayload = p.payload
+		p.compressedPayload = p.packet.Payload
 		return
 	}
 	if p.aesgcm {
@@ -143,13 +161,13 @@ func (p *InformPD) Decrypt() {
 	}
 }
 
-func (p *InformPD) Encrypt(b []byte) error {
+func (p *InformBuilder) Encrypt(b []byte) error {
 	if len(p.Key) == 0 {
 		p.Key = MASTER_KEY
 	}
 	if !p.encrypted {
 		log.Println("Note: packet was not marked encrypted")
-		p.payload = p.compressedPayload
+		p.packet.Payload = p.compressedPayload
 		return nil
 	}
 	if p.aesgcm {
@@ -159,15 +177,15 @@ func (p *InformPD) Encrypt(b []byte) error {
 	}
 }
 
-func (p InformPD) BuildResponse(r any) ([]byte, error) {
+func (p InformBuilder) BuildResponse(r any) ([]byte, error) {
 	var (
 		b   []byte
 		err error
 		buf = new(bytes.Buffer)
 	)
 
-	if len(p.initVector) != 16 {
-		p.initVector = make([]byte, 16)
+	if len(p.packet.InitVector) != 16 {
+		p.packet.InitVector = make([]byte, 16)
 	}
 	p.parseFlags()
 
@@ -182,17 +200,17 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 		return nil, err
 	}
 
-	err = binary.Write(buf, binary.BigEndian, p.Magic)
+	err = binary.Write(buf, binary.BigEndian, p.packet.Magic)
 	if err != nil {
 		return nil, err
 	}
 
-	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
+	err = binary.Write(buf, binary.BigEndian, int32(len(p.packet.Payload)))
 	if err != nil {
 		return nil, err
 	}
 
-	b, err = hex.DecodeString(p.Mac)
+	b, err = hex.DecodeString(p.packet.Mac)
 	if err != nil {
 		return nil, err
 	}
@@ -202,27 +220,27 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 		return nil, err
 	}
 
-	err = binary.Write(buf, binary.BigEndian, p.Flags)
+	err = binary.Write(buf, binary.BigEndian, p.packet.Flags)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = buf.Write(p.initVector)
+	_, err = buf.Write(p.packet.InitVector)
 	if err != nil {
 		return nil, err
 	}
 
-	err = binary.Write(buf, binary.BigEndian, p.DataVersion)
+	err = binary.Write(buf, binary.BigEndian, p.packet.DataVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	err = binary.Write(buf, binary.BigEndian, int32(len(p.payload)))
+	err = binary.Write(buf, binary.BigEndian, int32(len(p.packet.Payload)))
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = buf.Write(p.payload)
+	_, err = buf.Write(p.packet.Payload)
 	if err != nil {
 		return nil, err
 	}
@@ -230,14 +248,14 @@ func (p InformPD) BuildResponse(r any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (p *InformPD) parseFlags() {
-	p.encrypted = (p.Flags & 0x1) == 1
-	p.zlib = (p.Flags & 0x2) == 2
-	p.snappy = (p.Flags & 0x4) == 4
-	p.aesgcm = (p.Flags & 0x8) == 8
+func (p *InformBuilder) parseFlags() {
+	p.encrypted = (p.packet.Flags & 0x1) == 1
+	p.zlib = (p.packet.Flags & 0x2) == 2
+	p.snappy = (p.packet.Flags & 0x4) == 4
+	p.aesgcm = (p.packet.Flags & 0x8) == 8
 }
 
-func (p *InformPD) decryptGCM() {
+func (p *InformBuilder) decryptGCM() {
 	var block cipher.Block
 	var err error
 
@@ -253,13 +271,13 @@ func (p *InformPD) decryptGCM() {
 		return
 	}
 
-	p.compressedPayload, err = aesGCM.Open(nil, p.initVector, p.payload, p.aad)
+	p.compressedPayload, err = aesGCM.Open(nil, p.packet.InitVector, p.packet.Payload, p.aad)
 	if err != nil {
 		log.Printf("error decrypting: %s", err)
 	}
 }
 
-func (p *InformPD) decryptCBC() {
+func (p *InformBuilder) decryptCBC() {
 	var block cipher.Block
 	var err error
 
@@ -267,7 +285,7 @@ func (p *InformPD) decryptCBC() {
 		log.Println("invalid key")
 		return
 	}
-	if len(p.payload)%aes.BlockSize != 0 {
+	if len(p.packet.Payload)%aes.BlockSize != 0 {
 		log.Println("data is not padded")
 		return
 	}
@@ -277,12 +295,12 @@ func (p *InformPD) decryptCBC() {
 		log.Printf("error initializing cipher: %s", err)
 		return
 	}
-	p.compressedPayload = make([]byte, len(p.payload))
-	cbc := cipher.NewCBCDecrypter(block, p.initVector)
-	cbc.CryptBlocks(p.compressedPayload, p.payload)
+	p.compressedPayload = make([]byte, len(p.packet.Payload))
+	cbc := cipher.NewCBCDecrypter(block, p.packet.InitVector)
+	cbc.CryptBlocks(p.compressedPayload, p.packet.Payload)
 }
 
-func (p *InformPD) encryptGCM(b []byte) error {
+func (p *InformBuilder) encryptGCM(b []byte) error {
 	block, err := aes.NewCipher(p.Key)
 	if err != nil {
 		return err
@@ -296,21 +314,21 @@ func (p *InformPD) encryptGCM(b []byte) error {
 	if err != nil {
 		return err
 	}
-	p.payload = aesgcm.Seal(nil, nonce, b, nil)
+	p.packet.Payload = aesgcm.Seal(nil, nonce, b, nil)
 	return nil
 }
 
-func (p *InformPD) encryptCBC(b []byte) error {
+func (p *InformBuilder) encryptCBC(b []byte) error {
 	block, _ := aes.NewCipher(p.Key)
 	plainText := PKCS5Padding(b, aes.BlockSize, len(b))
-	p.payload = make([]byte, len(plainText))
-	n, err := rand.Read(p.initVector)
+	p.packet.Payload = make([]byte, len(plainText))
+	n, err := rand.Read(p.packet.InitVector)
 	if err != nil || n != 16 {
 		return fmt.Errorf("error creating IV")
 	}
 
-	mode := cipher.NewCBCEncrypter(block, p.initVector)
-	mode.CryptBlocks(p.payload, plainText)
+	mode := cipher.NewCBCEncrypter(block, p.packet.InitVector)
+	mode.CryptBlocks(p.packet.Payload, plainText)
 	return nil
 }
 

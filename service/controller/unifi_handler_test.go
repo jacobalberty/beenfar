@@ -16,6 +16,7 @@ func TestUnifiPending(t *testing.T) {
 	var (
 		err      error
 		ipd      util.InformPD
+		ib       util.InformBuilder
 		b        []byte
 		h        *controller.HttpHandler
 		req      *http.Request
@@ -62,7 +63,9 @@ func TestUnifiPending(t *testing.T) {
 	ipd.Flags = 0b1001
 	ipd.DataVersion = 0
 
-	if b, err = ipd.BuildResponse(ipdBase); err != nil {
+	ib.Init(ipd)
+
+	if b, err = ib.BuildResponse(ipdBase); err != nil {
 		t.Error(err)
 	}
 

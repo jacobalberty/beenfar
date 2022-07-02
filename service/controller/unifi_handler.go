@@ -43,11 +43,11 @@ func (h *unifiHandler) Init(router *chi.Mux, devices *model.Devices) {
 func (h *unifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request) {
 	bodyBuffer, _ := ioutil.ReadAll(r.Body)
 
-	ipd, err := util.NewInformPD(bodyBuffer)
+	ipd, err := util.NewInformBuilder(bodyBuffer)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	if h.devices.Adopted.Contains(ipd.Mac) {
+	if h.devices.Adopted.Contains(ipd.GetMac()) {
 		// Adopted
 		ipd.Key = h.key
 	} else {
