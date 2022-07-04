@@ -15,7 +15,7 @@ This is still very early on and so far only contains the backend code.
 * Per device command queues
 * Translate internal configuration data to per device data
 * Persistent data storage
-* Frontend
+* [Frontend](https://github.com/jacobalberty/LookMoreLike)
 
 ## Supported device types
 
