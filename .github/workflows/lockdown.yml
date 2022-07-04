@@ -20,3 +20,4 @@ jobs:
             This repository does not accept pull requests,
             see the CONTRIBUTING.md for details.
           skip-closed-pr-comment: true
+          exclude-pr-labels: 'github_actions'
