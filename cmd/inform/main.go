@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/jacobalberty/beenfar/docs"
 	"github.com/jacobalberty/beenfar/service/adapter/unifi"
 )
 

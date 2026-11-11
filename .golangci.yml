@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  enable:
+    - sloglint
+  settings:
+    sloglint:
+      # Every log call must carry a context so records are attributed to the
+      # active trace/span and request (see internal/telemetry).
+      context: all
+      attr-only: true
+  exclusions:
+    paths:
+      - internal/store/sqlite/db # sqlc-generated
