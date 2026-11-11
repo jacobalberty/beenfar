@@ -122,6 +122,21 @@ func (s *Store) nowMilli() int64 { return s.now().UnixMilli() }
 
 func fromMilli(ms int64) time.Time { return time.UnixMilli(ms).UTC() }
 
+// toOptMilli and fromOptMilli map the zero time to 0 and back.
+func toOptMilli(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.UnixMilli()
+}
+
+func fromOptMilli(ms int64) time.Time {
+	if ms == 0 {
+		return time.Time{}
+	}
+	return fromMilli(ms)
+}
+
 // mapErr translates driver errors into store errors.
 func mapErr(err error) error {
 	if err == nil {
@@ -133,12 +148,31 @@ func mapErr(err error) error {
 	if se, ok := errors.AsType[*sqlite.Error](err); ok {
 		switch se.Code() {
 		case sqlite3.SQLITE_CONSTRAINT_UNIQUE, sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY:
-			return fmt.Errorf("%w: %v", store.ErrConflict, err)
+			return fmt.Errorf("%w: %s", store.ErrConflict, uniqueMessage(err))
 		case sqlite3.SQLITE_CONSTRAINT_CHECK, sqlite3.SQLITE_CONSTRAINT_NOTNULL, sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY:
 			return fmt.Errorf("%w: %v", store.ErrInvalid, err)
 		}
 	}
 	return err
+}
+
+// uniqueMessage turns "UNIQUE constraint failed: wifi_networks.ssid (2067)"
+// into "ssid already in use", which is safe to show API clients.
+func uniqueMessage(err error) string {
+	_, cols, ok := strings.Cut(err.Error(), "constraint failed: ")
+	if !ok {
+		return "already exists"
+	}
+	cols, _, _ = strings.Cut(cols, " (")
+	var names []string
+	for c := range strings.SplitSeq(cols, ",") {
+		c = strings.TrimSpace(c)
+		if _, col, ok := strings.Cut(c, "."); ok {
+			c = col
+		}
+		names = append(names, c)
+	}
+	return strings.Join(names, ", ") + " already in use"
 }
 
 // --- devices ---
@@ -229,7 +263,7 @@ func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error
 		if _, err := txs.q.GetDevice(ctx, id); err != nil {
 			return mapErr(err)
 		}
-		return fmt.Errorf("%w: device %s is already adopted", store.ErrConflict, id)
+		return fmt.Errorf("%w: device %s is already adopted", store.ErrFailedPrecondition, id)
 	})
 	return out, err
 }
@@ -301,6 +335,9 @@ func (s *Store) CreateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 	}
 	var out store.WifiNetwork
 	err := s.inTx(ctx, func(txs *Store) error {
+		if err := txs.checkNetworkRef(ctx, w.NetworkID); err != nil {
+			return err
+		}
 		row, err := txs.q.CreateWifiNetwork(ctx, db.CreateWifiNetworkParams{
 			ID:               newID(),
 			Ssid:             w.SSID,
@@ -365,6 +402,9 @@ func (s *Store) UpdateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 	}
 	var out store.WifiNetwork
 	err := s.inTx(ctx, func(txs *Store) error {
+		if err := txs.checkNetworkRef(ctx, w.NetworkID); err != nil {
+			return err
+		}
 		row, err := txs.q.UpdateWifiNetwork(ctx, db.UpdateWifiNetworkParams{
 			ID:               w.ID,
 			Ssid:             w.SSID,
@@ -380,7 +420,7 @@ func (s *Store) UpdateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 			ExpectedRevision: w.Revision,
 		})
 		if errors.Is(err, sql.ErrNoRows) {
-			return txs.revisionMiss(ctx, w.ID)
+			return txs.revisionMiss(ctx, "wifi network", w.ID, txs.wifiExists)
 		}
 		if err != nil {
 			return mapErr(err)
@@ -402,16 +442,34 @@ func (s *Store) DeleteWifiNetwork(ctx context.Context, id string, revision int64
 			return mapErr(err)
 		}
 		if n == 0 {
-			return txs.revisionMiss(ctx, id)
+			return txs.revisionMiss(ctx, "wifi network", id, txs.wifiExists)
 		}
 		return nil
 	})
 }
 
-// revisionMiss explains why a conditional write matched no row.
-func (txs *Store) revisionMiss(ctx context.Context, id string) error {
-	if _, err := txs.q.GetWifiNetwork(ctx, id); err != nil {
+// checkNetworkRef returns ErrInvalid if id is set but names no network.
+func (txs *Store) checkNetworkRef(ctx context.Context, id string) error {
+	if id == "" {
+		return nil
+	}
+	err := mapErr(txs.networkExists(ctx, id))
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: network %q does not exist", store.ErrInvalid, id)
+	}
+	return err
+}
+
+func (txs *Store) wifiExists(ctx context.Context, id string) error {
+	_, err := txs.q.GetWifiNetwork(ctx, id)
+	return err
+}
+
+// revisionMiss explains why a conditional write by id matched no row: either
+// the record does not exist, or its revision changed.
+func (txs *Store) revisionMiss(ctx context.Context, kind, id string, exists func(context.Context, string) error) error {
+	if err := exists(ctx, id); err != nil {
 		return mapErr(err)
 	}
-	return fmt.Errorf("%w: wifi network %s was modified (revision mismatch)", store.ErrConflict, id)
+	return fmt.Errorf("%w: %s %s was modified", store.ErrStale, kind, id)
 }

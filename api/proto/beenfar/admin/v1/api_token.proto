@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package beenfar.admin.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// ApiTokenService manages bearer tokens for programmatic access (Terraform,
+// scripts). A token acts as the user who created it. Users see and revoke
+// their own tokens; admins see and revoke everyone's.
+service ApiTokenService {
+  // CreateApiToken issues a token for the calling user. The secret is
+  // returned only in this response; the server keeps only its hash.
+  rpc CreateApiToken(CreateApiTokenRequest) returns (CreateApiTokenResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/api-tokens"
+      body: "api_token"
+    };
+  }
+
+  // ListApiTokens lists the caller's tokens, or every token for an admin.
+  rpc ListApiTokens(ListApiTokensRequest) returns (ListApiTokensResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/api-tokens"};
+  }
+
+  // DeleteApiToken revokes a token.
+  rpc DeleteApiToken(DeleteApiTokenRequest) returns (DeleteApiTokenResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/api-tokens/{id}"};
+  }
+}
+
+// ApiToken describes an issued bearer token. It never contains the secret.
+message ApiToken {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // Human-readable label, 1-64 bytes, e.g. "terraform-ci".
+  string name = 2 [(google.api.field_behavior) = REQUIRED];
+  // The first characters of the token, to help recognise it.
+  string prefix = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Id of the user the token acts as.
+  string user_id = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // When the token stops working. Unset means it never expires.
+  google.protobuf.Timestamp expire_time = 5 [(google.api.field_behavior) = IMMUTABLE];
+  // Approximate time of last use (updated at most once a minute).
+  google.protobuf.Timestamp last_used_time = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message CreateApiTokenRequest {
+  ApiToken api_token = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateApiTokenResponse {
+  ApiToken api_token = 1;
+  // The bearer token. Send it as "Authorization: Bearer <secret>".
+  string secret = 2;
+}
+
+message ListApiTokensRequest {}
+
+message ListApiTokensResponse {
+  repeated ApiToken api_tokens = 1;
+}
+
+message DeleteApiTokenRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message DeleteApiTokenResponse {}

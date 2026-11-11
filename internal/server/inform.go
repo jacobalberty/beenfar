@@ -97,7 +97,7 @@ func writeStoreError(w http.ResponseWriter, r *http.Request, err error) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, store.ErrNotFound):
 		http.Error(w, "not found", http.StatusNotFound)
-	case errors.Is(err, store.ErrConflict):
+	case errors.Is(err, store.ErrConflict), errors.Is(err, store.ErrStale), errors.Is(err, store.ErrFailedPrecondition):
 		http.Error(w, err.Error(), http.StatusConflict)
 	default:
 		slog.ErrorContext(r.Context(), "store error", slog.Any("error", err))

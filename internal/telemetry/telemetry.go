@@ -134,6 +134,15 @@ func (t *Telemetry) Shutdown(ctx context.Context) error {
 // Tracer returns beenfar's tracer.
 func (t *Telemetry) Tracer() trace.Tracer { return t.TracerProvider.Tracer(ScopeName) }
 
+// TextMapPropagator returns the configured propagator, defaulting to W3C
+// trace context when none is set (as in tests that fill Telemetry by hand).
+func (t *Telemetry) TextMapPropagator() propagation.TextMapPropagator {
+	if t.Propagator == nil {
+		return propagation.TraceContext{}
+	}
+	return t.Propagator
+}
+
 // Meter returns beenfar's meter.
 func (t *Telemetry) Meter() metric.Meter { return t.MeterProvider.Meter(ScopeName) }
 

@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package beenfar.config.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// NetworkService manages wired/L3 networks (VLANs and their subnets).
+service NetworkService {
+  // CreateNetwork creates a network. Name and non-zero VLAN ids are unique.
+  rpc CreateNetwork(CreateNetworkRequest) returns (CreateNetworkResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/networks"
+      body: "network"
+      response_body: "network"
+    };
+  }
+
+  // GetNetwork returns one network by id.
+  rpc GetNetwork(GetNetworkRequest) returns (GetNetworkResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/networks/{id}"
+      response_body: "network"
+    };
+  }
+
+  // ListNetworks returns every network, ordered by name.
+  rpc ListNetworks(ListNetworksRequest) returns (ListNetworksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/networks"};
+  }
+
+  // UpdateNetwork replaces every mutable field of a network. When etag is
+  // set it must match the stored etag, or the call fails with ABORTED.
+  rpc UpdateNetwork(UpdateNetworkRequest) returns (UpdateNetworkResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/networks/{network.id}"
+      body: "network"
+      response_body: "network"
+    };
+  }
+
+  // DeleteNetwork deletes a network. It fails with FAILED_PRECONDITION while
+  // a wireless network still refers to it.
+  rpc DeleteNetwork(DeleteNetworkRequest) returns (DeleteNetworkResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/networks/{id}"};
+  }
+}
+
+// Network is a VLAN and its IPv4 subnet.
+message Network {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // Display name, 1-64 bytes. Unique across networks.
+  string name = 2 [(google.api.field_behavior) = REQUIRED];
+  // 802.1Q VLAN id, 1-4094, or 0 for untagged.
+  uint32 vlan_id = 3;
+  // Gateway address and prefix length in CIDR form, e.g. "192.168.10.1/24".
+  // Empty for a pure L2 network.
+  string subnet = 4;
+  bool dhcp_enabled = 5;
+  // First and last address of the DHCP pool. Required, and inside subnet,
+  // when dhcp_enabled is set.
+  string dhcp_start = 6;
+  string dhcp_stop = 7;
+  string domain_name = 8;
+
+  // Opaque version of this resource, for optimistic concurrency.
+  string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message CreateNetworkRequest {
+  Network network = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateNetworkResponse {
+  Network network = 1;
+}
+
+message GetNetworkRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetNetworkResponse {
+  Network network = 1;
+}
+
+message ListNetworksRequest {}
+
+message ListNetworksResponse {
+  repeated Network networks = 1;
+}
+
+message UpdateNetworkRequest {
+  // The full resource. id selects the network; etag, when set, guards the
+  // update.
+  Network network = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateNetworkResponse {
+  Network network = 1;
+}
+
+message DeleteNetworkRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string etag = 2;
+}
+
+message DeleteNetworkResponse {}

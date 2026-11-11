@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package beenfar.admin.v1;
+
+import "beenfar/admin/v1/user.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+// AuthService signs browser users in and out with a session cookie. API
+// clients use bearer tokens from ApiTokenService instead.
+service AuthService {
+  // Login checks a username and password and starts a session. The response
+  // sets an HttpOnly session cookie. Fails with UNAUTHENTICATED on bad
+  // credentials.
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/login"
+      body: "*"
+      response_body: "user"
+    };
+  }
+
+  // Logout ends the current session and clears the cookie.
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/logout"
+      body: "*"
+    };
+  }
+
+  // GetCurrentUser returns the user behind the caller's session or token.
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/auth/me"
+      response_body: "user"
+    };
+  }
+}
+
+message LoginRequest {
+  string username = 1 [(google.api.field_behavior) = REQUIRED];
+  string password = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+}
+
+message LoginResponse {
+  User user = 1;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message GetCurrentUserRequest {}
+
+message GetCurrentUserResponse {
+  User user = 1;
+}

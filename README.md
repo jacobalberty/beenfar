@@ -9,12 +9,58 @@ This is a work in progress network controller to support centralized provisionin
 
 This is still very early on and so far only contains the backend code.
 
+## Running
+
+```sh
+BEENFAR_ADMIN_PASSWORD='change me please' go run ./cmd/beenfard -db sqlite://beenfar.db
+```
+
+On first start, with no users in the database, `BEENFAR_ADMIN_PASSWORD` creates
+an admin (named by `BEENFAR_ADMIN_USER`, default `admin`). Without it, create
+one offline with `beenfard admin create`, which reads the password from
+standard input.
+
+For Terraform and scripts, issue an API token, either offline:
+
+```sh
+beenfard admin token -username admin -name terraform
+```
+
+or through the API (`ApiTokenService.CreateApiToken`). Send it as
+`Authorization: Bearer <token>`.
+
+## API
+
+The API is defined in protobuf under [`api/proto`](api/proto) and is the same
+for every client, whether Terraform, the UI or scripts:
+
+* `beenfar.config.v1`: wireless networks, networks (VLANs/subnets) and device
+  adoption. These are the resources Terraform manages.
+* `beenfar.admin.v1`: users, API tokens, browser login and adapter status.
+
+Each RPC is served over Connect, gRPC and gRPC-Web at its service path, and as
+REST under `/api/v1/...`:
+
+```sh
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/wifi-networks
+```
+
+The OpenAPI 3.1 description of the REST API is served at `/openapi.json`.
+Go clients are generated into the separate `github.com/jacobalberty/beenfar/api`
+module.
+
+To regenerate code after editing the protos or SQL queries:
+
+```sh
+(cd api && go generate -run install . && go generate .)   # buf, Go + Connect, OpenAPI
+go generate ./internal/store/sqlite                     # sqlc
+```
+
 ## Todo
-* Network configuration endpoints
-* Authentication, Authorization and Accounting
+* Device adapters: UniFi provisioning and external adapters
+* Terraform provider
 * Per device command queues
 * Translate internal configuration data to per device data
-* Persistent data storage
 * [Frontend](https://github.com/jacobalberty/LookMoreLike)
 
 ## Supported device types

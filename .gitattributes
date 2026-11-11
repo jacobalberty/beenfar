@@ -1,0 +1,3 @@
+api/gen/** linguist-generated=true
+internal/store/sqlite/db/** linguist-generated=true
+api/buf.lock linguist-generated=true

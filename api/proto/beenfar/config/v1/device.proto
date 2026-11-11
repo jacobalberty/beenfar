@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package beenfar.config.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// DeviceService manages network devices: discovery results, adoption and
+// removal. Devices are created by adapters when they are first seen, in the
+// PENDING state; AdoptDevice brings one under management.
+service DeviceService {
+  // GetDevice returns one device by id.
+  rpc GetDevice(GetDeviceRequest) returns (GetDeviceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/devices/{id}"
+      response_body: "device"
+    };
+  }
+
+  // ListDevices returns devices, ordered by MAC address.
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/devices"};
+  }
+
+  // ListPendingDevices returns devices that have been seen but not adopted.
+  rpc ListPendingDevices(ListPendingDevicesRequest) returns (ListPendingDevicesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/pending-devices"};
+  }
+
+  // AdoptDevice brings a pending device under management. It fails with
+  // NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it
+  // is already adopted.
+  rpc AdoptDevice(AdoptDeviceRequest) returns (AdoptDeviceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/devices:adopt"
+      body: "*"
+      response_body: "device"
+    };
+  }
+
+  // ForgetDevice removes a device, adopted or pending. A forgotten device that
+  // is still on the network shows up again as pending.
+  rpc ForgetDevice(ForgetDeviceRequest) returns (ForgetDeviceResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/devices/{id}"};
+  }
+}
+
+// DeviceState is the adoption state of a device.
+enum DeviceState {
+  DEVICE_STATE_UNSPECIFIED = 0;
+  DEVICE_STATE_PENDING = 1;
+  DEVICE_STATE_ADOPTED = 2;
+}
+
+// Device is a piece of network gear known to the controller.
+message Device {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // MAC address, lower-case and colon-separated.
+  string mac = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Name of the adapter that handles this device, e.g. "unifi".
+  string adapter = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  DeviceState state = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string model = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string ip = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string firmware = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp last_seen_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message GetDeviceRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetDeviceResponse {
+  Device device = 1;
+}
+
+message ListDevicesRequest {
+  // Only return devices in this state. Unspecified returns all.
+  DeviceState state = 1;
+  // Only return devices handled by this adapter. Empty returns all.
+  string adapter = 2;
+}
+
+message ListDevicesResponse {
+  repeated Device devices = 1;
+}
+
+message ListPendingDevicesRequest {
+  // Only return devices handled by this adapter. Empty returns all.
+  string adapter = 1;
+}
+
+message ListPendingDevicesResponse {
+  repeated Device devices = 1;
+}
+
+message AdoptDeviceRequest {
+  // The device to adopt, by id or by MAC address (any common notation).
+  oneof device {
+    string id = 1;
+    string mac = 2;
+  }
+}
+
+message AdoptDeviceResponse {
+  Device device = 1;
+}
+
+message ForgetDeviceRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message ForgetDeviceResponse {}

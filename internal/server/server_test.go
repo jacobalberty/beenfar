@@ -14,6 +14,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	"github.com/jacobalberty/beenfar/internal/auth"
+	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/server"
 	"github.com/jacobalberty/beenfar/internal/store"
 	"github.com/jacobalberty/beenfar/internal/store/otelstore"
@@ -24,6 +26,7 @@ import (
 type fixture struct {
 	handler http.Handler
 	store   store.Store
+	auth    *auth.Service
 	spans   *tracetest.SpanRecorder
 }
 
@@ -44,7 +47,12 @@ func newFixture(t *testing.T) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fixture{handler: server.New(server.Options{Store: st, Telemetry: tel}), store: raw, spans: spans}
+	authSvc := auth.New(st, auth.WithIterations(1000)) // fast hashes for tests
+	h, err := server.New(server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fixture{handler: h, store: raw, auth: authSvc, spans: spans}
 }
 
 // informPacket builds an unencrypted inform packet for mac (12 hex digits).

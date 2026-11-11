@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package beenfar.admin.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// AdapterService reports the device adapters registered with the controller.
+service AdapterService {
+  // ListAdapters returns every registered adapter, ordered by name.
+  rpc ListAdapters(ListAdaptersRequest) returns (ListAdaptersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/adapters"};
+  }
+}
+
+// AdapterKind says where an adapter runs.
+enum AdapterKind {
+  ADAPTER_KIND_UNSPECIFIED = 0;
+  // Compiled into beenfard.
+  ADAPTER_KIND_BUILTIN = 1;
+  // A separate process connected over the adapter API.
+  ADAPTER_KIND_EXTERNAL = 2;
+}
+
+// Adapter is a device adapter, such as the built-in UniFi adapter.
+message Adapter {
+  // Unique adapter name, e.g. "unifi".
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+  AdapterKind kind = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string version = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Whether the adapter is running (built-in) or connected (external).
+  bool healthy = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Last error reported by or about the adapter, if any.
+  string status_message = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // When the adapter started or last connected.
+  google.protobuf.Timestamp connect_time = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message ListAdaptersRequest {}
+
+message ListAdaptersResponse {
+  repeated Adapter adapters = 1;
+}

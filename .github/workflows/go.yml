@@ -17,6 +17,7 @@ concurrency:
 env:
   GOLANGCI_LINT_VERSION: v2.15.0
   GOVULNCHECK_VERSION: v1.9.0
+  BUF_VERSION: 1.61.0
 
 jobs:
   lint:
@@ -32,6 +33,52 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
+
+  api:
+    name: protos and generated code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: api/go.mod
+          check-latest: true
+      - uses: bufbuild/buf-action@v1
+        with:
+          version: ${{ env.BUF_VERSION }}
+          setup_only: true
+      - name: buf lint
+        working-directory: api
+        run: buf lint
+      - name: buf format
+        working-directory: api
+        run: buf format --diff --exit-code
+      - name: buf breaking
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
+          if ! git cat-file -e "origin/$GITHUB_BASE_REF:api/buf.yaml" 2>/dev/null; then
+            echo "Base branch has no api/ module yet; nothing to compare against."
+            exit 0
+          fi
+          buf breaking api --against ".git#ref=origin/$GITHUB_BASE_REF,subdir=api"
+      - name: Regenerate code
+        run: |
+          (cd api && go generate -run install . && go generate .)
+          go generate ./internal/store/sqlite
+      - name: Fail if generated code is stale
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Generated code is out of date. Run 'go generate ./api ./internal/store/sqlite' (after 'go generate -run install ./api') and commit the result."
+            git status --porcelain
+            git --no-pager diff --stat
+            exit 1
+          fi
+      - name: Vet and build the api module
+        working-directory: api
+        run: |
+          go vet ./...
+          go build ./...
 
   gofix:
     name: go fix is clean
