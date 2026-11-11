@@ -27,10 +27,11 @@ import (
 )
 
 type fixture struct {
-	handler http.Handler
-	store   store.Store
-	auth    *auth.Service
-	spans   *tracetest.SpanRecorder
+	handler  http.Handler
+	store    store.Store
+	auth     *auth.Service
+	spans    *tracetest.SpanRecorder
+	registry *adapterhost.Registry
 }
 
 // fixtureOption adjusts the server options; the auth service is ready.
@@ -75,7 +76,7 @@ func newFixture(t *testing.T, fopts ...fixtureOption) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fixture{handler: h, store: raw, auth: authSvc, spans: spans}
+	return fixture{handler: h, store: raw, auth: authSvc, spans: spans, registry: reg}
 }
 
 // informPacket builds an unencrypted inform packet for mac (12 hex digits).
