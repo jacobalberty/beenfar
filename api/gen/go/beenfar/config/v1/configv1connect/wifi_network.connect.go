@@ -90,9 +90,10 @@ type WifiNetworkServiceClient interface {
 	GetWifiNetwork(context.Context, *v1.GetWifiNetworkRequest) (*v1.GetWifiNetworkResponse, error)
 	// ListWifiNetworks returns every wireless network, ordered by SSID.
 	ListWifiNetworks(context.Context, *v1.ListWifiNetworksRequest) (*v1.ListWifiNetworksResponse, error)
-	// UpdateWifiNetwork replaces every mutable field of a wireless network.
-	// When etag is set it must match the stored etag, or the call fails with
-	// ABORTED.
+	// UpdateWifiNetwork replaces the fields named by update_mask, or every
+	// mutable field when the mask is empty. When etag is set it must match the
+	// stored etag, or the call fails with ABORTED. PATCH and PUT bind the same
+	// call over REST; pass update_mask as a query parameter.
 	UpdateWifiNetwork(context.Context, *v1.UpdateWifiNetworkRequest) (*v1.UpdateWifiNetworkResponse, error)
 	// DeleteWifiNetwork deletes a wireless network. When etag is set it must
 	// match the stored etag, or the call fails with ABORTED.
@@ -114,9 +115,10 @@ type WifiNetworkServiceHandler interface {
 	GetWifiNetwork(context.Context, *v1.GetWifiNetworkRequest) (*v1.GetWifiNetworkResponse, error)
 	// ListWifiNetworks returns every wireless network, ordered by SSID.
 	ListWifiNetworks(context.Context, *v1.ListWifiNetworksRequest) (*v1.ListWifiNetworksResponse, error)
-	// UpdateWifiNetwork replaces every mutable field of a wireless network.
-	// When etag is set it must match the stored etag, or the call fails with
-	// ABORTED.
+	// UpdateWifiNetwork replaces the fields named by update_mask, or every
+	// mutable field when the mask is empty. When etag is set it must match the
+	// stored etag, or the call fails with ABORTED. PATCH and PUT bind the same
+	// call over REST; pass update_mask as a query parameter.
 	UpdateWifiNetwork(context.Context, *v1.UpdateWifiNetworkRequest) (*v1.UpdateWifiNetworkResponse, error)
 	// DeleteWifiNetwork deletes a wireless network. When etag is set it must
 	// match the stored etag, or the call fails with ABORTED.

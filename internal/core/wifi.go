@@ -28,13 +28,33 @@ func (s *WifiService) List(ctx context.Context) ([]store.WifiNetwork, error) {
 	return s.store.ListWifiNetworks(ctx)
 }
 
-// Update replaces every mutable field. A non-zero w.Revision must match.
-func (s *WifiService) Update(ctx context.Context, w store.WifiNetwork) (store.WifiNetwork, error) {
-	w, err := normalizeWifi(w)
-	if err != nil {
-		return store.WifiNetwork{}, err
-	}
-	return s.store.UpdateWifiNetwork(ctx, w)
+// wifiFields are the mutable fields of a wireless network, by API name.
+var wifiFields = fieldSetters[store.WifiNetwork]{
+	"ssid":               func(d *store.WifiNetwork, s store.WifiNetwork) { d.SSID = s.SSID },
+	"security":           func(d *store.WifiNetwork, s store.WifiNetwork) { d.Security = s.Security },
+	"security_key":       func(d *store.WifiNetwork, s store.WifiNetwork) { d.SecurityKey = s.SecurityKey },
+	"band":               func(d *store.WifiNetwork, s store.WifiNetwork) { d.Band = s.Band },
+	"network_id":         func(d *store.WifiNetwork, s store.WifiNetwork) { d.NetworkID = s.NetworkID },
+	"guest":              func(d *store.WifiNetwork, s store.WifiNetwork) { d.Guest = s.Guest },
+	"hidden":             func(d *store.WifiNetwork, s store.WifiNetwork) { d.Hidden = s.Hidden },
+	"ap_groups":          func(d *store.WifiNetwork, s store.WifiNetwork) { d.APGroups = s.APGroups },
+	"default_user_group": func(d *store.WifiNetwork, s store.WifiNetwork) { d.DefaultUserGroup = s.DefaultUserGroup },
+	"radius_profile":     func(d *store.WifiNetwork, s store.WifiNetwork) { d.RadiusProfile = s.RadiusProfile },
+}
+
+// Update replaces the fields named by paths (API field names), or every
+// mutable field when paths is empty or "*". Fields not named keep their
+// stored values. A non-zero w.Revision must match the stored revision.
+func (s *WifiService) Update(ctx context.Context, w store.WifiNetwork, paths []string) (store.WifiNetwork, error) {
+	return updateMasked(ctx, s.store, w, paths, wifiFields,
+		func(w *store.WifiNetwork) *int64 { return &w.Revision },
+		func(ctx context.Context, tx store.Store) (store.WifiNetwork, error) {
+			return tx.GetWifiNetwork(ctx, w.ID)
+		},
+		normalizeWifi,
+		func(ctx context.Context, tx store.Store, w store.WifiNetwork) (store.WifiNetwork, error) {
+			return tx.UpdateWifiNetwork(ctx, w)
+		})
 }
 
 // Delete deletes by id. A non-zero revision must match.

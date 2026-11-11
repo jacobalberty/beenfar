@@ -10,6 +10,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -414,9 +415,13 @@ func (x *ListNetworksResponse) GetNetworks() []*Network {
 
 type UpdateNetworkRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The full resource. id selects the network; etag, when set, guards the
-	// update.
-	Network       *Network `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
+	// id selects the network; etag, when set, guards the update.
+	Network *Network `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
+	// Fields to update, named by their proto field names (e.g. "ssid",
+	// "ap_groups"). Fields not listed keep their stored values, so a client
+	// can manage some fields and leave the rest to others. When the mask is
+	// empty or "*", every mutable field is replaced.
+	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -454,6 +459,13 @@ func (*UpdateNetworkRequest) Descriptor() ([]byte, []int) {
 func (x *UpdateNetworkRequest) GetNetwork() *Network {
 	if x != nil {
 		return x.Network
+	}
+	return nil
+}
+
+func (x *UpdateNetworkRequest) GetUpdateMask() *fieldmaskpb.FieldMask {
+	if x != nil {
+		return x.UpdateMask
 	}
 	return nil
 }
@@ -594,7 +606,7 @@ var File_beenfar_config_v1_network_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_network_proto_rawDesc = "" +
 	"\n" +
-	"\x1fbeenfar/config/v1/network.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x03\n" +
+	"\x1fbeenfar/config/v1/network.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x03\n" +
 	"\aNetwork\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x18\n" +
 	"\x04name\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12\x17\n" +
@@ -621,21 +633,23 @@ const file_beenfar_config_v1_network_proto_rawDesc = "" +
 	"\anetwork\x18\x01 \x01(\v2\x1a.beenfar.config.v1.NetworkR\anetwork\"\x15\n" +
 	"\x13ListNetworksRequest\"N\n" +
 	"\x14ListNetworksResponse\x126\n" +
-	"\bnetworks\x18\x01 \x03(\v2\x1a.beenfar.config.v1.NetworkR\bnetworks\"R\n" +
+	"\bnetworks\x18\x01 \x03(\v2\x1a.beenfar.config.v1.NetworkR\bnetworks\"\x8f\x01\n" +
 	"\x14UpdateNetworkRequest\x12:\n" +
-	"\anetwork\x18\x01 \x01(\v2\x1a.beenfar.config.v1.NetworkB\x04\xe2A\x01\x02R\anetwork\"M\n" +
+	"\anetwork\x18\x01 \x01(\v2\x1a.beenfar.config.v1.NetworkB\x04\xe2A\x01\x02R\anetwork\x12;\n" +
+	"\vupdate_mask\x18\x02 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
+	"updateMask\"M\n" +
 	"\x15UpdateNetworkResponse\x124\n" +
 	"\anetwork\x18\x01 \x01(\v2\x1a.beenfar.config.v1.NetworkR\anetwork\"@\n" +
 	"\x14DeleteNetworkRequest\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\x12\x12\n" +
 	"\x04etag\x18\x02 \x01(\tR\x04etag\"\x17\n" +
-	"\x15DeleteNetworkResponse2\xcb\x05\n" +
+	"\x15DeleteNetworkResponse2\xfe\x05\n" +
 	"\x0eNetworkService\x12\x8e\x01\n" +
 	"\rCreateNetwork\x12'.beenfar.config.v1.CreateNetworkRequest\x1a(.beenfar.config.v1.CreateNetworkResponse\"*\x82\xd3\xe4\x93\x02$:\anetworkb\anetwork\"\x10/api/v1/networks\x12\x84\x01\n" +
 	"\n" +
 	"GetNetwork\x12$.beenfar.config.v1.GetNetworkRequest\x1a%.beenfar.config.v1.GetNetworkResponse\")\x82\xd3\xe4\x93\x02 b\anetwork\x12\x15/api/v1/networks/{id}\x90\x02\x01\x12|\n" +
-	"\fListNetworks\x12&.beenfar.config.v1.ListNetworksRequest\x1a'.beenfar.config.v1.ListNetworksResponse\"\x1b\x82\xd3\xe4\x93\x02\x12\x12\x10/api/v1/networks\x90\x02\x01\x12\x9b\x01\n" +
-	"\rUpdateNetwork\x12'.beenfar.config.v1.UpdateNetworkRequest\x1a(.beenfar.config.v1.UpdateNetworkResponse\"7\x82\xd3\xe4\x93\x021:\anetworkb\anetwork\x1a\x1d/api/v1/networks/{network.id}\x12\x84\x01\n" +
+	"\fListNetworks\x12&.beenfar.config.v1.ListNetworksRequest\x1a'.beenfar.config.v1.ListNetworksResponse\"\x1b\x82\xd3\xe4\x93\x02\x12\x12\x10/api/v1/networks\x90\x02\x01\x12\xce\x01\n" +
+	"\rUpdateNetwork\x12'.beenfar.config.v1.UpdateNetworkRequest\x1a(.beenfar.config.v1.UpdateNetworkResponse\"j\x82\xd3\xe4\x93\x02d:\anetworkZ1:\anetworkb\anetwork2\x1d/api/v1/networks/{network.id}b\anetwork\x1a\x1d/api/v1/networks/{network.id}\x12\x84\x01\n" +
 	"\rDeleteNetwork\x12'.beenfar.config.v1.DeleteNetworkRequest\x1a(.beenfar.config.v1.DeleteNetworkResponse\" \x82\xd3\xe4\x93\x02\x17*\x15/api/v1/networks/{id}\x90\x02\x02B\xd2\x01\n" +
 	"\x15com.beenfar.config.v1B\fNetworkProtoP\x01ZEgithub.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1;configv1\xa2\x02\x03BCX\xaa\x02\x11Beenfar.Config.V1\xca\x02\x11Beenfar\\Config\\V1\xe2\x02\x1dBeenfar\\Config\\V1\\GPBMetadata\xea\x02\x13Beenfar::Config::V1b\x06proto3"
 
@@ -665,6 +679,7 @@ var file_beenfar_config_v1_network_proto_goTypes = []any{
 	(*DeleteNetworkRequest)(nil),  // 9: beenfar.config.v1.DeleteNetworkRequest
 	(*DeleteNetworkResponse)(nil), // 10: beenfar.config.v1.DeleteNetworkResponse
 	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(*fieldmaskpb.FieldMask)(nil), // 12: google.protobuf.FieldMask
 }
 var file_beenfar_config_v1_network_proto_depIdxs = []int32{
 	11, // 0: beenfar.config.v1.Network.create_time:type_name -> google.protobuf.Timestamp
@@ -674,22 +689,23 @@ var file_beenfar_config_v1_network_proto_depIdxs = []int32{
 	0,  // 4: beenfar.config.v1.GetNetworkResponse.network:type_name -> beenfar.config.v1.Network
 	0,  // 5: beenfar.config.v1.ListNetworksResponse.networks:type_name -> beenfar.config.v1.Network
 	0,  // 6: beenfar.config.v1.UpdateNetworkRequest.network:type_name -> beenfar.config.v1.Network
-	0,  // 7: beenfar.config.v1.UpdateNetworkResponse.network:type_name -> beenfar.config.v1.Network
-	1,  // 8: beenfar.config.v1.NetworkService.CreateNetwork:input_type -> beenfar.config.v1.CreateNetworkRequest
-	3,  // 9: beenfar.config.v1.NetworkService.GetNetwork:input_type -> beenfar.config.v1.GetNetworkRequest
-	5,  // 10: beenfar.config.v1.NetworkService.ListNetworks:input_type -> beenfar.config.v1.ListNetworksRequest
-	7,  // 11: beenfar.config.v1.NetworkService.UpdateNetwork:input_type -> beenfar.config.v1.UpdateNetworkRequest
-	9,  // 12: beenfar.config.v1.NetworkService.DeleteNetwork:input_type -> beenfar.config.v1.DeleteNetworkRequest
-	2,  // 13: beenfar.config.v1.NetworkService.CreateNetwork:output_type -> beenfar.config.v1.CreateNetworkResponse
-	4,  // 14: beenfar.config.v1.NetworkService.GetNetwork:output_type -> beenfar.config.v1.GetNetworkResponse
-	6,  // 15: beenfar.config.v1.NetworkService.ListNetworks:output_type -> beenfar.config.v1.ListNetworksResponse
-	8,  // 16: beenfar.config.v1.NetworkService.UpdateNetwork:output_type -> beenfar.config.v1.UpdateNetworkResponse
-	10, // 17: beenfar.config.v1.NetworkService.DeleteNetwork:output_type -> beenfar.config.v1.DeleteNetworkResponse
-	13, // [13:18] is the sub-list for method output_type
-	8,  // [8:13] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	12, // 7: beenfar.config.v1.UpdateNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
+	0,  // 8: beenfar.config.v1.UpdateNetworkResponse.network:type_name -> beenfar.config.v1.Network
+	1,  // 9: beenfar.config.v1.NetworkService.CreateNetwork:input_type -> beenfar.config.v1.CreateNetworkRequest
+	3,  // 10: beenfar.config.v1.NetworkService.GetNetwork:input_type -> beenfar.config.v1.GetNetworkRequest
+	5,  // 11: beenfar.config.v1.NetworkService.ListNetworks:input_type -> beenfar.config.v1.ListNetworksRequest
+	7,  // 12: beenfar.config.v1.NetworkService.UpdateNetwork:input_type -> beenfar.config.v1.UpdateNetworkRequest
+	9,  // 13: beenfar.config.v1.NetworkService.DeleteNetwork:input_type -> beenfar.config.v1.DeleteNetworkRequest
+	2,  // 14: beenfar.config.v1.NetworkService.CreateNetwork:output_type -> beenfar.config.v1.CreateNetworkResponse
+	4,  // 15: beenfar.config.v1.NetworkService.GetNetwork:output_type -> beenfar.config.v1.GetNetworkResponse
+	6,  // 16: beenfar.config.v1.NetworkService.ListNetworks:output_type -> beenfar.config.v1.ListNetworksResponse
+	8,  // 17: beenfar.config.v1.NetworkService.UpdateNetwork:output_type -> beenfar.config.v1.UpdateNetworkResponse
+	10, // 18: beenfar.config.v1.NetworkService.DeleteNetwork:output_type -> beenfar.config.v1.DeleteNetworkResponse
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_config_v1_network_proto_init() }

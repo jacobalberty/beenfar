@@ -56,7 +56,7 @@ func (h *wifiHandler) UpdateWifiNetwork(ctx context.Context, req *configv1.Updat
 	if err != nil {
 		return nil, err
 	}
-	out, err := h.svc.Update(ctx, w)
+	out, err := h.svc.Update(ctx, w, req.GetUpdateMask().GetPaths())
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (h *networkHandler) UpdateNetwork(ctx context.Context, req *configv1.Update
 	if err != nil {
 		return nil, err
 	}
-	out, err := h.svc.Update(ctx, n)
+	out, err := h.svc.Update(ctx, n, req.GetUpdateMask().GetPaths())
 	if err != nil {
 		return nil, err
 	}

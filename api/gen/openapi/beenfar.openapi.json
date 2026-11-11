@@ -1123,8 +1123,13 @@
         "properties": {
           "network": {
             "title": "network",
-            "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+            "description": "id selects the network; etag, when set, guards the update.",
             "$ref": "#/components/schemas/beenfar.config.v1.Network"
+          },
+          "updateMask": {
+            "title": "update_mask",
+            "description": "Fields to update, named by their proto field names (e.g. \"ssid\",\n \"ap_groups\"). Fields not listed keep their stored values, so a client\n can manage some fields and leave the rest to others. When the mask is\n empty or \"*\", every mutable field is replaced.",
+            "$ref": "#/components/schemas/google.protobuf.FieldMask"
           }
         },
         "title": "UpdateNetworkRequest",
@@ -1149,8 +1154,13 @@
         "properties": {
           "wifiNetwork": {
             "title": "wifi_network",
-            "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+            "description": "id selects the wifinetwork; etag, when set, guards the update.",
             "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+          },
+          "updateMask": {
+            "title": "update_mask",
+            "description": "Fields to update, named by their proto field names (e.g. \"ssid\",\n \"ap_groups\"). Fields not listed keep their stored values, so a client\n can manage some fields and leave the rest to others. When the mask is\n empty or \"*\", every mutable field is replaced.",
+            "$ref": "#/components/schemas/google.protobuf.FieldMask"
           }
         },
         "title": "UpdateWifiNetworkRequest",
@@ -1284,6 +1294,10 @@
         },
         "additionalProperties": true,
         "description": "Contains an arbitrary serialized message along with a @type that describes the type of the serialized message."
+      },
+      "google.protobuf.FieldMask": {
+        "type": "string",
+        "description": "Comma-separated field paths in lowerCamelCase (for example, `user.displayName,photo`)."
       },
       "google.protobuf.Timestamp": {
         "type": "string",
@@ -2010,7 +2024,7 @@
           "NetworkService"
         ],
         "summary": "UpdateNetwork",
-        "description": "UpdateNetwork replaces every mutable field of a network. When etag is\n set it must match the stored etag, or the call fails with ABORTED.",
+        "description": "UpdateNetwork replaces the fields named by update_mask, or every mutable\n field when the mask is empty. When etag is set it must match the stored\n etag, or the call fails with ABORTED. PATCH and PUT bind the same call\n over REST; pass update_mask as a query parameter.",
         "operationId": "beenfar.config.v1.NetworkService.UpdateNetwork",
         "parameters": [
           {
@@ -2022,15 +2036,86 @@
               "type": "string",
               "title": "id"
             }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (e.g. \"ssid\",\n \"ap_groups\"). Fields not listed keep their stored values, so a client\n can manage some fields and leave the rest to others. When the mask is\n empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
-          "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+          "description": "id selects the network; etag, when set, guards the update.",
           "content": {
             "application/json": {
               "schema": {
                 "title": "network",
-                "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+                "description": "id selects the network; etag, when set, guards the update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.Network"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Network"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "NetworkService"
+        ],
+        "summary": "UpdateNetwork",
+        "description": "UpdateNetwork replaces the fields named by update_mask, or every mutable\n field when the mask is empty. When etag is set it must match the stored\n etag, or the call fails with ABORTED. PATCH and PUT bind the same call\n over REST; pass update_mask as a query parameter.",
+        "operationId": "beenfar.config.v1.NetworkService.UpdateNetwork2",
+        "parameters": [
+          {
+            "name": "network.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (e.g. \"ssid\",\n \"ap_groups\"). Fields not listed keep their stored values, so a client\n can manage some fields and leave the rest to others. When the mask is\n empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the network; etag, when set, guards the update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "network",
+                "description": "id selects the network; etag, when set, guards the update.",
                 "$ref": "#/components/schemas/beenfar.config.v1.Network"
               }
             }
@@ -2571,7 +2656,7 @@
           "WifiNetworkService"
         ],
         "summary": "UpdateWifiNetwork",
-        "description": "UpdateWifiNetwork replaces every mutable field of a wireless network.\n When etag is set it must match the stored etag, or the call fails with\n ABORTED.",
+        "description": "UpdateWifiNetwork replaces the fields named by update_mask, or every\n mutable field when the mask is empty. When etag is set it must match the\n stored etag, or the call fails with ABORTED. PATCH and PUT bind the same\n call over REST; pass update_mask as a query parameter.",
         "operationId": "beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork",
         "parameters": [
           {
@@ -2583,15 +2668,86 @@
               "type": "string",
               "title": "id"
             }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (e.g. \"ssid\",\n \"ap_groups\"). Fields not listed keep their stored values, so a client\n can manage some fields and leave the rest to others. When the mask is\n empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
-          "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+          "description": "id selects the wifinetwork; etag, when set, guards the update.",
           "content": {
             "application/json": {
               "schema": {
                 "title": "wifi_network",
-                "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+                "description": "id selects the wifinetwork; etag, when set, guards the update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "wifi_network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "WifiNetworkService"
+        ],
+        "summary": "UpdateWifiNetwork",
+        "description": "UpdateWifiNetwork replaces the fields named by update_mask, or every\n mutable field when the mask is empty. When etag is set it must match the\n stored etag, or the call fails with ABORTED. PATCH and PUT bind the same\n call over REST; pass update_mask as a query parameter.",
+        "operationId": "beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork2",
+        "parameters": [
+          {
+            "name": "wifiNetwork.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (e.g. \"ssid\",\n \"ap_groups\"). Fields not listed keep their stored values, so a client\n can manage some fields and leave the rest to others. When the mask is\n empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the wifinetwork; etag, when set, guards the update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "wifi_network",
+                "description": "id selects the wifinetwork; etag, when set, guards the update.",
                 "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
               }
             }
