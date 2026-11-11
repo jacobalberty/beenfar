@@ -12,7 +12,7 @@ ARG VERSION=dev
 RUN mkdir -p /go/bin/app && \
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /go/bin/app/ ./cmd/...
 
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian13
 
 COPY --from=build /go/bin/app /
 ENV BEENFAR_DB=sqlite:///data/beenfar.db
