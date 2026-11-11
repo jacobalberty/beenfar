@@ -28,8 +28,9 @@ func (s *DeviceService) ListPending(ctx context.Context, adapter string) ([]stor
 	return s.store.ListDevices(ctx, store.DeviceFilter{State: store.DeviceStatePending, Adapter: adapter})
 }
 
-// Adopt brings a pending device under management. Exactly one of id and mac
-// must be set.
+// Adopt brings a pending device under management, or accepts the re-adoption
+// of an adopted device that was reset and is awaiting it. Exactly one of id
+// and mac must be set.
 //
 // The device's adapter takes the device over first; only when that succeeds
 // is the device marked adopted. The adapter is not called inside a
@@ -50,7 +51,7 @@ func (s *DeviceService) Adopt(ctx context.Context, id, mac string) (store.Device
 	if err != nil {
 		return store.Device{}, err
 	}
-	if d.State != store.DeviceStatePending {
+	if d.State != store.DeviceStatePending && d.Readoption != store.ReadoptionAwaiting {
 		return store.Device{}, fmt.Errorf("%w: device %s is already adopted", store.ErrFailedPrecondition, d.ID)
 	}
 	if d.Locked {

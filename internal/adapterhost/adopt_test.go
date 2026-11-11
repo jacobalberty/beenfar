@@ -68,3 +68,39 @@ func TestLockedDeviceCannotBeAdoptedAndOfflineAdapterCannotBlockForget(t *testin
 		t.Fatalf("device still there: %v", err)
 	}
 }
+
+// A reset device that is awaiting re-adoption is accepted with the same call
+// that adopts a new one. It stays adopted and moves on to being re-keyed.
+func TestAcceptingReadoption(t *testing.T) {
+	ctx := t.Context()
+	st := openStore(t)
+	fa := newFake("fake")
+	svc := core.New(st, newRegistry(t, st, fa)).Devices
+
+	d, err := st.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:08", Adapter: "fake"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Adopt(ctx, d.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	// Adopted and healthy: nothing to accept.
+	if _, err := svc.Adopt(ctx, d.ID, ""); !errors.Is(err, store.ErrFailedPrecondition) {
+		t.Fatalf("adopting a healthy adopted device = %v", err)
+	}
+
+	if _, err := st.RecordDeviceState(ctx, d.ID, store.DeviceReport{Readoption: store.ReadoptionAwaiting}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.Adopt(ctx, d.ID, "")
+	if err != nil || got.State != store.DeviceStateAdopted || got.Readoption != store.ReadoptionInProgress {
+		t.Fatalf("accept = %+v, %v", got, err)
+	}
+	if len(fa.adopted) != 2 {
+		t.Fatalf("the adapter was told %d times, want 2 (adoption and acceptance)", len(fa.adopted))
+	}
+	// Accepted once: a second click does not re-key it again.
+	if _, err := svc.Adopt(ctx, d.ID, ""); !errors.Is(err, store.ErrFailedPrecondition) {
+		t.Fatalf("accepting twice = %v", err)
+	}
+}
