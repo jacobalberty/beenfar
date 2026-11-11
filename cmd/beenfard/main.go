@@ -51,6 +51,9 @@ type config struct {
 
 	unifiInterval int  // seconds between informs of a UniFi device
 	unifiGCM      bool // adopt UniFi devices onto AES-GCM
+	// How long an adopted UniFi device must be silent before one on the
+	// default key is taken for factory reset and offered for re-adoption.
+	unifiReadoptAfter time.Duration
 }
 
 func parseFlags(args []string) (config, error) {
@@ -65,6 +68,8 @@ func parseFlags(args []string) (config, error) {
 	cfg.auth = registerAuthFlags(fs)
 	fs.IntVar(&cfg.unifiInterval, "unifi-inform-interval", cfg.auth.envInt("BEENFAR_UNIFI_INFORM_INTERVAL", unifi.DefaultInterval),
 		"seconds between informs of a UniFi device (env BEENFAR_UNIFI_INFORM_INTERVAL)")
+	fs.DurationVar(&cfg.unifiReadoptAfter, "unifi-readopt-after", cfg.auth.envDuration("BEENFAR_UNIFI_READOPT_AFTER", 2*time.Minute),
+		"silence after which an adopted UniFi device on the default key is offered for re-adoption; 0 turns it off (env BEENFAR_UNIFI_READOPT_AFTER)")
 	fs.BoolVar(&cfg.unifiGCM, "unifi-gcm", cfg.auth.envBool("BEENFAR_UNIFI_GCM", false),
 		"switch UniFi devices to AES-GCM when adopting them (env BEENFAR_UNIFI_GCM)")
 	if err := fs.Parse(args); err != nil {
@@ -75,6 +80,9 @@ func parseFlags(args []string) (config, error) {
 	}
 	if cfg.unifiInterval < 1 {
 		return cfg, fmt.Errorf("unifi inform interval %d: want at least 1 second", cfg.unifiInterval)
+	}
+	if cfg.unifiReadoptAfter < 0 {
+		return cfg, fmt.Errorf("unifi readopt-after %s: must not be negative", cfg.unifiReadoptAfter)
 	}
 	if cfg.logFormat != "json" && cfg.logFormat != "text" {
 		return cfg, fmt.Errorf("log format %q: want json or text", cfg.logFormat)
@@ -132,6 +140,8 @@ func run() error {
 		Meter:    tel.Meter(),
 		Interval: cfg.unifiInterval,
 		UseGCM:   cfg.unifiGCM,
+
+		ReadoptAfter: cfg.unifiReadoptAfter,
 	})
 	if err != nil {
 		return err

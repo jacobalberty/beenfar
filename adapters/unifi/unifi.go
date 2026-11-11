@@ -17,6 +17,19 @@
 // reports differs from the controller's, and a Noop with the inform interval
 // otherwise.
 //
+// # Reset devices
+//
+// An adopted device that comes back speaking the default key was factory
+// reset. It is the same managed device, so it stays adopted, but it is not
+// re-keyed by itself: the default key is public, so a reply sealed with it
+// reaches anybody, and anyone on the network can send such an inform for any
+// MAC. The device is marked as awaiting re-adoption and answered 404 until
+// someone accepts that (AdoptDevice, as for a new device); then it is re-keyed
+// like a new one and its readoption is in progress until it uses the new key.
+// A device that turns out to be running on its own key drops the key that was
+// meant for it. Only a device silent for Options.ReadoptAfter is considered,
+// so a live device is never flagged by a spoofed inform.
+//
 // # Taking over devices
 //
 // Keys taken from another controller are stored as imported keys (see
@@ -33,6 +46,7 @@ import (
 	"net"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/jacobalberty/go-unifi/inform"
 	"go.opentelemetry.io/otel/attribute"
@@ -60,6 +74,12 @@ type Options struct {
 	Meter metric.Meter
 	// Interval is the inform interval in seconds (default DefaultInterval).
 	Interval int
+	// ReadoptAfter is how long an adopted device must have been silent before
+	// one that then speaks the default key is taken for factory reset and
+	// offered for re-adoption (see the package comment). Zero turns that off:
+	// such a device stays locked. Keep it well above the inform interval, so
+	// that a slow device is never mistaken for a reset one.
+	ReadoptAfter time.Duration
 	// UseGCM tells devices adopted from now on to switch to AES-GCM. It is off
 	// by default: GCM is verified against one real capture of a device's
 	// inform, but not of a controller's reply.
@@ -192,7 +212,7 @@ func (a *Adapter) keys(ctx context.Context, mac net.HardwareAddr) ([]inform.Key,
 		return nil, err
 	}
 	trace.SpanFromContext(ctx).SetAttributes(attribute.String("device.mac", mac.String()))
-	return keysFor(ctx, h, mac.String())
+	return keysFor(ctx, h, mac.String(), a.opts.ReadoptAfter, time.Now())
 }
 
 func (a *Adapter) undecryptable(ctx context.Context, p *inform.Packet) {
@@ -226,9 +246,15 @@ func (a *Adapter) onError(ctx context.Context, mac net.HardwareAddr, status int,
 	slog.InfoContext(ctx, "inform rejected", slog.Int("status", status), slog.Any("error", err))
 }
 
+// errAwaitingReadoption answers a reset device nobody has accepted yet: 404,
+// so that it keeps trying.
+var errAwaitingReadoption = fmt.Errorf("%w: reset device awaiting re-adoption", inform.ErrUnknownDevice)
+
 // rejectReason classifies why an inform got no reply.
 func rejectReason(status int, err error) string {
 	switch {
+	case errors.Is(err, errAwaitingReadoption):
+		return "awaiting_readoption"
 	case errors.Is(err, inform.ErrUnknownDevice):
 		return "not_adopted"
 	case errors.Is(err, inform.ErrDecrypt):
@@ -252,6 +278,8 @@ func (a *Adapter) serve(ctx context.Context, p *inform.Packet, in *inform.Inform
 	}
 	resp, err := a.respond(ctx, h, p, in, used)
 	switch {
+	case errors.Is(err, errAwaitingReadoption):
+		span.SetAttributes(attribute.String("unifi.response", "awaiting_readoption"))
 	case errors.Is(err, inform.ErrUnknownDevice):
 		span.SetAttributes(attribute.String("unifi.response", "not_found"))
 	case err == nil:
@@ -299,21 +327,65 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	case err != nil:
 		return nil, err
 	}
+	_, err = h.DeviceSecret(ctx, dev.ID, SecretCurrent)
+	hasCurrent := err == nil
+	if err != nil && !errors.Is(err, adapter.ErrNoSecret) {
+		return nil, err
+	}
+	onDefault := used.Name == keyDefault || len(used.Bytes) == 0
+	readoption := adapter.ReadoptionNone
 
-	if used.Name == SecretPending {
+	switch {
+	case used.Name == SecretPending:
 		// The device switched to the key it was sent: commit it.
 		if err := commitKey(ctx, h, dev.ID, used.Bytes); err != nil {
 			return nil, err
 		}
 		pending = nil
 		slog.InfoContext(ctx, "device switched to its new key")
+	case !onDefault && dev.Readoption != adapter.ReadoptionNone && pending != nil:
+		// The device was thought reset but runs on a key of its own. The key
+		// it was going to be given was sealed with the default key, which
+		// anybody can open: drop it rather than hand it to the device.
+		if err := h.SetDeviceSecret(ctx, dev.ID, SecretPending, nil); err != nil {
+			return nil, err
+		}
+		pending = nil
+		slog.InfoContext(ctx, "device is running on its own key again; dropped the key meant for a reset device")
+	case onDefault && hasCurrent:
+		// It had a key and speaks the default one: it was reset. It stays the
+		// same adopted device, but nothing is sent to it until somebody has
+		// accepted re-adopting it.
+		if dev.Readoption != adapter.ReadoptionInProgress {
+			readoption = adapter.ReadoptionAwaiting
+			if dev.Readoption != adapter.ReadoptionAwaiting {
+				slog.WarnContext(ctx, "adopted device is back on the default key; it was reset and awaits re-adoption")
+			}
+		} else {
+			readoption = adapter.ReadoptionInProgress
+		}
 	}
 
 	if err := h.ReportState(ctx, dev.ID, adapter.State{
 		IP: ipFrom(ctx), Firmware: in.Version, Model: in.Model,
 		ConfigRevision: parseRevision(in.ConfigVersion),
+		Readoption:     readoption,
 	}); err != nil {
 		return nil, err
+	}
+	if readoption == adapter.ReadoptionAwaiting {
+		return nil, errAwaitingReadoption
+	}
+
+	if onDefault && pending == nil {
+		// Adopted, yet still on the default key and with no key on its way
+		// (for instance adopted before a restart lost the pending key, or
+		// re-adoption accepted): give it one now.
+		key := inform.NewKey()
+		if err := h.SetDeviceSecret(ctx, dev.ID, SecretPending, key); err != nil {
+			return nil, err
+		}
+		pending = key
 	}
 	desired, err := h.DesiredConfig(ctx, dev.ID)
 	if err != nil {
@@ -327,22 +399,14 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	if pending != nil {
 		authKey = pending
 	}
-	onDefault := used.Name == keyDefault || len(used.Bytes) == 0
-	if onDefault && pending == nil {
-		// Adopted, yet still on the default key and with no key on its way
-		// (for instance adopted before a restart lost the pending key): give
-		// it one now.
-		authKey = inform.NewKey()
-		if err := h.SetDeviceSecret(ctx, dev.ID, SecretPending, authKey); err != nil {
-			return nil, err
-		}
-	}
-
 	if pending == nil && !onDefault && in.ConfigVersion == version {
 		return inform.Noop{Interval: a.opts.Interval}, nil
 	}
 	reason := "revision"
-	if pending != nil || onDefault {
+	switch {
+	case readoption == adapter.ReadoptionInProgress:
+		reason = "readopt"
+	case pending != nil || onDefault:
 		reason = "key"
 	}
 	a.pushes.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", reason)))

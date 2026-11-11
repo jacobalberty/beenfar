@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"connectrpc.com/connect/v2"
 	"encoding/json"
 	"io"
 	"net"
@@ -62,10 +63,14 @@ func (d unifiDevice) inform(key []byte, cfgversion string) (int, map[string]any)
 
 // newUnifiFixture runs the real UniFi adapter. Its spans go to the returned
 // recorder, apart from the server's.
-func newUnifiFixture(t *testing.T) (apiFixture, *tracetest.SpanRecorder) {
+func newUnifiFixture(t *testing.T, tweak ...func(*unifi.Options)) (apiFixture, *tracetest.SpanRecorder) {
 	t.Helper()
 	adapterSpans := tracetest.NewSpanRecorder()
-	ad, err := unifi.New(unifi.Options{Tracer: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(adapterSpans)).Tracer("test")})
+	opts := unifi.Options{Tracer: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(adapterSpans)).Tracer("test")}
+	for _, f := range tweak {
+		f(&opts)
+	}
+	ad, err := unifi.New(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,5 +180,74 @@ func TestUnifiAdoptionEndToEnd(t *testing.T) {
 			t.Errorf("responses = %v, want %v", replies, want)
 			break
 		}
+	}
+}
+
+// A reset device is shown as the same adopted device awaiting re-adoption,
+// not as a new one; accepting is the call that adopts a new device.
+func TestUnifiReadoptionThroughTheAPI(t *testing.T) {
+	const window = 300 * time.Millisecond
+	f, _ := newUnifiFixture(t, func(o *unifi.Options) { o.ReadoptAfter = window })
+	ctx := t.Context()
+	devices := configv1connect.NewDeviceServiceClient(f.client(f.adminToken))
+	d := unifiDevice{t: t, f: f, mac: net.HardwareAddr{0xde, 0xad, 0xbe, 0xef, 0x40, 0x01}}
+
+	d.inform(inform.DefaultKey(), "")
+	pending, err := devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
+	if err != nil || len(pending.GetDevices()) != 1 {
+		t.Fatalf("pending = %v, %v", pending, err)
+	}
+	id := pending.GetDevices()[0].GetId()
+	adopt := func() (*configv1.AdoptDeviceResponse, error) {
+		return devices.AdoptDevice(ctx, &configv1.AdoptDeviceRequest{Device: &configv1.AdoptDeviceRequest_Id{Id: id}})
+	}
+	if _, err := adopt(); err != nil {
+		t.Fatal(err)
+	}
+	_, reply := d.inform(inform.DefaultKey(), "")
+	key, version := authKeyOf(t, reply)
+	d.inform(key, version)
+
+	// A healthy adopted device has nothing to accept.
+	_, err = adopt()
+	wantCode(t, err, connect.CodeFailedPrecondition)
+
+	// It is reset and comes back on the default key after being silent.
+	time.Sleep(window + 100*time.Millisecond)
+	if status, _ := d.inform(inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("reset device: status = %d, want 404", status)
+	}
+	got, err := devices.GetDevice(ctx, &configv1.GetDeviceRequest{Id: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g := got.GetDevice(); g.GetState() != configv1.DeviceState_DEVICE_STATE_ADOPTED || g.GetReadoption() != configv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE || g.GetLocked() {
+		t.Fatalf("device = %v", g)
+	}
+	// It is not listed among the new devices: it is not a new device.
+	pending, err = devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
+	if err != nil || len(pending.GetDevices()) != 0 {
+		t.Fatalf("a reset device is listed as pending: %v, %v", pending, err)
+	}
+
+	// Accepting re-adopts it.
+	accepted, err := adopt()
+	if err != nil || accepted.GetDevice().GetReadoption() != configv1.ReadoptionState_READOPTION_STATE_IN_PROGRESS {
+		t.Fatalf("accept = %v, %v", accepted, err)
+	}
+	status, reply := d.inform(inform.DefaultKey(), "")
+	if status != http.StatusOK {
+		t.Fatalf("accepted device: status = %d", status)
+	}
+	key2, version := authKeyOf(t, reply)
+	if bytes.Equal(key2, key) {
+		t.Fatal("the key did not change")
+	}
+	if status, reply := d.inform(key2, version); status != http.StatusOK || reply["_type"] != "noop" {
+		t.Fatalf("on the new key: %d %v", status, reply)
+	}
+	got, err = devices.GetDevice(ctx, &configv1.GetDeviceRequest{Id: id})
+	if err != nil || got.GetDevice().GetReadoption() != configv1.ReadoptionState_READOPTION_STATE_UNSPECIFIED || got.GetDevice().GetState() != configv1.DeviceState_DEVICE_STATE_ADOPTED {
+		t.Fatalf("device = %v, %v", got, err)
 	}
 }

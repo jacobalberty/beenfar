@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jacobalberty/go-unifi/inform"
 
@@ -33,14 +34,18 @@ const keyDefault = "default"
 // the default key that unadopted devices use. Unknown devices only get the
 // default key.
 //
-// Once a device has a current key, the default key is no longer offered: it
-// is the key anybody on the network can seal a packet with, so it must not
-// open a device that has been given a private one. A device that falls back
-// to it (a factory reset) is undecryptable, hence locked, until it is
-// forgotten and adopted again.
-func keysFor(ctx context.Context, h adapter.Host, mac string) ([]inform.Key, error) {
+// Once a device has a current key, the default key is not offered while the
+// device is being heard from: it is the key anybody on the network can seal a
+// packet with, so it must not open a device that has a private one. It is
+// offered once the device has been silent for readoptAfter (0 never offers
+// it), because a device that comes back after that long may have been factory
+// reset and can only speak the default key; and while the device is being
+// readopted. Opening an inform is harmless; what is sent in reply is decided
+// by respond, and a reset device is sent nothing until its re-adoption has
+// been accepted.
+func keysFor(ctx context.Context, h adapter.Host, mac string, readoptAfter time.Duration, now time.Time) ([]inform.Key, error) {
 	var keys []inform.Key
-	hasCurrent := false
+	hasCurrent, mayBeReset := false, false
 	dev, err := h.DeviceByMAC(ctx, mac)
 	switch {
 	case errors.Is(err, adapter.ErrNotFound):
@@ -58,8 +63,10 @@ func keysFor(ctx context.Context, h adapter.Host, mac string) ([]inform.Key, err
 			keys = append(keys, inform.Key{Name: name, Bytes: b})
 			hasCurrent = hasCurrent || name == SecretCurrent
 		}
+		mayBeReset = readoptAfter > 0 && dev.State == adapter.DeviceAdopted &&
+			(dev.Readoption != adapter.ReadoptionNone || now.Sub(dev.LastSeen) > readoptAfter)
 	}
-	if hasCurrent {
+	if hasCurrent && !mayBeReset {
 		return keys, nil
 	}
 	return append(keys, inform.Key{Name: keyDefault, Bytes: inform.DefaultKey()}), nil

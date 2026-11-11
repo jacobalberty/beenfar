@@ -136,6 +136,20 @@ accepted until it has switched.
 |---|---|---|
 | `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
 | `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
+| `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |
+
+**Reset devices.** An adopted device that comes back speaking the default key
+was factory reset. It stays the same adopted device and the API reports it
+with `readoption: AWAITING_ACCEPTANCE`, so a UI can show "needs re-adoption"
+rather than a new device; it is not listed among pending devices. Nothing is
+sent to it until you accept, with the same `AdoptDevice` call used for new
+devices (`readoption` is then `IN_PROGRESS` until the device runs on its new
+key). It is never re-keyed automatically: the default key is public, so the
+reply would be readable by anyone on the network, and anyone can send an
+inform with it for any MAC. Only a device that has been silent for
+`BEENFAR_UNIFI_READOPT_AFTER` is considered, so a live device is not flagged by
+a spoofed inform. With that set to `0` a reset device stays locked, and has to
+be forgotten and adopted again.
 
 **Known limitation.** Adopted devices are re-keyed and tracked by config
 revision, but are not yet sent wifi or VLAN settings: the `system_cfg` key

@@ -518,3 +518,142 @@ func TestMetrics(t *testing.T) {
 		t.Errorf("pushes = %v", push)
 	}
 }
+
+// adoptFully takes a device from unknown to running on its own key and
+// returns that key and the cfgversion it was sent.
+func (e *env) adoptFully(d *device) (store.Device, []byte, string) {
+	e.t.Helper()
+	e.post(d, inform.DefaultKey(), "")
+	dev := e.deviceByMAC(d)
+	if _, err := e.devices.Adopt(e.t.Context(), dev.ID, ""); err != nil {
+		e.t.Fatal(err)
+	}
+	_, reply := e.post(d, inform.DefaultKey(), "")
+	key := authKey(e.t, reply)
+	version, _ := mgmt(e.t, reply).Get(inform.KeyCfgVersion)
+	if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "noop" {
+		e.t.Fatalf("after the switch: %d %v", status, reply)
+	}
+	return dev, key, version
+}
+
+// A device that was adopted and comes back on the default key was reset. It
+// stays the same adopted device and is marked as awaiting re-adoption, but is
+// sent nothing until somebody accepts: anybody can send an inform sealed with
+// the default key, and the reply would be readable by them too.
+func TestReadoptionNeedsAcceptance(t *testing.T) {
+	ctx := t.Context()
+	const window = 400 * time.Millisecond
+	e := newEnv(t, unifi.Options{ReadoptAfter: window})
+	d := newDevice(9)
+	dev, key1, version := e.adoptFully(d)
+
+	// While the device is being heard from, the default key opens nothing: a
+	// spoofed inform neither flags the device nor gets a key.
+	for range 3 {
+		if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+			t.Fatalf("default key on a live device: status = %d, want 404", status)
+		}
+	}
+	if got := e.deviceByMAC(d); got.Readoption != store.ReadoptionNone || !got.Locked || e.secret(dev.ID, "pending") != nil {
+		t.Fatalf("device = %+v, pending key %x", got, e.secret(dev.ID, "pending"))
+	}
+
+	// Those informs did not count as hearing from the device, so its silence
+	// runs from its last real inform. Once it has been quiet long enough, the
+	// default key identifies it as reset, and nothing is sent.
+	time.Sleep(window + 100*time.Millisecond)
+	for range 2 {
+		if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+			t.Fatalf("reset device: status = %d, want 404 until accepted", status)
+		}
+	}
+	got := e.deviceByMAC(d)
+	if got.ID != dev.ID || got.State != store.DeviceStateAdopted || got.Readoption != store.ReadoptionAwaiting || got.Locked {
+		t.Fatalf("device = %+v, want the same adopted device, awaiting re-adoption", got)
+	}
+	if e.secret(dev.ID, "pending") != nil {
+		t.Fatal("a key was created before the re-adoption was accepted")
+	}
+
+	// Accepting is the call that adopts a new device. Until the device uses
+	// its new key it is being re-adopted.
+	accepted, err := e.devices.Adopt(ctx, dev.ID, "")
+	if err != nil || accepted.Readoption != store.ReadoptionInProgress || accepted.State != store.DeviceStateAdopted {
+		t.Fatalf("accept = %+v, %v", accepted, err)
+	}
+	status, reply := e.post(d, inform.DefaultKey(), "")
+	if status != http.StatusOK {
+		t.Fatalf("accepted device: status = %d", status)
+	}
+	key2 := authKey(t, reply)
+	if bytes.Equal(key2, key1) || bytes.Equal(key2, inform.DefaultKey()) {
+		t.Fatal("readoption did not produce a new key")
+	}
+	// The reply is lost: the same key is sent again.
+	_, again := e.post(d, inform.DefaultKey(), "")
+	if !bytes.Equal(authKey(t, again), key2) || e.deviceByMAC(d).Readoption != store.ReadoptionInProgress {
+		t.Fatal("a repeated reply changed the key or the state")
+	}
+
+	// It was not reset after all: it comes back on its own key. The key meant
+	// for a reset device (sealed with the public default key) is dropped.
+	if status, reply := e.post(d, key1, version); status != http.StatusOK || reply["_type"] != "noop" {
+		t.Fatalf("on its own key: %d %v", status, reply)
+	}
+	if e.secret(dev.ID, "pending") != nil || e.deviceByMAC(d).Readoption != store.ReadoptionNone {
+		t.Fatal("the readoption key survived the device coming back")
+	}
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("default key right after contact: status = %d, want 404", status)
+	}
+
+	// A real reset again: silent, awaiting, accepted, re-keyed.
+	time.Sleep(window + 100*time.Millisecond)
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("status = %d", status)
+	}
+	if _, err := e.devices.Adopt(ctx, dev.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	_, reply = e.post(d, inform.DefaultKey(), "")
+	key3 := authKey(t, reply)
+	if bytes.Equal(key3, key2) {
+		t.Fatal("the dropped key was reused")
+	}
+	if status, reply := e.post(d, key3, version); status != http.StatusOK || reply["_type"] != "noop" {
+		t.Fatalf("on the new key: %d %v", status, reply)
+	}
+	got = e.deviceByMAC(d)
+	if got.Readoption != store.ReadoptionNone || got.State != store.DeviceStateAdopted || got.Locked {
+		t.Fatalf("device = %+v, want adopted and no longer being re-adopted", got)
+	}
+	if !bytes.Equal(e.secret(dev.ID, "current"), key3) || e.secret(dev.ID, "pending") != nil {
+		t.Fatal("the new key was not committed")
+	}
+	if status, _ := e.post(d, key1, version); status != http.StatusNotFound {
+		t.Fatalf("the key from before the reset: status = %d, want 404", status)
+	}
+
+	if push := e.sums("beenfar.unifi.config_pushes", "reason"); push["readopt"] != 3 {
+		t.Errorf("pushes = %v, want 3 readopt (a reply and its repeat, then another reply)", push)
+	}
+	if rej := e.sums("beenfar.unifi.informs.rejected", "reason"); rej["awaiting_readoption"] != 3 {
+		t.Errorf("rejected = %v, want 3 awaiting_readoption", rej)
+	}
+}
+
+// With ReadoptAfter at zero a reset device stays locked, however long it is
+// silent, and can only be dealt with by forgetting it.
+func TestReadoptionCanBeTurnedOff(t *testing.T) {
+	e := newEnv(t, unifi.Options{})
+	d := newDevice(10)
+	dev, _, _ := e.adoptFully(d)
+	time.Sleep(50 * time.Millisecond)
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", status)
+	}
+	if got := e.deviceByMAC(d); !got.Locked || got.Readoption != store.ReadoptionNone || e.secret(dev.ID, "pending") != nil {
+		t.Fatalf("device = %+v", got)
+	}
+}
