@@ -24,6 +24,8 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// AuthServiceGetAuthConfigProcedure is the procedure name of the AuthService's GetAuthConfig RPC.
+	AuthServiceGetAuthConfigProcedure = "/beenfar.admin.v1.AuthService/GetAuthConfig"
 	// AuthServiceLoginProcedure is the procedure name of the AuthService's Login RPC.
 	AuthServiceLoginProcedure = "/beenfar.admin.v1.AuthService/Login"
 	// AuthServiceLogoutProcedure is the procedure name of the AuthService's Logout RPC.
@@ -33,6 +35,14 @@ const (
 )
 
 var (
+	authServiceGetAuthConfigSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_beenfar_admin_v1_auth_proto.Services().ByName("AuthService").Methods().ByName("GetAuthConfig"),
+			Procedure:        AuthServiceGetAuthConfigProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
 	authServiceLoginSpec = sync.OnceValue(func() connect.Spec {
 		return connect.Spec{
 			StreamType: connect.StreamTypeUnary,
@@ -59,11 +69,16 @@ var (
 
 // AuthServiceClient is a client for the beenfar.admin.v1.AuthService service.
 type AuthServiceClient interface {
+	// GetAuthConfig describes the sign-in methods this controller offers, so a
+	// UI can render the right login screen. It needs no credentials.
+	GetAuthConfig(context.Context, *v1.GetAuthConfigRequest) (*v1.GetAuthConfigResponse, error)
 	// Login checks a username and password and starts a session. The response
 	// sets an HttpOnly session cookie. Fails with UNAUTHENTICATED on bad
 	// credentials.
 	Login(context.Context, *v1.LoginRequest) (*v1.LoginResponse, error)
-	// Logout ends the current session and clears the cookie.
+	// Logout ends the current session and clears the cookie. When the user
+	// signed in through an external provider, redirect_url is where the UI
+	// should send the browser to sign out there too.
 	Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error)
 	// GetCurrentUser returns the user behind the caller's session or token.
 	GetCurrentUser(context.Context, *v1.GetCurrentUserRequest) (*v1.GetCurrentUserResponse, error)
@@ -77,11 +92,16 @@ func NewAuthServiceClient(client *connect.Client) AuthServiceClient {
 
 // AuthServiceHandler is an implementation of the beenfar.admin.v1.AuthService service.
 type AuthServiceHandler interface {
+	// GetAuthConfig describes the sign-in methods this controller offers, so a
+	// UI can render the right login screen. It needs no credentials.
+	GetAuthConfig(context.Context, *v1.GetAuthConfigRequest) (*v1.GetAuthConfigResponse, error)
 	// Login checks a username and password and starts a session. The response
 	// sets an HttpOnly session cookie. Fails with UNAUTHENTICATED on bad
 	// credentials.
 	Login(context.Context, *v1.LoginRequest) (*v1.LoginResponse, error)
-	// Logout ends the current session and clears the cookie.
+	// Logout ends the current session and clears the cookie. When the user
+	// signed in through an external provider, redirect_url is where the UI
+	// should send the browser to sign out there too.
 	Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error)
 	// GetCurrentUser returns the user behind the caller's session or token.
 	GetCurrentUser(context.Context, *v1.GetCurrentUserRequest) (*v1.GetCurrentUserResponse, error)
@@ -92,6 +112,7 @@ type AuthServiceHandler interface {
 func RegisterAuthServiceHandler(server *connect.Server, svc AuthServiceHandler) {
 	adapter := authServiceHandler{svc: svc}
 	server.Register(
+		connect.Method{Spec: authServiceGetAuthConfigSpec(), Handler: adapter.getAuthConfig},
 		connect.Method{Spec: authServiceLoginSpec(), Handler: adapter.login},
 		connect.Method{Spec: authServiceLogoutSpec(), Handler: adapter.logout},
 		connect.Method{Spec: authServiceGetCurrentUserSpec(), Handler: adapter.getCurrentUser},
@@ -100,6 +121,10 @@ func RegisterAuthServiceHandler(server *connect.Server, svc AuthServiceHandler) 
 
 // UnimplementedAuthServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedAuthServiceHandler struct{}
+
+func (UnimplementedAuthServiceHandler) GetAuthConfig(context.Context, *v1.GetAuthConfigRequest) (*v1.GetAuthConfigResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.admin.v1.AuthService.GetAuthConfig is not implemented")
+}
 
 func (UnimplementedAuthServiceHandler) Login(context.Context, *v1.LoginRequest) (*v1.LoginResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.admin.v1.AuthService.Login is not implemented")
@@ -115,6 +140,14 @@ func (UnimplementedAuthServiceHandler) GetCurrentUser(context.Context, *v1.GetCu
 
 type authServiceClient struct {
 	client *connect.Client
+}
+
+func (c *authServiceClient) GetAuthConfig(ctx context.Context, req *v1.GetAuthConfigRequest) (*v1.GetAuthConfigResponse, error) {
+	var res v1.GetAuthConfigResponse
+	if err := c.client.CallUnary(ctx, authServiceGetAuthConfigSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 func (c *authServiceClient) Login(ctx context.Context, req *v1.LoginRequest) (*v1.LoginResponse, error) {
@@ -142,6 +175,18 @@ func (c *authServiceClient) GetCurrentUser(ctx context.Context, req *v1.GetCurre
 }
 
 type authServiceHandler struct{ svc AuthServiceHandler }
+
+func (h authServiceHandler) getAuthConfig(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.GetAuthConfigRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetAuthConfig(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
 
 func (h authServiceHandler) login(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
 	var req v1.LoginRequest

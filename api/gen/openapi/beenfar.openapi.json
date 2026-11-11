@@ -130,6 +130,19 @@
         "additionalProperties": false,
         "description": "ApiToken describes an issued bearer token. It never contains the secret."
       },
+      "beenfar.admin.v1.AuthMethod": {
+        "type": "string",
+        "title": "AuthMethod",
+        "enum": [
+          "AUTH_METHOD_UNSPECIFIED",
+          "AUTH_METHOD_TOKEN",
+          "AUTH_METHOD_SESSION",
+          "AUTH_METHOD_BASIC",
+          "AUTH_METHOD_PROXY",
+          "AUTH_METHOD_OIDC"
+        ],
+        "description": "AuthMethod is how a request was authenticated."
+      },
       "beenfar.admin.v1.CreateApiTokenRequest": {
         "type": "object",
         "properties": {
@@ -234,6 +247,45 @@
         "title": "DeleteUserResponse",
         "additionalProperties": false
       },
+      "beenfar.admin.v1.GetAuthConfigRequest": {
+        "type": "object",
+        "title": "GetAuthConfigRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.GetAuthConfigResponse": {
+        "type": "object",
+        "properties": {
+          "passwordLoginEnabled": {
+            "type": "boolean",
+            "title": "password_login_enabled",
+            "description": "Whether the username/password form (AuthService.Login) is available."
+          },
+          "oidcProviders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.admin.v1.OidcProvider"
+            },
+            "title": "oidc_providers",
+            "description": "OIDC providers to offer as \"sign in with\" buttons."
+          },
+          "proxy": {
+            "title": "proxy",
+            "description": "Set when a trusted reverse proxy authenticates users. The UI shows no\n login form: an unauthenticated request means the proxy is misconfigured.",
+            "$ref": "#/components/schemas/beenfar.admin.v1.ProxyAuth"
+          },
+          "basicEnabled": {
+            "type": "boolean",
+            "title": "basic_enabled",
+            "description": "Whether HTTP Basic auth is accepted (always with API tokens as the\n password; with real passwords only when basic_passwords_enabled)."
+          },
+          "basicPasswordsEnabled": {
+            "type": "boolean",
+            "title": "basic_passwords_enabled"
+          }
+        },
+        "title": "GetAuthConfigResponse",
+        "additionalProperties": false
+      },
       "beenfar.admin.v1.GetCurrentUserRequest": {
         "type": "object",
         "title": "GetCurrentUserRequest",
@@ -245,6 +297,11 @@
           "user": {
             "title": "user",
             "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          },
+          "method": {
+            "title": "method",
+            "description": "How the caller authenticated this request.",
+            "$ref": "#/components/schemas/beenfar.admin.v1.AuthMethod"
           }
         },
         "title": "GetCurrentUserResponse",
@@ -370,8 +427,50 @@
       },
       "beenfar.admin.v1.LogoutResponse": {
         "type": "object",
+        "properties": {
+          "redirectUrl": {
+            "type": "string",
+            "title": "redirect_url",
+            "description": "Where to send the browser next, e.g. the proxy's sign-out page or the\n OIDC provider's end-session endpoint. Empty when there is nothing to do."
+          }
+        },
         "title": "LogoutResponse",
         "additionalProperties": false
+      },
+      "beenfar.admin.v1.OidcProvider": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "Stable provider id used in URLs, e.g. \"corp\"."
+          },
+          "displayName": {
+            "type": "string",
+            "title": "display_name"
+          },
+          "loginUrl": {
+            "type": "string",
+            "title": "login_url",
+            "description": "Relative URL that starts the login flow. Append ?redirect=\u003cpath\u003e to\n return somewhere other than \"/\" afterwards."
+          }
+        },
+        "title": "OidcProvider",
+        "additionalProperties": false,
+        "description": "OidcProvider is a configured OpenID Connect identity provider."
+      },
+      "beenfar.admin.v1.ProxyAuth": {
+        "type": "object",
+        "properties": {
+          "logoutUrl": {
+            "type": "string",
+            "title": "logout_url",
+            "description": "Where to send the browser to sign out at the proxy, if configured."
+          }
+        },
+        "title": "ProxyAuth",
+        "additionalProperties": false,
+        "description": "ProxyAuth describes trusted-proxy authentication."
       },
       "beenfar.admin.v1.SetUserPasswordRequest": {
         "type": "object",
@@ -447,7 +546,13 @@
           "admin": {
             "type": "boolean",
             "title": "admin",
-            "description": "Admins may manage users, every API token and adapters."
+            "description": "Admins may manage users, every API token and adapters. For external\n users whose provider maps groups to admin, this is derived from their\n groups at each sign-in and cannot be changed here."
+          },
+          "source": {
+            "title": "source",
+            "description": "Where the account comes from. External users have no password.",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.admin.v1.UserSource"
           },
           "etag": {
             "type": "string",
@@ -472,6 +577,17 @@
         ],
         "additionalProperties": false,
         "description": "User is a person who can sign in to the controller."
+      },
+      "beenfar.admin.v1.UserSource": {
+        "type": "string",
+        "title": "UserSource",
+        "enum": [
+          "USER_SOURCE_UNSPECIFIED",
+          "USER_SOURCE_LOCAL",
+          "USER_SOURCE_PROXY",
+          "USER_SOURCE_OIDC"
+        ],
+        "description": "UserSource says where a user account comes from."
       },
       "beenfar.config.v1.AdoptDeviceRequest": {
         "type": "object",
@@ -1273,6 +1389,38 @@
         }
       }
     },
+    "/api/v1/auth/config": {
+      "get": {
+        "tags": [
+          "AuthService"
+        ],
+        "summary": "GetAuthConfig",
+        "description": "GetAuthConfig describes the sign-in methods this controller offers, so a\n UI can render the right login screen. It needs no credentials.",
+        "operationId": "beenfar.admin.v1.AuthService.GetAuthConfig",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.GetAuthConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -1322,7 +1470,7 @@
           "AuthService"
         ],
         "summary": "Logout",
-        "description": "Logout ends the current session and clears the cookie.",
+        "description": "Logout ends the current session and clears the cookie. When the user\n signed in through an external provider, redirect_url is where the UI\n should send the browser to sign out there too.",
         "operationId": "beenfar.admin.v1.AuthService.Logout",
         "requestBody": {
           "content": {

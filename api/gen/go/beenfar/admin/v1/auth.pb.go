@@ -22,6 +22,70 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// AuthMethod is how a request was authenticated.
+type AuthMethod int32
+
+const (
+	AuthMethod_AUTH_METHOD_UNSPECIFIED AuthMethod = 0
+	// An API token, as "Authorization: Bearer" or as the Basic auth password.
+	AuthMethod_AUTH_METHOD_TOKEN AuthMethod = 1
+	// A session cookie from password login.
+	AuthMethod_AUTH_METHOD_SESSION AuthMethod = 2
+	// HTTP Basic auth with a username and password.
+	AuthMethod_AUTH_METHOD_BASIC AuthMethod = 3
+	// Identity headers from a trusted reverse proxy.
+	AuthMethod_AUTH_METHOD_PROXY AuthMethod = 4
+	// A session cookie from OIDC login.
+	AuthMethod_AUTH_METHOD_OIDC AuthMethod = 5
+)
+
+// Enum value maps for AuthMethod.
+var (
+	AuthMethod_name = map[int32]string{
+		0: "AUTH_METHOD_UNSPECIFIED",
+		1: "AUTH_METHOD_TOKEN",
+		2: "AUTH_METHOD_SESSION",
+		3: "AUTH_METHOD_BASIC",
+		4: "AUTH_METHOD_PROXY",
+		5: "AUTH_METHOD_OIDC",
+	}
+	AuthMethod_value = map[string]int32{
+		"AUTH_METHOD_UNSPECIFIED": 0,
+		"AUTH_METHOD_TOKEN":       1,
+		"AUTH_METHOD_SESSION":     2,
+		"AUTH_METHOD_BASIC":       3,
+		"AUTH_METHOD_PROXY":       4,
+		"AUTH_METHOD_OIDC":        5,
+	}
+)
+
+func (x AuthMethod) Enum() *AuthMethod {
+	p := new(AuthMethod)
+	*p = x
+	return p
+}
+
+func (x AuthMethod) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AuthMethod) Descriptor() protoreflect.EnumDescriptor {
+	return file_beenfar_admin_v1_auth_proto_enumTypes[0].Descriptor()
+}
+
+func (AuthMethod) Type() protoreflect.EnumType {
+	return &file_beenfar_admin_v1_auth_proto_enumTypes[0]
+}
+
+func (x AuthMethod) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AuthMethod.Descriptor instead.
+func (AuthMethod) EnumDescriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_auth_proto_rawDescGZIP(), []int{0}
+}
+
 type LoginRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -155,7 +219,10 @@ func (*LogoutRequest) Descriptor() ([]byte, []int) {
 }
 
 type LogoutResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where to send the browser next, e.g. the proxy's sign-out page or the
+	// OIDC provider's end-session endpoint. Empty when there is nothing to do.
+	RedirectUrl   string `protobuf:"bytes,1,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -188,6 +255,13 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_beenfar_admin_v1_auth_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *LogoutResponse) GetRedirectUrl() string {
+	if x != nil {
+		return x.RedirectUrl
+	}
+	return ""
 }
 
 type GetCurrentUserRequest struct {
@@ -227,8 +301,10 @@ func (*GetCurrentUserRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetCurrentUserResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	User  *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	// How the caller authenticated this request.
+	Method        AuthMethod `protobuf:"varint,2,opt,name=method,proto3,enum=beenfar.admin.v1.AuthMethod" json:"method,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -270,6 +346,241 @@ func (x *GetCurrentUserResponse) GetUser() *User {
 	return nil
 }
 
+func (x *GetCurrentUserResponse) GetMethod() AuthMethod {
+	if x != nil {
+		return x.Method
+	}
+	return AuthMethod_AUTH_METHOD_UNSPECIFIED
+}
+
+type GetAuthConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAuthConfigRequest) Reset() {
+	*x = GetAuthConfigRequest{}
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAuthConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAuthConfigRequest) ProtoMessage() {}
+
+func (x *GetAuthConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAuthConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetAuthConfigRequest) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_auth_proto_rawDescGZIP(), []int{6}
+}
+
+type GetAuthConfigResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the username/password form (AuthService.Login) is available.
+	PasswordLoginEnabled bool `protobuf:"varint,1,opt,name=password_login_enabled,json=passwordLoginEnabled,proto3" json:"password_login_enabled,omitempty"`
+	// OIDC providers to offer as "sign in with" buttons.
+	OidcProviders []*OidcProvider `protobuf:"bytes,2,rep,name=oidc_providers,json=oidcProviders,proto3" json:"oidc_providers,omitempty"`
+	// Set when a trusted reverse proxy authenticates users. The UI shows no
+	// login form: an unauthenticated request means the proxy is misconfigured.
+	Proxy *ProxyAuth `protobuf:"bytes,3,opt,name=proxy,proto3" json:"proxy,omitempty"`
+	// Whether HTTP Basic auth is accepted (always with API tokens as the
+	// password; with real passwords only when basic_passwords_enabled).
+	BasicEnabled          bool `protobuf:"varint,4,opt,name=basic_enabled,json=basicEnabled,proto3" json:"basic_enabled,omitempty"`
+	BasicPasswordsEnabled bool `protobuf:"varint,5,opt,name=basic_passwords_enabled,json=basicPasswordsEnabled,proto3" json:"basic_passwords_enabled,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *GetAuthConfigResponse) Reset() {
+	*x = GetAuthConfigResponse{}
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAuthConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAuthConfigResponse) ProtoMessage() {}
+
+func (x *GetAuthConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAuthConfigResponse.ProtoReflect.Descriptor instead.
+func (*GetAuthConfigResponse) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_auth_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetAuthConfigResponse) GetPasswordLoginEnabled() bool {
+	if x != nil {
+		return x.PasswordLoginEnabled
+	}
+	return false
+}
+
+func (x *GetAuthConfigResponse) GetOidcProviders() []*OidcProvider {
+	if x != nil {
+		return x.OidcProviders
+	}
+	return nil
+}
+
+func (x *GetAuthConfigResponse) GetProxy() *ProxyAuth {
+	if x != nil {
+		return x.Proxy
+	}
+	return nil
+}
+
+func (x *GetAuthConfigResponse) GetBasicEnabled() bool {
+	if x != nil {
+		return x.BasicEnabled
+	}
+	return false
+}
+
+func (x *GetAuthConfigResponse) GetBasicPasswordsEnabled() bool {
+	if x != nil {
+		return x.BasicPasswordsEnabled
+	}
+	return false
+}
+
+// OidcProvider is a configured OpenID Connect identity provider.
+type OidcProvider struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Stable provider id used in URLs, e.g. "corp".
+	Id          string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	DisplayName string `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	// Relative URL that starts the login flow. Append ?redirect=<path> to
+	// return somewhere other than "/" afterwards.
+	LoginUrl      string `protobuf:"bytes,3,opt,name=login_url,json=loginUrl,proto3" json:"login_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OidcProvider) Reset() {
+	*x = OidcProvider{}
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OidcProvider) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OidcProvider) ProtoMessage() {}
+
+func (x *OidcProvider) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OidcProvider.ProtoReflect.Descriptor instead.
+func (*OidcProvider) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_auth_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *OidcProvider) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *OidcProvider) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *OidcProvider) GetLoginUrl() string {
+	if x != nil {
+		return x.LoginUrl
+	}
+	return ""
+}
+
+// ProxyAuth describes trusted-proxy authentication.
+type ProxyAuth struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Where to send the browser to sign out at the proxy, if configured.
+	LogoutUrl     string `protobuf:"bytes,1,opt,name=logout_url,json=logoutUrl,proto3" json:"logout_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProxyAuth) Reset() {
+	*x = ProxyAuth{}
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProxyAuth) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProxyAuth) ProtoMessage() {}
+
+func (x *ProxyAuth) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_auth_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProxyAuth.ProtoReflect.Descriptor instead.
+func (*ProxyAuth) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_auth_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ProxyAuth) GetLogoutUrl() string {
+	if x != nil {
+		return x.LogoutUrl
+	}
+	return ""
+}
+
 var File_beenfar_admin_v1_auth_proto protoreflect.FileDescriptor
 
 const file_beenfar_admin_v1_auth_proto_rawDesc = "" +
@@ -280,12 +591,37 @@ const file_beenfar_admin_v1_auth_proto_rawDesc = "" +
 	"\bpassword\x18\x02 \x01(\tB\x05\xe2A\x02\x02\x04R\bpassword\";\n" +
 	"\rLoginResponse\x12*\n" +
 	"\x04user\x18\x01 \x01(\v2\x16.beenfar.admin.v1.UserR\x04user\"\x0f\n" +
-	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponse\"\x17\n" +
-	"\x15GetCurrentUserRequest\"D\n" +
+	"\rLogoutRequest\"3\n" +
+	"\x0eLogoutResponse\x12!\n" +
+	"\fredirect_url\x18\x01 \x01(\tR\vredirectUrl\"\x17\n" +
+	"\x15GetCurrentUserRequest\"z\n" +
 	"\x16GetCurrentUserResponse\x12*\n" +
-	"\x04user\x18\x01 \x01(\v2\x16.beenfar.admin.v1.UserR\x04user2\xf1\x02\n" +
-	"\vAuthService\x12m\n" +
+	"\x04user\x18\x01 \x01(\v2\x16.beenfar.admin.v1.UserR\x04user\x124\n" +
+	"\x06method\x18\x02 \x01(\x0e2\x1c.beenfar.admin.v1.AuthMethodR\x06method\"\x16\n" +
+	"\x14GetAuthConfigRequest\"\xa4\x02\n" +
+	"\x15GetAuthConfigResponse\x124\n" +
+	"\x16password_login_enabled\x18\x01 \x01(\bR\x14passwordLoginEnabled\x12E\n" +
+	"\x0eoidc_providers\x18\x02 \x03(\v2\x1e.beenfar.admin.v1.OidcProviderR\roidcProviders\x121\n" +
+	"\x05proxy\x18\x03 \x01(\v2\x1b.beenfar.admin.v1.ProxyAuthR\x05proxy\x12#\n" +
+	"\rbasic_enabled\x18\x04 \x01(\bR\fbasicEnabled\x126\n" +
+	"\x17basic_passwords_enabled\x18\x05 \x01(\bR\x15basicPasswordsEnabled\"^\n" +
+	"\fOidcProvider\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1b\n" +
+	"\tlogin_url\x18\x03 \x01(\tR\bloginUrl\"*\n" +
+	"\tProxyAuth\x12\x1d\n" +
+	"\n" +
+	"logout_url\x18\x01 \x01(\tR\tlogoutUrl*\x9d\x01\n" +
+	"\n" +
+	"AuthMethod\x12\x1b\n" +
+	"\x17AUTH_METHOD_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11AUTH_METHOD_TOKEN\x10\x01\x12\x17\n" +
+	"\x13AUTH_METHOD_SESSION\x10\x02\x12\x15\n" +
+	"\x11AUTH_METHOD_BASIC\x10\x03\x12\x15\n" +
+	"\x11AUTH_METHOD_PROXY\x10\x04\x12\x14\n" +
+	"\x10AUTH_METHOD_OIDC\x10\x052\xf4\x03\n" +
+	"\vAuthService\x12\x80\x01\n" +
+	"\rGetAuthConfig\x12&.beenfar.admin.v1.GetAuthConfigRequest\x1a'.beenfar.admin.v1.GetAuthConfigResponse\"\x1e\x82\xd3\xe4\x93\x02\x15\x12\x13/api/v1/auth/config\x90\x02\x01\x12m\n" +
 	"\x05Login\x12\x1e.beenfar.admin.v1.LoginRequest\x1a\x1f.beenfar.admin.v1.LoginResponse\"#\x82\xd3\xe4\x93\x02\x1d:\x01*b\x04user\"\x12/api/v1/auth/login\x12k\n" +
 	"\x06Logout\x12\x1f.beenfar.admin.v1.LogoutRequest\x1a .beenfar.admin.v1.LogoutResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/api/v1/auth/logout\x12\x85\x01\n" +
 	"\x0eGetCurrentUser\x12'.beenfar.admin.v1.GetCurrentUserRequest\x1a(.beenfar.admin.v1.GetCurrentUserResponse\" \x82\xd3\xe4\x93\x02\x17b\x04user\x12\x0f/api/v1/auth/me\x90\x02\x01B\xc8\x01\n" +
@@ -303,30 +639,41 @@ func file_beenfar_admin_v1_auth_proto_rawDescGZIP() []byte {
 	return file_beenfar_admin_v1_auth_proto_rawDescData
 }
 
-var file_beenfar_admin_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_beenfar_admin_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_beenfar_admin_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_beenfar_admin_v1_auth_proto_goTypes = []any{
-	(*LoginRequest)(nil),           // 0: beenfar.admin.v1.LoginRequest
-	(*LoginResponse)(nil),          // 1: beenfar.admin.v1.LoginResponse
-	(*LogoutRequest)(nil),          // 2: beenfar.admin.v1.LogoutRequest
-	(*LogoutResponse)(nil),         // 3: beenfar.admin.v1.LogoutResponse
-	(*GetCurrentUserRequest)(nil),  // 4: beenfar.admin.v1.GetCurrentUserRequest
-	(*GetCurrentUserResponse)(nil), // 5: beenfar.admin.v1.GetCurrentUserResponse
-	(*User)(nil),                   // 6: beenfar.admin.v1.User
+	(AuthMethod)(0),                // 0: beenfar.admin.v1.AuthMethod
+	(*LoginRequest)(nil),           // 1: beenfar.admin.v1.LoginRequest
+	(*LoginResponse)(nil),          // 2: beenfar.admin.v1.LoginResponse
+	(*LogoutRequest)(nil),          // 3: beenfar.admin.v1.LogoutRequest
+	(*LogoutResponse)(nil),         // 4: beenfar.admin.v1.LogoutResponse
+	(*GetCurrentUserRequest)(nil),  // 5: beenfar.admin.v1.GetCurrentUserRequest
+	(*GetCurrentUserResponse)(nil), // 6: beenfar.admin.v1.GetCurrentUserResponse
+	(*GetAuthConfigRequest)(nil),   // 7: beenfar.admin.v1.GetAuthConfigRequest
+	(*GetAuthConfigResponse)(nil),  // 8: beenfar.admin.v1.GetAuthConfigResponse
+	(*OidcProvider)(nil),           // 9: beenfar.admin.v1.OidcProvider
+	(*ProxyAuth)(nil),              // 10: beenfar.admin.v1.ProxyAuth
+	(*User)(nil),                   // 11: beenfar.admin.v1.User
 }
 var file_beenfar_admin_v1_auth_proto_depIdxs = []int32{
-	6, // 0: beenfar.admin.v1.LoginResponse.user:type_name -> beenfar.admin.v1.User
-	6, // 1: beenfar.admin.v1.GetCurrentUserResponse.user:type_name -> beenfar.admin.v1.User
-	0, // 2: beenfar.admin.v1.AuthService.Login:input_type -> beenfar.admin.v1.LoginRequest
-	2, // 3: beenfar.admin.v1.AuthService.Logout:input_type -> beenfar.admin.v1.LogoutRequest
-	4, // 4: beenfar.admin.v1.AuthService.GetCurrentUser:input_type -> beenfar.admin.v1.GetCurrentUserRequest
-	1, // 5: beenfar.admin.v1.AuthService.Login:output_type -> beenfar.admin.v1.LoginResponse
-	3, // 6: beenfar.admin.v1.AuthService.Logout:output_type -> beenfar.admin.v1.LogoutResponse
-	5, // 7: beenfar.admin.v1.AuthService.GetCurrentUser:output_type -> beenfar.admin.v1.GetCurrentUserResponse
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	11, // 0: beenfar.admin.v1.LoginResponse.user:type_name -> beenfar.admin.v1.User
+	11, // 1: beenfar.admin.v1.GetCurrentUserResponse.user:type_name -> beenfar.admin.v1.User
+	0,  // 2: beenfar.admin.v1.GetCurrentUserResponse.method:type_name -> beenfar.admin.v1.AuthMethod
+	9,  // 3: beenfar.admin.v1.GetAuthConfigResponse.oidc_providers:type_name -> beenfar.admin.v1.OidcProvider
+	10, // 4: beenfar.admin.v1.GetAuthConfigResponse.proxy:type_name -> beenfar.admin.v1.ProxyAuth
+	7,  // 5: beenfar.admin.v1.AuthService.GetAuthConfig:input_type -> beenfar.admin.v1.GetAuthConfigRequest
+	1,  // 6: beenfar.admin.v1.AuthService.Login:input_type -> beenfar.admin.v1.LoginRequest
+	3,  // 7: beenfar.admin.v1.AuthService.Logout:input_type -> beenfar.admin.v1.LogoutRequest
+	5,  // 8: beenfar.admin.v1.AuthService.GetCurrentUser:input_type -> beenfar.admin.v1.GetCurrentUserRequest
+	8,  // 9: beenfar.admin.v1.AuthService.GetAuthConfig:output_type -> beenfar.admin.v1.GetAuthConfigResponse
+	2,  // 10: beenfar.admin.v1.AuthService.Login:output_type -> beenfar.admin.v1.LoginResponse
+	4,  // 11: beenfar.admin.v1.AuthService.Logout:output_type -> beenfar.admin.v1.LogoutResponse
+	6,  // 12: beenfar.admin.v1.AuthService.GetCurrentUser:output_type -> beenfar.admin.v1.GetCurrentUserResponse
+	9,  // [9:13] is the sub-list for method output_type
+	5,  // [5:9] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_admin_v1_auth_proto_init() }
@@ -340,13 +687,14 @@ func file_beenfar_admin_v1_auth_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beenfar_admin_v1_auth_proto_rawDesc), len(file_beenfar_admin_v1_auth_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   6,
+			NumEnums:      1,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_beenfar_admin_v1_auth_proto_goTypes,
 		DependencyIndexes: file_beenfar_admin_v1_auth_proto_depIdxs,
+		EnumInfos:         file_beenfar_admin_v1_auth_proto_enumTypes,
 		MessageInfos:      file_beenfar_admin_v1_auth_proto_msgTypes,
 	}.Build()
 	File_beenfar_admin_v1_auth_proto = out.File
