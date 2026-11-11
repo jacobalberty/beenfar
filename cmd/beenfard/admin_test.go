@@ -81,3 +81,29 @@ func TestAdminAdapterToken(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminImportUnifi(t *testing.T) {
+	db := "sqlite://" + filepath.Join(t.TempDir(), "beenfar.db")
+	key := "e2c930683af3945e4d0d58d37a78c2a6"
+
+	var out bytes.Buffer
+	in := `[{"mac": "F0:9F:C2:79:63:90", "authkey": "` + key + `", "gcm": false}, {"mac": "fc-ec-da-fc-c5-35", "authkey": "05223125e6b44aca0a0599551168d766", "gcm": true}]`
+	if err := runAdmin([]string{"import-unifi", "-db", db}, strings.NewReader(in), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "2 devices") || strings.Contains(out.String(), key) {
+		t.Fatalf("output %q", out.String())
+	}
+
+	// Invalid input is refused whole, and an unknown field is a mistake.
+	for name, bad := range map[string]string{
+		"bad key":       `[{"mac": "de:ad:be:ef:00:01", "authkey": "abc"}]`,
+		"unknown field": `[{"mac": "de:ad:be:ef:00:01", "authkey": "` + key + `", "authKey": "x"}]`,
+		"not a list":    `{"mac": "de:ad:be:ef:00:01"}`,
+	} {
+		out.Reset()
+		if err := runAdmin([]string{"import-unifi", "-db", db}, strings.NewReader(bad), &out); err == nil {
+			t.Errorf("%s: import succeeded", name)
+		}
+	}
+}

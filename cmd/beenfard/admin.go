@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacobalberty/beenfar/adapters/unifi"
+	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
 )
 
@@ -27,7 +30,13 @@ const adminUsage = `usage:
   beenfard admin adapter-token [-db URL] revoke -id ID
       Manage the tokens external adapters use to call the adapter API.
       "create" prints the token once; the token lets its holder act as the
-      adapter NAME.`
+      adapter NAME.
+  beenfard admin import-unifi [-db URL] [-file PATH]
+      Import the credentials of UniFi devices managed by another controller,
+      from JSON [{"mac": "...", "authkey": "32 hex digits", "gcm": false}] in
+      PATH or on standard input. Once such a device is pointed at beenfar
+      (DNS or set-inform) it appears as pending with its real model, and
+      adopting it re-keys it. The keys are never shown by any API.`
 
 // runAdmin implements the offline "beenfard admin ..." subcommands, which
 // work directly on the database.
@@ -96,6 +105,38 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer) error {
 			return err
 		}
 		_, err = fmt.Fprintln(stdout, secret)
+		return err
+
+	case "import-unifi":
+		file := fs.String("file", "", "JSON file to read (default: standard input)")
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+		r := stdin
+		if *file != "" {
+			f, err := os.Open(*file)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = f.Close() }()
+			r = f
+		}
+		var in []unifi.KeyImport
+		dec := json.NewDecoder(r)
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&in); err != nil {
+			return fmt.Errorf("reading device keys: %w", err)
+		}
+		st, _, err := openStore(ctx, *dbURL)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+		n, err := unifi.ImportKeys(ctx, adapterhost.NewHost(unifi.Name, st), in)
+		if err != nil {
+			return fmt.Errorf("imported %d of %d devices: %w", n, len(in), err)
+		}
+		_, err = fmt.Fprintf(stdout, "imported keys for %d devices\n", n)
 		return err
 
 	case "adapter-token":
