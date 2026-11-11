@@ -186,3 +186,66 @@ func (h *deviceHandler) ForgetDevice(ctx context.Context, req *configv1.ForgetDe
 	}
 	return &configv1.ForgetDeviceResponse{}, nil
 }
+
+// --- RadiusServerService ---
+
+type radiusHandler struct {
+	configv1connect.UnimplementedRadiusServerServiceHandler
+	svc *core.RadiusService
+}
+
+func (h *radiusHandler) CreateRadiusServer(ctx context.Context, req *configv1.CreateRadiusServerRequest) (*configv1.CreateRadiusServerResponse, error) {
+	r, err := apiconvgen.RadiusFromProto(req.GetRadiusServer())
+	if err != nil {
+		return nil, err
+	}
+	r.Revision = 0
+	out, err := h.svc.Create(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.CreateRadiusServerResponse{RadiusServer: apiconvgen.RadiusToProto(out)}, nil
+}
+
+func (h *radiusHandler) GetRadiusServer(ctx context.Context, req *configv1.GetRadiusServerRequest) (*configv1.GetRadiusServerResponse, error) {
+	out, err := h.svc.Get(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.GetRadiusServerResponse{RadiusServer: apiconvgen.RadiusToProto(out)}, nil
+}
+
+func (h *radiusHandler) ListRadiusServers(ctx context.Context, _ *configv1.ListRadiusServersRequest) (*configv1.ListRadiusServersResponse, error) {
+	list, err := h.svc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := &configv1.ListRadiusServersResponse{RadiusServers: make([]*configv1.RadiusServer, 0, len(list))}
+	for _, r := range list {
+		resp.RadiusServers = append(resp.RadiusServers, apiconvgen.RadiusToProto(r))
+	}
+	return resp, nil
+}
+
+func (h *radiusHandler) UpdateRadiusServer(ctx context.Context, req *configv1.UpdateRadiusServerRequest) (*configv1.UpdateRadiusServerResponse, error) {
+	r, err := apiconvgen.RadiusFromProto(req.GetRadiusServer())
+	if err != nil {
+		return nil, err
+	}
+	out, err := h.svc.Update(ctx, r, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.UpdateRadiusServerResponse{RadiusServer: apiconvgen.RadiusToProto(out)}, nil
+}
+
+func (h *radiusHandler) DeleteRadiusServer(ctx context.Context, req *configv1.DeleteRadiusServerRequest) (*configv1.DeleteRadiusServerResponse, error) {
+	rev, err := apiconv.ParseEtag(req.GetEtag())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.Delete(ctx, req.GetId(), rev); err != nil {
+		return nil, err
+	}
+	return &configv1.DeleteRadiusServerResponse{}, nil
+}

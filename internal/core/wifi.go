@@ -93,8 +93,8 @@ func normalizeWifi(w store.WifiNetwork) (store.WifiNetwork, error) {
 		if w.SecurityKey != "" {
 			return w, invalid("security_key must be empty for WPA enterprise")
 		}
-		if w.RadiusProfile == "" {
-			return w, invalid("radius_profile is required for WPA enterprise")
+		if w.RadiusServerID == "" && w.RadiusProfile == "" {
+			return w, invalid("radius_server_id is required for WPA enterprise")
 		}
 	case "":
 		return w, invalid("security is required")
@@ -102,6 +102,9 @@ func normalizeWifi(w store.WifiNetwork) (store.WifiNetwork, error) {
 		return w, invalid("unknown security %q", w.Security)
 	}
 
+	if w.Security != store.WifiSecurityWPAEnterprise && w.RadiusServerID != "" {
+		return w, invalid("radius_server_id is only allowed for WPA enterprise")
+	}
 	if slices.Contains(w.APGroups, "") {
 		return w, invalid("ap_groups must not contain empty names")
 	}

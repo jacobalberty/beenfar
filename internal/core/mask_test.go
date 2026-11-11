@@ -37,6 +37,7 @@ func checkSetters[T any](t *testing.T, setters fieldSetters[T], readOnly ...stri
 func TestFieldSettersCoverMutableFields(t *testing.T) {
 	checkSetters(t, wifiFields)
 	checkSetters(t, networkFields)
+	checkSetters(t, radiusFields, "SecretVersion")
 }
 
 func TestFieldSettersApply(t *testing.T) {

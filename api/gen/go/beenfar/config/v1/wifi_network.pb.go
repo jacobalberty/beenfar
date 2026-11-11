@@ -155,8 +155,14 @@ type WifiNetwork struct {
 	// Access point groups that broadcast this network. Empty means all.
 	ApGroups         []string `protobuf:"bytes,9,rep,name=ap_groups,json=apGroups,proto3" json:"ap_groups,omitempty"`
 	DefaultUserGroup string   `protobuf:"bytes,10,opt,name=default_user_group,json=defaultUserGroup,proto3" json:"default_user_group,omitempty"`
-	// RADIUS profile; required for WPA enterprise.
+	// Free-text RADIUS profile name. Deprecated: use radius_server_id. WPA
+	// enterprise requires radius_server_id or, for existing clients, this.
+	//
+	// Deprecated: Marked as deprecated in beenfar/config/v1/wifi_network.proto.
 	RadiusProfile string `protobuf:"bytes,11,opt,name=radius_profile,json=radiusProfile,proto3" json:"radius_profile,omitempty"`
+	// Id of the beenfar.config.v1.RadiusServer that a WPA-enterprise network
+	// authenticates against. Must be empty for other security modes.
+	RadiusServerId string `protobuf:"bytes,12,opt,name=radius_server_id,json=radiusServerId,proto3" json:"radius_server_id,omitempty"`
 	// Opaque version of this resource, for optimistic concurrency.
 	Etag          string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
 	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
@@ -265,9 +271,17 @@ func (x *WifiNetwork) GetDefaultUserGroup() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in beenfar/config/v1/wifi_network.proto.
 func (x *WifiNetwork) GetRadiusProfile() string {
 	if x != nil {
 		return x.RadiusProfile
+	}
+	return ""
+}
+
+func (x *WifiNetwork) GetRadiusServerId() string {
+	if x != nil {
+		return x.RadiusServerId
 	}
 	return ""
 }
@@ -742,7 +756,7 @@ var File_beenfar_config_v1_wifi_network_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_wifi_network_proto_rawDesc = "" +
 	"\n" +
-	"$beenfar/config/v1/wifi_network.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb3\x04\n" +
+	"$beenfar/config/v1/wifi_network.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe1\x04\n" +
 	"\vWifiNetwork\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x18\n" +
 	"\x04ssid\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04ssid\x12A\n" +
@@ -755,8 +769,9 @@ const file_beenfar_config_v1_wifi_network_proto_rawDesc = "" +
 	"\x06hidden\x18\b \x01(\bR\x06hidden\x12\x1b\n" +
 	"\tap_groups\x18\t \x03(\tR\bapGroups\x12,\n" +
 	"\x12default_user_group\x18\n" +
-	" \x01(\tR\x10defaultUserGroup\x12%\n" +
-	"\x0eradius_profile\x18\v \x01(\tR\rradiusProfile\x12\x18\n" +
+	" \x01(\tR\x10defaultUserGroup\x12)\n" +
+	"\x0eradius_profile\x18\v \x01(\tB\x02\x18\x01R\rradiusProfile\x12(\n" +
+	"\x10radius_server_id\x18\f \x01(\tR\x0eradiusServerId\x12\x18\n" +
 	"\x04etag\x18\x14 \x01(\tB\x04\xe2A\x01\x03R\x04etag\x12A\n" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +

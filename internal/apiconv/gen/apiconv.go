@@ -96,6 +96,44 @@ func NetworkToProto(source store.Network) *v11.Network {
 	configv1Network.UpdateTime = apiconv.Timestamp(source.UpdateTime)
 	return &configv1Network
 }
+func RadiusFromProto(source *v11.RadiusServer) (store.RadiusServer, error) {
+	var storeRadiusServer store.RadiusServer
+	if source != nil {
+		storeRadiusServer.ID = (*source).Id
+		storeRadiusServer.Name = (*source).Name
+		storeRadiusServer.Address = (*source).Address
+		xint, err := apiconv.PortFromProto((*source).AuthPort)
+		if err != nil {
+			return storeRadiusServer, err
+		}
+		storeRadiusServer.AuthPort = xint
+		xint2, err := apiconv.PortFromProto((*source).AccountingPort)
+		if err != nil {
+			return storeRadiusServer, err
+		}
+		storeRadiusServer.AccountingPort = xint2
+		storeRadiusServer.SharedSecret = (*source).SharedSecret
+		xint64, err := apiconv.ParseEtag((*source).Etag)
+		if err != nil {
+			return storeRadiusServer, err
+		}
+		storeRadiusServer.Revision = xint64
+	}
+	return storeRadiusServer, nil
+}
+func RadiusToProto(source store.RadiusServer) *v11.RadiusServer {
+	var configv1RadiusServer v11.RadiusServer
+	configv1RadiusServer.Id = source.ID
+	configv1RadiusServer.Name = source.Name
+	configv1RadiusServer.Address = source.Address
+	configv1RadiusServer.AuthPort = apiconv.PortToProto(source.AuthPort)
+	configv1RadiusServer.AccountingPort = apiconv.PortToProto(source.AccountingPort)
+	configv1RadiusServer.SharedSecretVersion = source.SecretVersion
+	configv1RadiusServer.Etag = apiconv.Etag(source.Revision)
+	configv1RadiusServer.CreateTime = apiconv.Timestamp(source.CreateTime)
+	configv1RadiusServer.UpdateTime = apiconv.Timestamp(source.UpdateTime)
+	return &configv1RadiusServer
+}
 func UserToProto(source store.User) *v1.User {
 	var adminv1User v1.User
 	adminv1User.Id = source.ID
@@ -134,6 +172,7 @@ func WifiFromProto(source *v11.WifiNetwork) (store.WifiNetwork, error) {
 		}
 		storeWifiNetwork.DefaultUserGroup = (*source).DefaultUserGroup
 		storeWifiNetwork.RadiusProfile = (*source).RadiusProfile
+		storeWifiNetwork.RadiusServerID = (*source).RadiusServerId
 		xint64, err := apiconv.ParseEtag((*source).Etag)
 		if err != nil {
 			return storeWifiNetwork, err
@@ -160,6 +199,7 @@ func WifiToProto(source store.WifiNetwork) *v11.WifiNetwork {
 	}
 	configv1WifiNetwork.DefaultUserGroup = source.DefaultUserGroup
 	configv1WifiNetwork.RadiusProfile = source.RadiusProfile
+	configv1WifiNetwork.RadiusServerId = source.RadiusServerID
 	configv1WifiNetwork.Etag = apiconv.Etag(source.Revision)
 	configv1WifiNetwork.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1WifiNetwork.UpdateTime = apiconv.Timestamp(source.UpdateTime)

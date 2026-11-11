@@ -42,7 +42,7 @@ type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
 	// goverter:map Etag Revision | ParseEtag
-	// goverter:ignore CreateTime UpdateTime RadiusServerID
+	// goverter:ignore CreateTime UpdateTime
 	WifiFromProto(*configv1.WifiNetwork) (store.WifiNetwork, error)
 
 	// goverter:map Revision Etag | Etag
@@ -50,6 +50,19 @@ type Converter interface {
 	// goverter:map Etag Revision | ParseEtag
 	// goverter:ignore CreateTime UpdateTime
 	NetworkFromProto(*configv1.Network) (store.Network, error)
+
+	// The shared secret is input-only: it is never returned.
+	// goverter:map Revision Etag | Etag
+	// goverter:map SecretVersion SharedSecretVersion
+	// goverter:map AuthPort AuthPort | PortToProto
+	// goverter:map AccountingPort AccountingPort | PortToProto
+	// goverter:ignore SharedSecret
+	RadiusToProto(store.RadiusServer) *configv1.RadiusServer
+	// goverter:map Etag Revision | ParseEtag
+	// goverter:map AuthPort AuthPort | PortFromProto
+	// goverter:map AccountingPort AccountingPort | PortFromProto
+	// goverter:ignore CreateTime UpdateTime SecretVersion
+	RadiusFromProto(*configv1.RadiusServer) (store.RadiusServer, error)
 
 	// goverter:map LastSeen LastSeenTime
 	DeviceToProto(store.Device) *configv1.Device
@@ -95,6 +108,15 @@ func VLANToProto(v int) uint32 { return uint32(v) } //nolint:gosec // 0-4094, en
 func VLANFromProto(v uint32) (int, error) {
 	if v > 4094 {
 		return 0, fmt.Errorf("%w: vlan_id must be 0 (untagged) or 1-4094", store.ErrInvalid)
+	}
+	return int(v), nil
+}
+
+func PortToProto(v int) uint32 { return uint32(v) } //nolint:gosec // 0-65535, enforced on write
+
+func PortFromProto(v uint32) (int, error) {
+	if v > 65535 {
+		return 0, fmt.Errorf("%w: port numbers must be at most 65535", store.ErrInvalid)
 	}
 	return int(v), nil
 }

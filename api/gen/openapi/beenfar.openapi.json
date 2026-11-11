@@ -702,6 +702,31 @@
         "title": "CreateNetworkResponse",
         "additionalProperties": false
       },
+      "beenfar.config.v1.CreateRadiusServerRequest": {
+        "type": "object",
+        "properties": {
+          "radiusServer": {
+            "title": "radius_server",
+            "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+          }
+        },
+        "title": "CreateRadiusServerRequest",
+        "required": [
+          "radiusServer"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.CreateRadiusServerResponse": {
+        "type": "object",
+        "properties": {
+          "radiusServer": {
+            "title": "radius_server",
+            "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+          }
+        },
+        "title": "CreateRadiusServerResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.CreateWifiNetworkRequest": {
         "type": "object",
         "properties": {
@@ -748,6 +773,29 @@
       "beenfar.config.v1.DeleteNetworkResponse": {
         "type": "object",
         "title": "DeleteNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteRadiusServerRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag"
+          }
+        },
+        "title": "DeleteRadiusServerRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteRadiusServerResponse": {
+        "type": "object",
+        "title": "DeleteRadiusServerResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.DeleteWifiNetworkRequest": {
@@ -924,6 +972,31 @@
         "title": "GetNetworkResponse",
         "additionalProperties": false
       },
+      "beenfar.config.v1.GetRadiusServerRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetRadiusServerRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetRadiusServerResponse": {
+        "type": "object",
+        "properties": {
+          "radiusServer": {
+            "title": "radius_server",
+            "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+          }
+        },
+        "title": "GetRadiusServerResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.GetWifiNetworkRequest": {
         "type": "object",
         "properties": {
@@ -1025,6 +1098,25 @@
         "title": "ListPendingDevicesResponse",
         "additionalProperties": false
       },
+      "beenfar.config.v1.ListRadiusServersRequest": {
+        "type": "object",
+        "title": "ListRadiusServersRequest",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListRadiusServersResponse": {
+        "type": "object",
+        "properties": {
+          "radiusServers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+            },
+            "title": "radius_servers"
+          }
+        },
+        "title": "ListRadiusServersResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.ListWifiNetworksRequest": {
         "type": "object",
         "title": "ListWifiNetworksRequest",
@@ -1108,6 +1200,72 @@
         "additionalProperties": false,
         "description": "Network is a VLAN and its IPv4 subnet."
       },
+      "beenfar.config.v1.RadiusServer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "name": {
+            "type": "string",
+            "title": "name",
+            "description": "Display name, 1-64 bytes. Unique across RADIUS servers."
+          },
+          "address": {
+            "type": "string",
+            "title": "address",
+            "description": "IPv4 or IPv6 address of the server."
+          },
+          "authPort": {
+            "type": "integer",
+            "title": "auth_port",
+            "description": "Authentication port. 0 means the default, 1812."
+          },
+          "accountingPort": {
+            "type": "integer",
+            "title": "accounting_port",
+            "description": "Accounting port, usually 1813. 0 means no accounting."
+          },
+          "sharedSecret": {
+            "type": "string",
+            "title": "shared_secret",
+            "description": "Shared secret, 1-128 printable ASCII characters. Required on create. It\n is never returned; on update an empty value keeps the current secret.",
+            "writeOnly": true
+          },
+          "sharedSecretVersion": {
+            "type": "string",
+            "title": "shared_secret_version",
+            "format": "int64",
+            "description": "Starts at 1 and increases whenever the shared secret changes, so clients\n can tell that it was replaced without reading it.",
+            "readOnly": true
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag",
+            "description": "Opaque version of this resource, for optimistic concurrency.",
+            "readOnly": true
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "updateTime": {
+            "title": "update_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "RadiusServer",
+        "required": [
+          "name",
+          "address"
+        ],
+        "additionalProperties": false,
+        "description": "RadiusServer is a RADIUS server used for WPA-enterprise authentication\n and, optionally, accounting."
+      },
       "beenfar.config.v1.ReadoptionState": {
         "type": "string",
         "title": "ReadoptionState",
@@ -1147,6 +1305,37 @@
           }
         },
         "title": "UpdateNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateRadiusServerRequest": {
+        "type": "object",
+        "properties": {
+          "radiusServer": {
+            "title": "radius_server",
+            "description": "id selects the RADIUS server; etag, when set, guards the update.",
+            "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+          },
+          "updateMask": {
+            "title": "update_mask",
+            "description": "Fields to update, named by their proto field names. Fields not listed\n keep their stored values. When the mask is empty or \"*\", every mutable\n field is replaced.",
+            "$ref": "#/components/schemas/google.protobuf.FieldMask"
+          }
+        },
+        "title": "UpdateRadiusServerRequest",
+        "required": [
+          "radiusServer"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateRadiusServerResponse": {
+        "type": "object",
+        "properties": {
+          "radiusServer": {
+            "title": "radius_server",
+            "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+          }
+        },
+        "title": "UpdateRadiusServerResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.UpdateWifiNetworkRequest": {
@@ -1245,7 +1434,13 @@
           "radiusProfile": {
             "type": "string",
             "title": "radius_profile",
-            "description": "RADIUS profile; required for WPA enterprise."
+            "description": "Free-text RADIUS profile name. Deprecated: use radius_server_id. WPA\n enterprise requires radius_server_id or, for existing clients, this.",
+            "deprecated": true
+          },
+          "radiusServerId": {
+            "type": "string",
+            "title": "radius_server_id",
+            "description": "Id of the beenfar.config.v1.RadiusServer that a WPA-enterprise network\n authenticates against. Must be empty for other security modes."
           },
           "etag": {
             "type": "string",
@@ -2189,6 +2384,300 @@
         }
       }
     },
+    "/api/v1/radius-servers": {
+      "get": {
+        "tags": [
+          "RadiusServerService"
+        ],
+        "summary": "ListRadiusServers",
+        "description": "ListRadiusServers returns every RADIUS server, ordered by name.",
+        "operationId": "beenfar.config.v1.RadiusServerService.ListRadiusServers",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ListRadiusServersResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RadiusServerService"
+        ],
+        "summary": "CreateRadiusServer",
+        "description": "CreateRadiusServer creates a RADIUS server. The name must be unique.",
+        "operationId": "beenfar.config.v1.RadiusServerService.CreateRadiusServer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "radius_server",
+                "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "radius_server",
+                  "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/radius-servers/{id}": {
+      "get": {
+        "tags": [
+          "RadiusServerService"
+        ],
+        "summary": "GetRadiusServer",
+        "description": "GetRadiusServer returns one RADIUS server by id.",
+        "operationId": "beenfar.config.v1.RadiusServerService.GetRadiusServer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "radius_server",
+                  "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RadiusServerService"
+        ],
+        "summary": "DeleteRadiusServer",
+        "description": "DeleteRadiusServer deletes a RADIUS server. It fails with\n FAILED_PRECONDITION while a wireless network still refers to it.",
+        "operationId": "beenfar.config.v1.RadiusServerService.DeleteRadiusServer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "etag",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "etag"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeleteRadiusServerResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/radius-servers/{radiusServer.id}": {
+      "put": {
+        "tags": [
+          "RadiusServerService"
+        ],
+        "summary": "UpdateRadiusServer",
+        "description": "UpdateRadiusServer replaces the fields named by update_mask, or every\n mutable field when the mask is empty. When etag is set it must match the\n stored etag, or the call fails with ABORTED.",
+        "operationId": "beenfar.config.v1.RadiusServerService.UpdateRadiusServer",
+        "parameters": [
+          {
+            "name": "radiusServer.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names. Fields not listed\n keep their stored values. When the mask is empty or \"*\", every mutable\n field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the RADIUS server; etag, when set, guards the update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "radius_server",
+                "description": "id selects the RADIUS server; etag, when set, guards the update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "radius_server",
+                  "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "RadiusServerService"
+        ],
+        "summary": "UpdateRadiusServer",
+        "description": "UpdateRadiusServer replaces the fields named by update_mask, or every\n mutable field when the mask is empty. When etag is set it must match the\n stored etag, or the call fails with ABORTED.",
+        "operationId": "beenfar.config.v1.RadiusServerService.UpdateRadiusServer2",
+        "parameters": [
+          {
+            "name": "radiusServer.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names. Fields not listed\n keep their stored values. When the mask is empty or \"*\", every mutable\n field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the RADIUS server; etag, when set, guards the update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "radius_server",
+                "description": "id selects the RADIUS server; etag, when set, guards the update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "radius_server",
+                  "$ref": "#/components/schemas/beenfar.config.v1.RadiusServer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
         "tags": [
@@ -2803,6 +3292,10 @@
     {
       "name": "NetworkService",
       "description": "NetworkService manages wired/L3 networks (VLANs and their subnets)."
+    },
+    {
+      "name": "RadiusServerService",
+      "description": "RadiusServerService manages the RADIUS servers that WPA-enterprise\n wireless networks authenticate against."
     },
     {
       "name": "WifiNetworkService",

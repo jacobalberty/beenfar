@@ -58,11 +58,11 @@ func TestUpdateMaskLeavesOtherFieldsAlone(t *testing.T) {
 		t.Fatalf("after Terraform update: %v", got)
 	}
 
-	// A masked update still validates the merged resource: switching to
-	// WPA enterprise without clearing the key is rejected...
+	// A masked update still validates the merged resource: switching to an
+	// open network without clearing the stored key is rejected...
 	_, err = wifi.UpdateWifiNetwork(ctx, &configv1.UpdateWifiNetworkRequest{
-		WifiNetwork: &configv1.WifiNetwork{Id: id, Security: configv1.WifiSecurity_WIFI_SECURITY_WPA_ENTERPRISE, RadiusProfile: "corp"},
-		UpdateMask:  mask("security", "radius_profile"),
+		WifiNetwork: &configv1.WifiNetwork{Id: id, Security: configv1.WifiSecurity_WIFI_SECURITY_OPEN},
+		UpdateMask:  mask("security"),
 	})
 	wantCode(t, err, connect.CodeInvalidArgument)
 

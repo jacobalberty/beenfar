@@ -96,8 +96,12 @@ message WifiNetwork {
   // Access point groups that broadcast this network. Empty means all.
   repeated string ap_groups = 9;
   string default_user_group = 10;
-  // RADIUS profile; required for WPA enterprise.
-  string radius_profile = 11;
+  // Free-text RADIUS profile name. Deprecated: use radius_server_id. WPA
+  // enterprise requires radius_server_id or, for existing clients, this.
+  string radius_profile = 11 [deprecated = true];
+  // Id of the beenfar.config.v1.RadiusServer that a WPA-enterprise network
+  // authenticates against. Must be empty for other security modes.
+  string radius_server_id = 12;
 
   // Opaque version of this resource, for optimistic concurrency.
   string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];

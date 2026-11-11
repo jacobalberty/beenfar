@@ -23,6 +23,7 @@ func invalid(format string, args ...any) error {
 type Services struct {
 	Wifi     *WifiService
 	Networks *NetworkService
+	Radius   *RadiusService
 	Devices  *DeviceService
 	Adapters AdapterRegistry
 }
@@ -35,6 +36,7 @@ func New(st store.Store, adapters AdapterRegistry) *Services {
 	return &Services{
 		Wifi:     &WifiService{store: st},
 		Networks: &NetworkService{store: st},
+		Radius:   &RadiusService{store: st},
 		Devices:  &DeviceService{store: st, adapters: adapters},
 		Adapters: adapters,
 	}
