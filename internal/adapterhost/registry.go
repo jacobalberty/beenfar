@@ -2,6 +2,7 @@ package adapterhost
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -41,6 +42,7 @@ type Registry struct {
 	mu       sync.RWMutex
 	adapters map[string]*entry
 	handlers map[string]http.Handler
+	pending  map[string]*pendingCommand // by command id
 }
 
 var _ core.AdapterRegistry = (*Registry)(nil)
@@ -59,6 +61,7 @@ func NewRegistry(opts Options) (*Registry, error) {
 		now:      time.Now,
 		adapters: map[string]*entry{},
 		handlers: map[string]http.Handler{},
+		pending:  map[string]*pendingCommand{},
 	}
 	if opts.Meter != nil {
 		g, err := opts.Meter.Int64ObservableGauge("beenfar.adapters.connected",
@@ -200,4 +203,144 @@ func (r *Registry) driver(name string) (Driver, error) {
 		return nil, fmt.Errorf("%w: adapter %q is not connected", store.ErrFailedPrecondition, name)
 	}
 	return e.driver, nil
+}
+
+// --- external adapters ---
+
+// CommandKind is what the controller asks an external adapter to do.
+type CommandKind int
+
+const (
+	CommandAdopt CommandKind = iota + 1
+	CommandForget
+)
+
+// Command is sent to an external adapter, which answers it with
+// Registry.CompleteCommand.
+type Command struct {
+	ID     string
+	Kind   CommandKind
+	Device adapter.Device
+}
+
+type pendingCommand struct {
+	adapter string
+	done    chan error // buffered; receives the adapter's answer
+}
+
+// Session is the controller's end of a connected external adapter.
+type Session struct {
+	reg      *Registry
+	name     string
+	commands chan Command
+	closed   chan struct{}
+	once     sync.Once
+}
+
+// Connect registers an external adapter that has authenticated as name. It
+// fails with ErrConflict if a built-in adapter has that name or an external
+// one is already connected under it. Close the session when the adapter's
+// stream ends.
+func (r *Registry) Connect(name, version string) (*Session, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, ok := r.adapters[name]
+	switch {
+	case ok && e.status.Kind == core.AdapterBuiltin:
+		return nil, fmt.Errorf("%w: %q is a built-in adapter", store.ErrConflict, name)
+	case ok && e.status.Healthy:
+		return nil, fmt.Errorf("%w: adapter %q is already connected", store.ErrConflict, name)
+	case !ok:
+		e = &entry{}
+		r.adapters[name] = e
+	}
+	s := &Session{reg: r, name: name, commands: make(chan Command), closed: make(chan struct{})}
+	e.status = core.AdapterStatus{
+		Name:        name,
+		Kind:        core.AdapterExternal,
+		Version:     version,
+		Healthy:     true,
+		ConnectTime: r.now(),
+	}
+	e.driver = remoteDriver{s}
+	return s, nil
+}
+
+// Commands delivers the commands to send to the adapter.
+func (s *Session) Commands() <-chan Command { return s.commands }
+
+// Close marks the adapter disconnected and fails its outstanding commands.
+func (s *Session) Close() {
+	s.once.Do(func() {
+		close(s.closed)
+		s.reg.mu.Lock()
+		defer s.reg.mu.Unlock()
+		// A newer session may already have replaced this one.
+		if e, ok := s.reg.adapters[s.name]; ok {
+			if d, ok := e.driver.(remoteDriver); ok && d.s == s {
+				e.status.Healthy = false
+				e.status.StatusMessage = "disconnected"
+			}
+		}
+	})
+}
+
+// CompleteCommand records an external adapter's answer to a command. An
+// empty errMsg means success. Only the adapter that was sent the command may
+// answer it.
+func (r *Registry) CompleteCommand(adapterName, id, errMsg string) error {
+	r.mu.Lock()
+	p, ok := r.pending[id]
+	if !ok || p.adapter != adapterName {
+		r.mu.Unlock()
+		return fmt.Errorf("%w: no such command", store.ErrNotFound)
+	}
+	delete(r.pending, id)
+	r.mu.Unlock()
+	if errMsg != "" {
+		p.done <- errors.New(errMsg)
+	} else {
+		p.done <- nil
+	}
+	return nil
+}
+
+type remoteDriver struct{ s *Session }
+
+func (d remoteDriver) Adopt(ctx context.Context, dev adapter.Device) error {
+	return d.send(ctx, CommandAdopt, dev)
+}
+
+func (d remoteDriver) Forget(ctx context.Context, dev adapter.Device) error {
+	return d.send(ctx, CommandForget, dev)
+}
+
+func (d remoteDriver) send(ctx context.Context, kind CommandKind, dev adapter.Device) error {
+	r := d.s.reg
+	id := rand.Text()
+	p := &pendingCommand{adapter: d.s.name, done: make(chan error, 1)}
+	r.mu.Lock()
+	r.pending[id] = p
+	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		delete(r.pending, id)
+		r.mu.Unlock()
+	}()
+
+	select {
+	case d.s.commands <- Command{ID: id, Kind: kind, Device: dev}:
+	case <-d.s.closed:
+		return fmt.Errorf("%w: adapter %q disconnected", store.ErrFailedPrecondition, d.s.name)
+	case <-ctx.Done():
+		return fmt.Errorf("sending command to adapter %q: %w", d.s.name, ctx.Err())
+	}
+	select {
+	case err := <-p.done:
+		return err
+	case <-d.s.closed:
+		return fmt.Errorf("%w: adapter %q disconnected", store.ErrFailedPrecondition, d.s.name)
+	case <-ctx.Done():
+		return fmt.Errorf("waiting for adapter %q: %w", d.s.name, ctx.Err())
+	}
 }

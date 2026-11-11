@@ -67,7 +67,7 @@ func newFixture(t *testing.T, fopts ...fixtureOption) fixture {
 		t.Fatal(err)
 	}
 	reg.Start(t.Context())
-	opts := server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, reg)}
+	opts := server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, reg), AdapterHost: adapterhost.NewService(reg, st)}
 	for _, f := range fopts {
 		f(&opts)
 	}

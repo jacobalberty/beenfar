@@ -21,7 +21,13 @@ const adminUsage = `usage:
       from the first line of standard input.
   beenfard admin token [-db URL] -username NAME -name LABEL [-expires DURATION]
       Issue an API token for a user and print it. Use it as
-      "Authorization: Bearer <token>", e.g. for the Terraform provider.`
+      "Authorization: Bearer <token>", e.g. for the Terraform provider.
+  beenfard admin adapter-token [-db URL] create -adapter NAME
+  beenfard admin adapter-token [-db URL] list
+  beenfard admin adapter-token [-db URL] revoke -id ID
+      Manage the tokens external adapters use to call the adapter API.
+      "create" prints the token once; the token lets its holder act as the
+      adapter NAME.`
 
 // runAdmin implements the offline "beenfard admin ..." subcommands, which
 // work directly on the database.
@@ -92,7 +98,74 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer) error {
 		_, err = fmt.Fprintln(stdout, secret)
 		return err
 
+	case "adapter-token":
+		return runAdapterToken(ctx, fs, dbURL, args, stdout)
+
 	default:
 		return fmt.Errorf("unknown admin command %q\n%s", cmd, adminUsage)
+	}
+}
+
+// runAdapterToken implements "admin adapter-token create|list|revoke".
+//
+// The subcommand follows the shared flags ("-db URL create -adapter NAME"),
+// so the flags are parsed once to find it and again for its own flags.
+func runAdapterToken(ctx context.Context, fs *flag.FlagSet, dbURL *string, args []string, stdout io.Writer) error {
+	adapterName := fs.String("adapter", "", "adapter name, e.g. meraki")
+	id := fs.String("id", "", "token id, from \"adapter-token list\"")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() == 0 {
+		return fmt.Errorf("missing adapter-token command\n%s", adminUsage)
+	}
+	sub := fs.Arg(0)
+	if err := fs.Parse(fs.Args()[1:]); err != nil {
+		return err
+	}
+	st, _, err := openStore(ctx, *dbURL)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+	svc := auth.New(st)
+
+	switch sub {
+	case "create":
+		if *adapterName == "" {
+			return errors.New("-adapter is required")
+		}
+		_, secret, err := svc.CreateAdapterToken(ctx, *adapterName)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(stdout, secret)
+		return err
+	case "list":
+		tokens, err := svc.ListAdapterTokens(ctx)
+		if err != nil {
+			return err
+		}
+		for _, t := range tokens {
+			last := "never"
+			if !t.LastUsedTime.IsZero() {
+				last = t.LastUsedTime.Format(time.RFC3339)
+			}
+			if _, err := fmt.Fprintf(stdout, "%s\t%s\tbfa_%s_...\tlast used %s\n", t.ID, t.Adapter, t.Prefix, last); err != nil {
+				return err
+			}
+		}
+		return nil
+	case "revoke":
+		if *id == "" {
+			return errors.New("-id is required")
+		}
+		if err := svc.DeleteAdapterToken(ctx, *id); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(stdout, "revoked %s\n", *id)
+		return err
+	default:
+		return fmt.Errorf("unknown adapter-token command %q\n%s", sub, adminUsage)
 	}
 }

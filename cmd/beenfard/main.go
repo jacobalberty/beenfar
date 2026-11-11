@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/server"
@@ -111,13 +112,21 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("auth configuration: %w", err)
 	}
+	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter()})
+	if err != nil {
+		return err
+	}
+	adapterCtx, stopAdapters := context.WithCancel(ctx)
+	adapters.Start(adapterCtx)
+	defer func() { stopAdapters(); adapters.Wait() }() // also on startup errors
 	handler, err := server.New(server.Options{
 		Store:         ost,
 		Telemetry:     tel,
 		Auth:          authSvc,
 		Authenticator: authn,
 		AuthMethods:   methods,
-		Core:          core.New(ost, nil), // TODO(phase 4): the adapter host registry
+		Core:          core.New(ost, adapters),
+		AdapterHost:   adapterhost.NewService(adapters, ost),
 	})
 	if err != nil {
 		return err
