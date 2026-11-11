@@ -238,8 +238,8 @@ func TestRadiusServers(t *testing.T) {
 
 	// Wireless networks may only refer to existing servers, and a server in
 	// use cannot be deleted.
-	enterprise := store.WifiNetwork{SSID: "corp", Security: store.WifiSecurityWPAEnterprise, Band: store.WifiBandBoth}
-	enterprise.RadiusServerID = "missing"
+	enterprise := store.WifiNetwork{SSID: "corp", Security: store.WifiSecurityWPAEnterprise, Band: store.WifiBandBoth,
+		RadiusServerID: "missing"}
 	_, err = s.CreateWifiNetwork(ctx, enterprise)
 	wantErr(t, err, store.ErrInvalid)
 	enterprise.RadiusServerID = r.ID
