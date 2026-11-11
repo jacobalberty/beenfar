@@ -234,6 +234,107 @@ func (WifiBand) EnumDescriptor() ([]byte, []int) {
 	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{3}
 }
 
+type SwitchPortTagging int32
+
+const (
+	SwitchPortTagging_SWITCH_PORT_TAGGING_UNSPECIFIED SwitchPortTagging = 0
+	SwitchPortTagging_SWITCH_PORT_TAGGING_ALL         SwitchPortTagging = 1
+	SwitchPortTagging_SWITCH_PORT_TAGGING_NONE        SwitchPortTagging = 2
+	SwitchPortTagging_SWITCH_PORT_TAGGING_CUSTOM      SwitchPortTagging = 3
+)
+
+// Enum value maps for SwitchPortTagging.
+var (
+	SwitchPortTagging_name = map[int32]string{
+		0: "SWITCH_PORT_TAGGING_UNSPECIFIED",
+		1: "SWITCH_PORT_TAGGING_ALL",
+		2: "SWITCH_PORT_TAGGING_NONE",
+		3: "SWITCH_PORT_TAGGING_CUSTOM",
+	}
+	SwitchPortTagging_value = map[string]int32{
+		"SWITCH_PORT_TAGGING_UNSPECIFIED": 0,
+		"SWITCH_PORT_TAGGING_ALL":         1,
+		"SWITCH_PORT_TAGGING_NONE":        2,
+		"SWITCH_PORT_TAGGING_CUSTOM":      3,
+	}
+)
+
+func (x SwitchPortTagging) Enum() *SwitchPortTagging {
+	p := new(SwitchPortTagging)
+	*p = x
+	return p
+}
+
+func (x SwitchPortTagging) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SwitchPortTagging) Descriptor() protoreflect.EnumDescriptor {
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[4].Descriptor()
+}
+
+func (SwitchPortTagging) Type() protoreflect.EnumType {
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[4]
+}
+
+func (x SwitchPortTagging) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SwitchPortTagging.Descriptor instead.
+func (SwitchPortTagging) EnumDescriptor() ([]byte, []int) {
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{4}
+}
+
+type PoeMode int32
+
+const (
+	PoeMode_POE_MODE_UNSPECIFIED PoeMode = 0
+	PoeMode_POE_MODE_AUTO        PoeMode = 1
+	PoeMode_POE_MODE_OFF         PoeMode = 2
+)
+
+// Enum value maps for PoeMode.
+var (
+	PoeMode_name = map[int32]string{
+		0: "POE_MODE_UNSPECIFIED",
+		1: "POE_MODE_AUTO",
+		2: "POE_MODE_OFF",
+	}
+	PoeMode_value = map[string]int32{
+		"POE_MODE_UNSPECIFIED": 0,
+		"POE_MODE_AUTO":        1,
+		"POE_MODE_OFF":         2,
+	}
+)
+
+func (x PoeMode) Enum() *PoeMode {
+	p := new(PoeMode)
+	*p = x
+	return p
+}
+
+func (x PoeMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PoeMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[5].Descriptor()
+}
+
+func (PoeMode) Type() protoreflect.EnumType {
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[5]
+}
+
+func (x PoeMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PoeMode.Descriptor instead.
+func (PoeMode) EnumDescriptor() ([]byte, []int) {
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{5}
+}
+
 // Device is a device as the controller knows it.
 type Device struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -600,11 +701,14 @@ type WifiNetwork struct {
 	SecurityKey string                 `protobuf:"bytes,4,opt,name=security_key,json=securityKey,proto3" json:"security_key,omitempty"`
 	Band        WifiBand               `protobuf:"varint,5,opt,name=band,proto3,enum=beenfar.adapter.v1.WifiBand" json:"band,omitempty"`
 	// The network the SSID's clients join; empty means the default one.
-	NetworkId     string `protobuf:"bytes,6,opt,name=network_id,json=networkId,proto3" json:"network_id,omitempty"`
-	Guest         bool   `protobuf:"varint,7,opt,name=guest,proto3" json:"guest,omitempty"`
-	Hidden        bool   `protobuf:"varint,8,opt,name=hidden,proto3" json:"hidden,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	NetworkId string `protobuf:"bytes,6,opt,name=network_id,json=networkId,proto3" json:"network_id,omitempty"`
+	Guest     bool   `protobuf:"varint,7,opt,name=guest,proto3" json:"guest,omitempty"`
+	Hidden    bool   `protobuf:"varint,8,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	// The RADIUS server of a WPA-enterprise network, one of
+	// DesiredConfig.radius_servers.
+	RadiusServerId string `protobuf:"bytes,9,opt,name=radius_server_id,json=radiusServerId,proto3" json:"radius_server_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *WifiNetwork) Reset() {
@@ -693,20 +797,202 @@ func (x *WifiNetwork) GetHidden() bool {
 	return false
 }
 
+func (x *WifiNetwork) GetRadiusServerId() string {
+	if x != nil {
+		return x.RadiusServerId
+	}
+	return ""
+}
+
+type RadiusServer struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// IP address.
+	Address  string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	AuthPort int32  `protobuf:"varint,3,opt,name=auth_port,json=authPort,proto3" json:"auth_port,omitempty"`
+	// 0 means no accounting.
+	AccountingPort int32  `protobuf:"varint,4,opt,name=accounting_port,json=accountingPort,proto3" json:"accounting_port,omitempty"`
+	SharedSecret   string `protobuf:"bytes,5,opt,name=shared_secret,json=sharedSecret,proto3" json:"shared_secret,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *RadiusServer) Reset() {
+	*x = RadiusServer{}
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RadiusServer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RadiusServer) ProtoMessage() {}
+
+func (x *RadiusServer) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RadiusServer.ProtoReflect.Descriptor instead.
+func (*RadiusServer) Descriptor() ([]byte, []int) {
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RadiusServer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RadiusServer) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *RadiusServer) GetAuthPort() int32 {
+	if x != nil {
+		return x.AuthPort
+	}
+	return 0
+}
+
+func (x *RadiusServer) GetAccountingPort() int32 {
+	if x != nil {
+		return x.AccountingPort
+	}
+	return 0
+}
+
+func (x *RadiusServer) GetSharedSecret() string {
+	if x != nil {
+		return x.SharedSecret
+	}
+	return ""
+}
+
+type SwitchPort struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 1-based.
+	PortIndex int32  `protobuf:"varint,1,opt,name=port_index,json=portIndex,proto3" json:"port_index,omitempty"`
+	Name      string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Disabled  bool   `protobuf:"varint,3,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	// The untagged network; empty means the default one.
+	NativeNetworkId  string            `protobuf:"bytes,4,opt,name=native_network_id,json=nativeNetworkId,proto3" json:"native_network_id,omitempty"`
+	Tagging          SwitchPortTagging `protobuf:"varint,5,opt,name=tagging,proto3,enum=beenfar.adapter.v1.SwitchPortTagging" json:"tagging,omitempty"`
+	TaggedNetworkIds []string          `protobuf:"bytes,6,rep,name=tagged_network_ids,json=taggedNetworkIds,proto3" json:"tagged_network_ids,omitempty"`
+	PoeMode          PoeMode           `protobuf:"varint,7,opt,name=poe_mode,json=poeMode,proto3,enum=beenfar.adapter.v1.PoeMode" json:"poe_mode,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SwitchPort) Reset() {
+	*x = SwitchPort{}
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SwitchPort) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SwitchPort) ProtoMessage() {}
+
+func (x *SwitchPort) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SwitchPort.ProtoReflect.Descriptor instead.
+func (*SwitchPort) Descriptor() ([]byte, []int) {
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SwitchPort) GetPortIndex() int32 {
+	if x != nil {
+		return x.PortIndex
+	}
+	return 0
+}
+
+func (x *SwitchPort) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SwitchPort) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+func (x *SwitchPort) GetNativeNetworkId() string {
+	if x != nil {
+		return x.NativeNetworkId
+	}
+	return ""
+}
+
+func (x *SwitchPort) GetTagging() SwitchPortTagging {
+	if x != nil {
+		return x.Tagging
+	}
+	return SwitchPortTagging_SWITCH_PORT_TAGGING_UNSPECIFIED
+}
+
+func (x *SwitchPort) GetTaggedNetworkIds() []string {
+	if x != nil {
+		return x.TaggedNetworkIds
+	}
+	return nil
+}
+
+func (x *SwitchPort) GetPoeMode() PoeMode {
+	if x != nil {
+		return x.PoeMode
+	}
+	return PoeMode_POE_MODE_UNSPECIFIED
+}
+
 // DesiredConfig is the configuration for one device.
 type DesiredConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Changes whenever any network or wifi network changes.
-	Revision      int64          `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
-	Networks      []*Network     `protobuf:"bytes,2,rep,name=networks,proto3" json:"networks,omitempty"`
-	Wifi          []*WifiNetwork `protobuf:"bytes,3,rep,name=wifi,proto3" json:"wifi,omitempty"`
+	// Changes whenever anything in the configuration changes.
+	Revision      int64           `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	Networks      []*Network      `protobuf:"bytes,2,rep,name=networks,proto3" json:"networks,omitempty"`
+	Wifi          []*WifiNetwork  `protobuf:"bytes,3,rep,name=wifi,proto3" json:"wifi,omitempty"`
+	RadiusServers []*RadiusServer `protobuf:"bytes,4,rep,name=radius_servers,json=radiusServers,proto3" json:"radius_servers,omitempty"`
+	// This device's port settings, ordered by port_index.
+	SwitchPorts   []*SwitchPort `protobuf:"bytes,5,rep,name=switch_ports,json=switchPorts,proto3" json:"switch_ports,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DesiredConfig) Reset() {
 	*x = DesiredConfig{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[5]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +1004,7 @@ func (x *DesiredConfig) String() string {
 func (*DesiredConfig) ProtoMessage() {}
 
 func (x *DesiredConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[5]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +1017,7 @@ func (x *DesiredConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DesiredConfig.ProtoReflect.Descriptor instead.
 func (*DesiredConfig) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{5}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DesiredConfig) GetRevision() int64 {
@@ -755,6 +1041,20 @@ func (x *DesiredConfig) GetWifi() []*WifiNetwork {
 	return nil
 }
 
+func (x *DesiredConfig) GetRadiusServers() []*RadiusServer {
+	if x != nil {
+		return x.RadiusServers
+	}
+	return nil
+}
+
+func (x *DesiredConfig) GetSwitchPorts() []*SwitchPort {
+	if x != nil {
+		return x.SwitchPorts
+	}
+	return nil
+}
+
 type RegisterRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The adapter's version, shown in the adapter list.
@@ -765,7 +1065,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[6]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -777,7 +1077,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[6]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +1090,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{6}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RegisterRequest) GetVersion() string {
@@ -823,7 +1123,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[7]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -835,7 +1135,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[7]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -848,7 +1148,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{7}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RegisterResponse) GetCommandId() string {
@@ -932,7 +1232,7 @@ type Registered struct {
 
 func (x *Registered) Reset() {
 	*x = Registered{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[8]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -944,7 +1244,7 @@ func (x *Registered) String() string {
 func (*Registered) ProtoMessage() {}
 
 func (x *Registered) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[8]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -957,7 +1257,7 @@ func (x *Registered) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Registered.ProtoReflect.Descriptor instead.
 func (*Registered) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{8}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{10}
 }
 
 type CompleteCommandRequest struct {
@@ -971,7 +1271,7 @@ type CompleteCommandRequest struct {
 
 func (x *CompleteCommandRequest) Reset() {
 	*x = CompleteCommandRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[9]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -983,7 +1283,7 @@ func (x *CompleteCommandRequest) String() string {
 func (*CompleteCommandRequest) ProtoMessage() {}
 
 func (x *CompleteCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[9]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -996,7 +1296,7 @@ func (x *CompleteCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteCommandRequest.ProtoReflect.Descriptor instead.
 func (*CompleteCommandRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{9}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CompleteCommandRequest) GetCommandId() string {
@@ -1021,7 +1321,7 @@ type CompleteCommandResponse struct {
 
 func (x *CompleteCommandResponse) Reset() {
 	*x = CompleteCommandResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[10]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1033,7 +1333,7 @@ func (x *CompleteCommandResponse) String() string {
 func (*CompleteCommandResponse) ProtoMessage() {}
 
 func (x *CompleteCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[10]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1046,7 +1346,7 @@ func (x *CompleteCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteCommandResponse.ProtoReflect.Descriptor instead.
 func (*CompleteCommandResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{10}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{12}
 }
 
 type LookupDeviceRequest struct {
@@ -1058,7 +1358,7 @@ type LookupDeviceRequest struct {
 
 func (x *LookupDeviceRequest) Reset() {
 	*x = LookupDeviceRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[11]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1070,7 +1370,7 @@ func (x *LookupDeviceRequest) String() string {
 func (*LookupDeviceRequest) ProtoMessage() {}
 
 func (x *LookupDeviceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[11]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1083,7 +1383,7 @@ func (x *LookupDeviceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupDeviceRequest.ProtoReflect.Descriptor instead.
 func (*LookupDeviceRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{11}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *LookupDeviceRequest) GetMac() string {
@@ -1102,7 +1402,7 @@ type LookupDeviceResponse struct {
 
 func (x *LookupDeviceResponse) Reset() {
 	*x = LookupDeviceResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[12]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1114,7 +1414,7 @@ func (x *LookupDeviceResponse) String() string {
 func (*LookupDeviceResponse) ProtoMessage() {}
 
 func (x *LookupDeviceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[12]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1127,7 +1427,7 @@ func (x *LookupDeviceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupDeviceResponse.ProtoReflect.Descriptor instead.
 func (*LookupDeviceResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{12}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LookupDeviceResponse) GetDevice() *Device {
@@ -1146,7 +1446,7 @@ type ReportDeviceRequest struct {
 
 func (x *ReportDeviceRequest) Reset() {
 	*x = ReportDeviceRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[13]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1158,7 +1458,7 @@ func (x *ReportDeviceRequest) String() string {
 func (*ReportDeviceRequest) ProtoMessage() {}
 
 func (x *ReportDeviceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[13]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1171,7 +1471,7 @@ func (x *ReportDeviceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportDeviceRequest.ProtoReflect.Descriptor instead.
 func (*ReportDeviceRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{13}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ReportDeviceRequest) GetDiscovered() *Discovered {
@@ -1190,7 +1490,7 @@ type ReportDeviceResponse struct {
 
 func (x *ReportDeviceResponse) Reset() {
 	*x = ReportDeviceResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[14]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1202,7 +1502,7 @@ func (x *ReportDeviceResponse) String() string {
 func (*ReportDeviceResponse) ProtoMessage() {}
 
 func (x *ReportDeviceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[14]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1215,7 +1515,7 @@ func (x *ReportDeviceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportDeviceResponse.ProtoReflect.Descriptor instead.
 func (*ReportDeviceResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{14}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ReportDeviceResponse) GetDevice() *Device {
@@ -1234,7 +1534,7 @@ type GetDesiredConfigRequest struct {
 
 func (x *GetDesiredConfigRequest) Reset() {
 	*x = GetDesiredConfigRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[15]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1246,7 +1546,7 @@ func (x *GetDesiredConfigRequest) String() string {
 func (*GetDesiredConfigRequest) ProtoMessage() {}
 
 func (x *GetDesiredConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[15]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1259,7 +1559,7 @@ func (x *GetDesiredConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDesiredConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetDesiredConfigRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{15}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetDesiredConfigRequest) GetDeviceId() string {
@@ -1278,7 +1578,7 @@ type GetDesiredConfigResponse struct {
 
 func (x *GetDesiredConfigResponse) Reset() {
 	*x = GetDesiredConfigResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[16]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1290,7 +1590,7 @@ func (x *GetDesiredConfigResponse) String() string {
 func (*GetDesiredConfigResponse) ProtoMessage() {}
 
 func (x *GetDesiredConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[16]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1303,7 +1603,7 @@ func (x *GetDesiredConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDesiredConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetDesiredConfigResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{16}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetDesiredConfigResponse) GetConfig() *DesiredConfig {
@@ -1323,7 +1623,7 @@ type ReportStateRequest struct {
 
 func (x *ReportStateRequest) Reset() {
 	*x = ReportStateRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[17]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1335,7 +1635,7 @@ func (x *ReportStateRequest) String() string {
 func (*ReportStateRequest) ProtoMessage() {}
 
 func (x *ReportStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[17]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1348,7 +1648,7 @@ func (x *ReportStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportStateRequest.ProtoReflect.Descriptor instead.
 func (*ReportStateRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{17}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ReportStateRequest) GetDeviceId() string {
@@ -1373,7 +1673,7 @@ type ReportStateResponse struct {
 
 func (x *ReportStateResponse) Reset() {
 	*x = ReportStateResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[18]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1385,7 +1685,7 @@ func (x *ReportStateResponse) String() string {
 func (*ReportStateResponse) ProtoMessage() {}
 
 func (x *ReportStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[18]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1398,7 +1698,7 @@ func (x *ReportStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportStateResponse.ProtoReflect.Descriptor instead.
 func (*ReportStateResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{18}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{20}
 }
 
 type GetDeviceSecretRequest struct {
@@ -1411,7 +1711,7 @@ type GetDeviceSecretRequest struct {
 
 func (x *GetDeviceSecretRequest) Reset() {
 	*x = GetDeviceSecretRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[19]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1423,7 +1723,7 @@ func (x *GetDeviceSecretRequest) String() string {
 func (*GetDeviceSecretRequest) ProtoMessage() {}
 
 func (x *GetDeviceSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[19]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1436,7 +1736,7 @@ func (x *GetDeviceSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeviceSecretRequest.ProtoReflect.Descriptor instead.
 func (*GetDeviceSecretRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{19}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetDeviceSecretRequest) GetDeviceId() string {
@@ -1464,7 +1764,7 @@ type GetDeviceSecretResponse struct {
 
 func (x *GetDeviceSecretResponse) Reset() {
 	*x = GetDeviceSecretResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[20]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1476,7 +1776,7 @@ func (x *GetDeviceSecretResponse) String() string {
 func (*GetDeviceSecretResponse) ProtoMessage() {}
 
 func (x *GetDeviceSecretResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[20]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1489,7 +1789,7 @@ func (x *GetDeviceSecretResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeviceSecretResponse.ProtoReflect.Descriptor instead.
 func (*GetDeviceSecretResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{20}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetDeviceSecretResponse) GetFound() bool {
@@ -1517,7 +1817,7 @@ type SetDeviceSecretRequest struct {
 
 func (x *SetDeviceSecretRequest) Reset() {
 	*x = SetDeviceSecretRequest{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[21]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1529,7 +1829,7 @@ func (x *SetDeviceSecretRequest) String() string {
 func (*SetDeviceSecretRequest) ProtoMessage() {}
 
 func (x *SetDeviceSecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[21]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1542,7 +1842,7 @@ func (x *SetDeviceSecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDeviceSecretRequest.ProtoReflect.Descriptor instead.
 func (*SetDeviceSecretRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{21}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SetDeviceSecretRequest) GetDeviceId() string {
@@ -1574,7 +1874,7 @@ type SetDeviceSecretResponse struct {
 
 func (x *SetDeviceSecretResponse) Reset() {
 	*x = SetDeviceSecretResponse{}
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[22]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1586,7 +1886,7 @@ func (x *SetDeviceSecretResponse) String() string {
 func (*SetDeviceSecretResponse) ProtoMessage() {}
 
 func (x *SetDeviceSecretResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[22]
+	mi := &file_beenfar_adapter_v1_adapter_host_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1599,7 +1899,7 @@ func (x *SetDeviceSecretResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDeviceSecretResponse.ProtoReflect.Descriptor instead.
 func (*SetDeviceSecretResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{22}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{24}
 }
 
 var File_beenfar_adapter_v1_adapter_host_proto protoreflect.FileDescriptor
@@ -1642,7 +1942,7 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"dhcp_start\x18\x06 \x01(\tR\tdhcpStart\x12\x1b\n" +
 	"\tdhcp_stop\x18\a \x01(\tR\bdhcpStop\x12\x1f\n" +
 	"\vdomain_name\x18\b \x01(\tR\n" +
-	"domainName\"\x91\x02\n" +
+	"domainName\"\xbb\x02\n" +
 	"\vWifiNetwork\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04ssid\x18\x02 \x01(\tR\x04ssid\x12<\n" +
@@ -1652,11 +1952,30 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\n" +
 	"network_id\x18\x06 \x01(\tR\tnetworkId\x12\x14\n" +
 	"\x05guest\x18\a \x01(\bR\x05guest\x12\x16\n" +
-	"\x06hidden\x18\b \x01(\bR\x06hidden\"\x99\x01\n" +
+	"\x06hidden\x18\b \x01(\bR\x06hidden\x12(\n" +
+	"\x10radius_server_id\x18\t \x01(\tR\x0eradiusServerId\"\xa3\x01\n" +
+	"\fRadiusServer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x1b\n" +
+	"\tauth_port\x18\x03 \x01(\x05R\bauthPort\x12'\n" +
+	"\x0faccounting_port\x18\x04 \x01(\x05R\x0eaccountingPort\x12#\n" +
+	"\rshared_secret\x18\x05 \x01(\tR\fsharedSecret\"\xae\x02\n" +
+	"\n" +
+	"SwitchPort\x12\x1d\n" +
+	"\n" +
+	"port_index\x18\x01 \x01(\x05R\tportIndex\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bdisabled\x18\x03 \x01(\bR\bdisabled\x12*\n" +
+	"\x11native_network_id\x18\x04 \x01(\tR\x0fnativeNetworkId\x12?\n" +
+	"\atagging\x18\x05 \x01(\x0e2%.beenfar.adapter.v1.SwitchPortTaggingR\atagging\x12,\n" +
+	"\x12tagged_network_ids\x18\x06 \x03(\tR\x10taggedNetworkIds\x126\n" +
+	"\bpoe_mode\x18\a \x01(\x0e2\x1b.beenfar.adapter.v1.PoeModeR\apoeMode\"\xa5\x02\n" +
 	"\rDesiredConfig\x12\x1a\n" +
 	"\brevision\x18\x01 \x01(\x03R\brevision\x127\n" +
 	"\bnetworks\x18\x02 \x03(\v2\x1b.beenfar.adapter.v1.NetworkR\bnetworks\x123\n" +
-	"\x04wifi\x18\x03 \x03(\v2\x1f.beenfar.adapter.v1.WifiNetworkR\x04wifi\"+\n" +
+	"\x04wifi\x18\x03 \x03(\v2\x1f.beenfar.adapter.v1.WifiNetworkR\x04wifi\x12G\n" +
+	"\x0eradius_servers\x18\x04 \x03(\v2 .beenfar.adapter.v1.RadiusServerR\rradiusServers\x12A\n" +
+	"\fswitch_ports\x18\x05 \x03(\v2\x1e.beenfar.adapter.v1.SwitchPortR\vswitchPorts\"+\n" +
 	"\x0fRegisterRequest\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\"\x84\x03\n" +
 	"\x10RegisterResponse\x12\x1d\n" +
@@ -1726,7 +2045,16 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\x15WIFI_BAND_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eWIFI_BAND_BOTH\x10\x01\x12\x10\n" +
 	"\fWIFI_BAND_2G\x10\x02\x12\x10\n" +
-	"\fWIFI_BAND_5G\x10\x032\xda\x06\n" +
+	"\fWIFI_BAND_5G\x10\x03*\x93\x01\n" +
+	"\x11SwitchPortTagging\x12#\n" +
+	"\x1fSWITCH_PORT_TAGGING_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17SWITCH_PORT_TAGGING_ALL\x10\x01\x12\x1c\n" +
+	"\x18SWITCH_PORT_TAGGING_NONE\x10\x02\x12\x1e\n" +
+	"\x1aSWITCH_PORT_TAGGING_CUSTOM\x10\x03*H\n" +
+	"\aPoeMode\x12\x18\n" +
+	"\x14POE_MODE_UNSPECIFIED\x10\x00\x12\x11\n" +
+	"\rPOE_MODE_AUTO\x10\x01\x12\x10\n" +
+	"\fPOE_MODE_OFF\x10\x022\xda\x06\n" +
 	"\x12AdapterHostService\x12W\n" +
 	"\bRegister\x12#.beenfar.adapter.v1.RegisterRequest\x1a$.beenfar.adapter.v1.RegisterResponse0\x01\x12j\n" +
 	"\x0fCompleteCommand\x12*.beenfar.adapter.v1.CompleteCommandRequest\x1a+.beenfar.adapter.v1.CompleteCommandResponse\x12f\n" +
@@ -1750,78 +2078,86 @@ func file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP() []byte {
 	return file_beenfar_adapter_v1_adapter_host_proto_rawDescData
 }
 
-var file_beenfar_adapter_v1_adapter_host_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_beenfar_adapter_v1_adapter_host_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_beenfar_adapter_v1_adapter_host_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_beenfar_adapter_v1_adapter_host_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_beenfar_adapter_v1_adapter_host_proto_goTypes = []any{
 	(DeviceState)(0),                 // 0: beenfar.adapter.v1.DeviceState
 	(ReadoptionState)(0),             // 1: beenfar.adapter.v1.ReadoptionState
 	(WifiSecurity)(0),                // 2: beenfar.adapter.v1.WifiSecurity
 	(WifiBand)(0),                    // 3: beenfar.adapter.v1.WifiBand
-	(*Device)(nil),                   // 4: beenfar.adapter.v1.Device
-	(*Discovered)(nil),               // 5: beenfar.adapter.v1.Discovered
-	(*State)(nil),                    // 6: beenfar.adapter.v1.State
-	(*Network)(nil),                  // 7: beenfar.adapter.v1.Network
-	(*WifiNetwork)(nil),              // 8: beenfar.adapter.v1.WifiNetwork
-	(*DesiredConfig)(nil),            // 9: beenfar.adapter.v1.DesiredConfig
-	(*RegisterRequest)(nil),          // 10: beenfar.adapter.v1.RegisterRequest
-	(*RegisterResponse)(nil),         // 11: beenfar.adapter.v1.RegisterResponse
-	(*Registered)(nil),               // 12: beenfar.adapter.v1.Registered
-	(*CompleteCommandRequest)(nil),   // 13: beenfar.adapter.v1.CompleteCommandRequest
-	(*CompleteCommandResponse)(nil),  // 14: beenfar.adapter.v1.CompleteCommandResponse
-	(*LookupDeviceRequest)(nil),      // 15: beenfar.adapter.v1.LookupDeviceRequest
-	(*LookupDeviceResponse)(nil),     // 16: beenfar.adapter.v1.LookupDeviceResponse
-	(*ReportDeviceRequest)(nil),      // 17: beenfar.adapter.v1.ReportDeviceRequest
-	(*ReportDeviceResponse)(nil),     // 18: beenfar.adapter.v1.ReportDeviceResponse
-	(*GetDesiredConfigRequest)(nil),  // 19: beenfar.adapter.v1.GetDesiredConfigRequest
-	(*GetDesiredConfigResponse)(nil), // 20: beenfar.adapter.v1.GetDesiredConfigResponse
-	(*ReportStateRequest)(nil),       // 21: beenfar.adapter.v1.ReportStateRequest
-	(*ReportStateResponse)(nil),      // 22: beenfar.adapter.v1.ReportStateResponse
-	(*GetDeviceSecretRequest)(nil),   // 23: beenfar.adapter.v1.GetDeviceSecretRequest
-	(*GetDeviceSecretResponse)(nil),  // 24: beenfar.adapter.v1.GetDeviceSecretResponse
-	(*SetDeviceSecretRequest)(nil),   // 25: beenfar.adapter.v1.SetDeviceSecretRequest
-	(*SetDeviceSecretResponse)(nil),  // 26: beenfar.adapter.v1.SetDeviceSecretResponse
-	nil,                              // 27: beenfar.adapter.v1.RegisterResponse.TraceContextEntry
-	(*timestamppb.Timestamp)(nil),    // 28: google.protobuf.Timestamp
+	(SwitchPortTagging)(0),           // 4: beenfar.adapter.v1.SwitchPortTagging
+	(PoeMode)(0),                     // 5: beenfar.adapter.v1.PoeMode
+	(*Device)(nil),                   // 6: beenfar.adapter.v1.Device
+	(*Discovered)(nil),               // 7: beenfar.adapter.v1.Discovered
+	(*State)(nil),                    // 8: beenfar.adapter.v1.State
+	(*Network)(nil),                  // 9: beenfar.adapter.v1.Network
+	(*WifiNetwork)(nil),              // 10: beenfar.adapter.v1.WifiNetwork
+	(*RadiusServer)(nil),             // 11: beenfar.adapter.v1.RadiusServer
+	(*SwitchPort)(nil),               // 12: beenfar.adapter.v1.SwitchPort
+	(*DesiredConfig)(nil),            // 13: beenfar.adapter.v1.DesiredConfig
+	(*RegisterRequest)(nil),          // 14: beenfar.adapter.v1.RegisterRequest
+	(*RegisterResponse)(nil),         // 15: beenfar.adapter.v1.RegisterResponse
+	(*Registered)(nil),               // 16: beenfar.adapter.v1.Registered
+	(*CompleteCommandRequest)(nil),   // 17: beenfar.adapter.v1.CompleteCommandRequest
+	(*CompleteCommandResponse)(nil),  // 18: beenfar.adapter.v1.CompleteCommandResponse
+	(*LookupDeviceRequest)(nil),      // 19: beenfar.adapter.v1.LookupDeviceRequest
+	(*LookupDeviceResponse)(nil),     // 20: beenfar.adapter.v1.LookupDeviceResponse
+	(*ReportDeviceRequest)(nil),      // 21: beenfar.adapter.v1.ReportDeviceRequest
+	(*ReportDeviceResponse)(nil),     // 22: beenfar.adapter.v1.ReportDeviceResponse
+	(*GetDesiredConfigRequest)(nil),  // 23: beenfar.adapter.v1.GetDesiredConfigRequest
+	(*GetDesiredConfigResponse)(nil), // 24: beenfar.adapter.v1.GetDesiredConfigResponse
+	(*ReportStateRequest)(nil),       // 25: beenfar.adapter.v1.ReportStateRequest
+	(*ReportStateResponse)(nil),      // 26: beenfar.adapter.v1.ReportStateResponse
+	(*GetDeviceSecretRequest)(nil),   // 27: beenfar.adapter.v1.GetDeviceSecretRequest
+	(*GetDeviceSecretResponse)(nil),  // 28: beenfar.adapter.v1.GetDeviceSecretResponse
+	(*SetDeviceSecretRequest)(nil),   // 29: beenfar.adapter.v1.SetDeviceSecretRequest
+	(*SetDeviceSecretResponse)(nil),  // 30: beenfar.adapter.v1.SetDeviceSecretResponse
+	nil,                              // 31: beenfar.adapter.v1.RegisterResponse.TraceContextEntry
+	(*timestamppb.Timestamp)(nil),    // 32: google.protobuf.Timestamp
 }
 var file_beenfar_adapter_v1_adapter_host_proto_depIdxs = []int32{
 	0,  // 0: beenfar.adapter.v1.Device.state:type_name -> beenfar.adapter.v1.DeviceState
-	28, // 1: beenfar.adapter.v1.Device.last_seen_time:type_name -> google.protobuf.Timestamp
+	32, // 1: beenfar.adapter.v1.Device.last_seen_time:type_name -> google.protobuf.Timestamp
 	1,  // 2: beenfar.adapter.v1.Device.readoption:type_name -> beenfar.adapter.v1.ReadoptionState
 	1,  // 3: beenfar.adapter.v1.State.readoption:type_name -> beenfar.adapter.v1.ReadoptionState
 	2,  // 4: beenfar.adapter.v1.WifiNetwork.security:type_name -> beenfar.adapter.v1.WifiSecurity
 	3,  // 5: beenfar.adapter.v1.WifiNetwork.band:type_name -> beenfar.adapter.v1.WifiBand
-	7,  // 6: beenfar.adapter.v1.DesiredConfig.networks:type_name -> beenfar.adapter.v1.Network
-	8,  // 7: beenfar.adapter.v1.DesiredConfig.wifi:type_name -> beenfar.adapter.v1.WifiNetwork
-	12, // 8: beenfar.adapter.v1.RegisterResponse.registered:type_name -> beenfar.adapter.v1.Registered
-	4,  // 9: beenfar.adapter.v1.RegisterResponse.adopt:type_name -> beenfar.adapter.v1.Device
-	4,  // 10: beenfar.adapter.v1.RegisterResponse.forget:type_name -> beenfar.adapter.v1.Device
-	27, // 11: beenfar.adapter.v1.RegisterResponse.trace_context:type_name -> beenfar.adapter.v1.RegisterResponse.TraceContextEntry
-	4,  // 12: beenfar.adapter.v1.LookupDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
-	5,  // 13: beenfar.adapter.v1.ReportDeviceRequest.discovered:type_name -> beenfar.adapter.v1.Discovered
-	4,  // 14: beenfar.adapter.v1.ReportDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
-	9,  // 15: beenfar.adapter.v1.GetDesiredConfigResponse.config:type_name -> beenfar.adapter.v1.DesiredConfig
-	6,  // 16: beenfar.adapter.v1.ReportStateRequest.state:type_name -> beenfar.adapter.v1.State
-	10, // 17: beenfar.adapter.v1.AdapterHostService.Register:input_type -> beenfar.adapter.v1.RegisterRequest
-	13, // 18: beenfar.adapter.v1.AdapterHostService.CompleteCommand:input_type -> beenfar.adapter.v1.CompleteCommandRequest
-	15, // 19: beenfar.adapter.v1.AdapterHostService.LookupDevice:input_type -> beenfar.adapter.v1.LookupDeviceRequest
-	17, // 20: beenfar.adapter.v1.AdapterHostService.ReportDevice:input_type -> beenfar.adapter.v1.ReportDeviceRequest
-	19, // 21: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:input_type -> beenfar.adapter.v1.GetDesiredConfigRequest
-	21, // 22: beenfar.adapter.v1.AdapterHostService.ReportState:input_type -> beenfar.adapter.v1.ReportStateRequest
-	23, // 23: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:input_type -> beenfar.adapter.v1.GetDeviceSecretRequest
-	25, // 24: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:input_type -> beenfar.adapter.v1.SetDeviceSecretRequest
-	11, // 25: beenfar.adapter.v1.AdapterHostService.Register:output_type -> beenfar.adapter.v1.RegisterResponse
-	14, // 26: beenfar.adapter.v1.AdapterHostService.CompleteCommand:output_type -> beenfar.adapter.v1.CompleteCommandResponse
-	16, // 27: beenfar.adapter.v1.AdapterHostService.LookupDevice:output_type -> beenfar.adapter.v1.LookupDeviceResponse
-	18, // 28: beenfar.adapter.v1.AdapterHostService.ReportDevice:output_type -> beenfar.adapter.v1.ReportDeviceResponse
-	20, // 29: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:output_type -> beenfar.adapter.v1.GetDesiredConfigResponse
-	22, // 30: beenfar.adapter.v1.AdapterHostService.ReportState:output_type -> beenfar.adapter.v1.ReportStateResponse
-	24, // 31: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:output_type -> beenfar.adapter.v1.GetDeviceSecretResponse
-	26, // 32: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:output_type -> beenfar.adapter.v1.SetDeviceSecretResponse
-	25, // [25:33] is the sub-list for method output_type
-	17, // [17:25] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	4,  // 6: beenfar.adapter.v1.SwitchPort.tagging:type_name -> beenfar.adapter.v1.SwitchPortTagging
+	5,  // 7: beenfar.adapter.v1.SwitchPort.poe_mode:type_name -> beenfar.adapter.v1.PoeMode
+	9,  // 8: beenfar.adapter.v1.DesiredConfig.networks:type_name -> beenfar.adapter.v1.Network
+	10, // 9: beenfar.adapter.v1.DesiredConfig.wifi:type_name -> beenfar.adapter.v1.WifiNetwork
+	11, // 10: beenfar.adapter.v1.DesiredConfig.radius_servers:type_name -> beenfar.adapter.v1.RadiusServer
+	12, // 11: beenfar.adapter.v1.DesiredConfig.switch_ports:type_name -> beenfar.adapter.v1.SwitchPort
+	16, // 12: beenfar.adapter.v1.RegisterResponse.registered:type_name -> beenfar.adapter.v1.Registered
+	6,  // 13: beenfar.adapter.v1.RegisterResponse.adopt:type_name -> beenfar.adapter.v1.Device
+	6,  // 14: beenfar.adapter.v1.RegisterResponse.forget:type_name -> beenfar.adapter.v1.Device
+	31, // 15: beenfar.adapter.v1.RegisterResponse.trace_context:type_name -> beenfar.adapter.v1.RegisterResponse.TraceContextEntry
+	6,  // 16: beenfar.adapter.v1.LookupDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
+	7,  // 17: beenfar.adapter.v1.ReportDeviceRequest.discovered:type_name -> beenfar.adapter.v1.Discovered
+	6,  // 18: beenfar.adapter.v1.ReportDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
+	13, // 19: beenfar.adapter.v1.GetDesiredConfigResponse.config:type_name -> beenfar.adapter.v1.DesiredConfig
+	8,  // 20: beenfar.adapter.v1.ReportStateRequest.state:type_name -> beenfar.adapter.v1.State
+	14, // 21: beenfar.adapter.v1.AdapterHostService.Register:input_type -> beenfar.adapter.v1.RegisterRequest
+	17, // 22: beenfar.adapter.v1.AdapterHostService.CompleteCommand:input_type -> beenfar.adapter.v1.CompleteCommandRequest
+	19, // 23: beenfar.adapter.v1.AdapterHostService.LookupDevice:input_type -> beenfar.adapter.v1.LookupDeviceRequest
+	21, // 24: beenfar.adapter.v1.AdapterHostService.ReportDevice:input_type -> beenfar.adapter.v1.ReportDeviceRequest
+	23, // 25: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:input_type -> beenfar.adapter.v1.GetDesiredConfigRequest
+	25, // 26: beenfar.adapter.v1.AdapterHostService.ReportState:input_type -> beenfar.adapter.v1.ReportStateRequest
+	27, // 27: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:input_type -> beenfar.adapter.v1.GetDeviceSecretRequest
+	29, // 28: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:input_type -> beenfar.adapter.v1.SetDeviceSecretRequest
+	15, // 29: beenfar.adapter.v1.AdapterHostService.Register:output_type -> beenfar.adapter.v1.RegisterResponse
+	18, // 30: beenfar.adapter.v1.AdapterHostService.CompleteCommand:output_type -> beenfar.adapter.v1.CompleteCommandResponse
+	20, // 31: beenfar.adapter.v1.AdapterHostService.LookupDevice:output_type -> beenfar.adapter.v1.LookupDeviceResponse
+	22, // 32: beenfar.adapter.v1.AdapterHostService.ReportDevice:output_type -> beenfar.adapter.v1.ReportDeviceResponse
+	24, // 33: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:output_type -> beenfar.adapter.v1.GetDesiredConfigResponse
+	26, // 34: beenfar.adapter.v1.AdapterHostService.ReportState:output_type -> beenfar.adapter.v1.ReportStateResponse
+	28, // 35: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:output_type -> beenfar.adapter.v1.GetDeviceSecretResponse
+	30, // 36: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:output_type -> beenfar.adapter.v1.SetDeviceSecretResponse
+	29, // [29:37] is the sub-list for method output_type
+	21, // [21:29] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_adapter_v1_adapter_host_proto_init() }
@@ -1829,7 +2165,7 @@ func file_beenfar_adapter_v1_adapter_host_proto_init() {
 	if File_beenfar_adapter_v1_adapter_host_proto != nil {
 		return
 	}
-	file_beenfar_adapter_v1_adapter_host_proto_msgTypes[7].OneofWrappers = []any{
+	file_beenfar_adapter_v1_adapter_host_proto_msgTypes[9].OneofWrappers = []any{
 		(*RegisterResponse_Registered)(nil),
 		(*RegisterResponse_Adopt)(nil),
 		(*RegisterResponse_Forget)(nil),
@@ -1839,8 +2175,8 @@ func file_beenfar_adapter_v1_adapter_host_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beenfar_adapter_v1_adapter_host_proto_rawDesc), len(file_beenfar_adapter_v1_adapter_host_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   24,
+			NumEnums:      6,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

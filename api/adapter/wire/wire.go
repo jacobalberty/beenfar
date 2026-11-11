@@ -35,6 +35,7 @@ import (
 // goverter:extend DeviceStateToProto DeviceStateFromProto WifiSecurityToProto WifiSecurityFromProto
 // goverter:extend WifiBandToProto WifiBandFromProto SecondsFromDuration DurationFromSeconds Int32 Int
 // goverter:extend TimeToProto TimeFromProto ReadoptionToProto ReadoptionFromProto
+// goverter:extend TaggingToProto TaggingFromProto PoEModeToProto PoEModeFromProto
 type Converter interface {
 	// goverter:map LastSeen LastSeenTime
 	DeviceToProto(model.Device) *adapterv1.Device
@@ -53,7 +54,8 @@ type Converter interface {
 	DesiredConfigFromProto(*adapterv1.DesiredConfig) model.DesiredConfig
 }
 
-// Int32 and Int convert VLAN ids; 802.1Q ids fit in 12 bits.
+// Int32 and Int convert VLAN ids, port numbers and port indexes, which the
+// controller keeps well inside 32 bits.
 func Int32(v int) int32 { return int32(v) }
 func Int(v int32) int   { return int(v) }
 
@@ -162,6 +164,50 @@ func WifiBandFromProto(b adapterv1.WifiBand) model.WifiBand {
 		return model.Band2G
 	case adapterv1.WifiBand_WIFI_BAND_5G:
 		return model.Band5G
+	}
+	return ""
+}
+
+func TaggingToProto(t model.SwitchPortTagging) adapterv1.SwitchPortTagging {
+	switch t {
+	case model.TaggingAll:
+		return adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_ALL
+	case model.TaggingNone:
+		return adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_NONE
+	case model.TaggingCustom:
+		return adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_CUSTOM
+	}
+	return adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_UNSPECIFIED
+}
+
+func TaggingFromProto(t adapterv1.SwitchPortTagging) model.SwitchPortTagging {
+	switch t {
+	case adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_ALL:
+		return model.TaggingAll
+	case adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_NONE:
+		return model.TaggingNone
+	case adapterv1.SwitchPortTagging_SWITCH_PORT_TAGGING_CUSTOM:
+		return model.TaggingCustom
+	}
+	return ""
+}
+
+func PoEModeToProto(m model.PoEMode) adapterv1.PoeMode {
+	switch m {
+	case model.PoEAuto:
+		return adapterv1.PoeMode_POE_MODE_AUTO
+	case model.PoEOff:
+		return adapterv1.PoeMode_POE_MODE_OFF
+	}
+	return adapterv1.PoeMode_POE_MODE_UNSPECIFIED
+}
+
+func PoEModeFromProto(m adapterv1.PoeMode) model.PoEMode {
+	switch m {
+	case adapterv1.PoeMode_POE_MODE_AUTO:
+		return model.PoEAuto
+	case adapterv1.PoeMode_POE_MODE_OFF:
+		return model.PoEOff
 	}
 	return ""
 }

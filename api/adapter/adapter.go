@@ -98,6 +98,12 @@ type (
 	WifiSecurity  = model.WifiSecurity
 	WifiBand      = model.WifiBand
 	WifiNetwork   = model.WifiNetwork
+	RadiusServer  = model.RadiusServer
+	SwitchPort    = model.SwitchPort
+	// SwitchPortTagging says which networks a switch port carries tagged.
+	SwitchPortTagging = model.SwitchPortTagging
+	// PoEMode is the Power over Ethernet output of a switch port.
+	PoEMode = model.PoEMode
 )
 
 const (

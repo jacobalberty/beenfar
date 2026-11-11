@@ -278,3 +278,60 @@ func TestDesiredConfigRevisionTracksChanges(t *testing.T) {
 		t.Fatal("revision after deleting everything should match the empty one")
 	}
 }
+
+// RADIUS servers and this device's switch ports are part of the desired
+// configuration; another device's ports are not.
+func TestDesiredConfigRadiusAndPorts(t *testing.T) {
+	ctx := t.Context()
+	st := openStore(t)
+	fa := newFake("fake")
+	newRegistry(t, st, fa)
+	host := <-fa.started
+	d, err := host.ReportDevice(ctx, adapter.Discovered{MAC: "de:ad:be:ef:00:06"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := host.ReportDevice(ctx, adapter.Discovered{MAC: "de:ad:be:ef:00:07"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, _ := host.DesiredConfig(ctx, d.ID)
+
+	r, err := st.CreateRadiusServer(ctx, store.RadiusServer{Name: "corp", Address: "10.0.0.2", AuthPort: 1812, AccountingPort: 1813, SharedSecret: "s3cret"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateWifiNetwork(ctx, store.WifiNetwork{SSID: "corp", Security: store.WifiSecurityWPAEnterprise, Band: store.WifiBandBoth, RadiusServerID: r.ID}); err != nil {
+		t.Fatal(err)
+	}
+	withRadius, _ := host.DesiredConfig(ctx, d.ID)
+	if withRadius.Revision == base.Revision || len(withRadius.RadiusServers) != 1 ||
+		withRadius.RadiusServers[0] != (adapter.RadiusServer{ID: r.ID, Address: "10.0.0.2", AuthPort: 1812, AccountingPort: 1813, SharedSecret: "s3cret"}) ||
+		withRadius.Wifi[0].RadiusServerID != r.ID {
+		t.Fatalf("config = %+v", withRadius)
+	}
+
+	r.SharedSecret = "n3w"
+	if _, err := st.UpdateRadiusServer(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	newSecret, _ := host.DesiredConfig(ctx, d.ID)
+	if newSecret.Revision == withRadius.Revision || newSecret.RadiusServers[0].SharedSecret != "n3w" {
+		t.Fatalf("secret change: %+v", newSecret)
+	}
+
+	if _, err := st.CreateSwitchPort(ctx, store.SwitchPort{DeviceID: other.ID, PortIndex: 1, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := host.DesiredConfig(ctx, d.ID); got.Revision != newSecret.Revision || len(got.SwitchPorts) != 0 {
+		t.Fatalf("another device's port changed this one's config: %+v", got)
+	}
+	if _, err := st.CreateSwitchPort(ctx, store.SwitchPort{DeviceID: d.ID, PortIndex: 4, Name: "ap", Tagging: store.SwitchPortTaggingNone, PoEMode: store.PoEModeOff}); err != nil {
+		t.Fatal(err)
+	}
+	withPort, _ := host.DesiredConfig(ctx, d.ID)
+	if withPort.Revision == newSecret.Revision || len(withPort.SwitchPorts) != 1 ||
+		withPort.SwitchPorts[0].PortIndex != 4 || withPort.SwitchPorts[0].PoEMode != "off" || withPort.SwitchPorts[0].Tagging != "none" {
+		t.Fatalf("config = %+v", withPort)
+	}
+}
