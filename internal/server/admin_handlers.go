@@ -9,6 +9,8 @@ import (
 
 	adminv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
+	"github.com/jacobalberty/beenfar/internal/apiconv"
+	apiconvgen "github.com/jacobalberty/beenfar/internal/apiconv/gen"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/store"
@@ -57,7 +59,7 @@ func (h *apiTokenHandler) CreateApiToken(ctx context.Context, req *adminv1.Creat
 	if err != nil {
 		return nil, err
 	}
-	return &adminv1.CreateApiTokenResponse{ApiToken: apiTokenFromStore(t), Secret: secret}, nil
+	return &adminv1.CreateApiTokenResponse{ApiToken: apiconvgen.APITokenToProto(t), Secret: secret}, nil
 }
 
 func (h *apiTokenHandler) ListApiTokens(ctx context.Context, _ *adminv1.ListApiTokensRequest) (*adminv1.ListApiTokensResponse, error) {
@@ -71,7 +73,7 @@ func (h *apiTokenHandler) ListApiTokens(ctx context.Context, _ *adminv1.ListApiT
 	}
 	resp := &adminv1.ListApiTokensResponse{ApiTokens: make([]*adminv1.ApiToken, 0, len(list))}
 	for _, t := range list {
-		resp.ApiTokens = append(resp.ApiTokens, apiTokenFromStore(t))
+		resp.ApiTokens = append(resp.ApiTokens, apiconvgen.APITokenToProto(t))
 	}
 	return resp, nil
 }
@@ -101,7 +103,7 @@ func (h *userHandler) CreateUser(ctx context.Context, req *adminv1.CreateUserReq
 	if err != nil {
 		return nil, err
 	}
-	return &adminv1.CreateUserResponse{User: userFromStore(out)}, nil
+	return &adminv1.CreateUserResponse{User: apiconvgen.UserToProto(out)}, nil
 }
 
 func (h *userHandler) GetUser(ctx context.Context, req *adminv1.GetUserRequest) (*adminv1.GetUserResponse, error) {
@@ -116,7 +118,7 @@ func (h *userHandler) GetUser(ctx context.Context, req *adminv1.GetUserRequest) 
 	if err != nil {
 		return nil, err
 	}
-	return &adminv1.GetUserResponse{User: userFromStore(u)}, nil
+	return &adminv1.GetUserResponse{User: apiconvgen.UserToProto(u)}, nil
 }
 
 func (h *userHandler) ListUsers(ctx context.Context, _ *adminv1.ListUsersRequest) (*adminv1.ListUsersResponse, error) {
@@ -126,14 +128,14 @@ func (h *userHandler) ListUsers(ctx context.Context, _ *adminv1.ListUsersRequest
 	}
 	resp := &adminv1.ListUsersResponse{Users: make([]*adminv1.User, 0, len(list))}
 	for _, u := range list {
-		resp.Users = append(resp.Users, userFromStore(u))
+		resp.Users = append(resp.Users, apiconvgen.UserToProto(u))
 	}
 	return resp, nil
 }
 
 func (h *userHandler) UpdateUser(ctx context.Context, req *adminv1.UpdateUserRequest) (*adminv1.UpdateUserResponse, error) {
 	u := req.GetUser()
-	rev, err := parseEtag(u.GetEtag())
+	rev, err := apiconv.ParseEtag(u.GetEtag())
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +143,11 @@ func (h *userHandler) UpdateUser(ctx context.Context, req *adminv1.UpdateUserReq
 	if err != nil {
 		return nil, err
 	}
-	return &adminv1.UpdateUserResponse{User: userFromStore(out)}, nil
+	return &adminv1.UpdateUserResponse{User: apiconvgen.UserToProto(out)}, nil
 }
 
 func (h *userHandler) DeleteUser(ctx context.Context, req *adminv1.DeleteUserRequest) (*adminv1.DeleteUserResponse, error) {
-	rev, err := parseEtag(req.GetEtag())
+	rev, err := apiconv.ParseEtag(req.GetEtag())
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +196,7 @@ func (h *authHandler) Login(ctx context.Context, req *adminv1.LoginRequest) (*ad
 		Expires: sess.ExpireTime,
 		MaxAge:  int(time.Until(sess.ExpireTime).Seconds()),
 	})
-	return &adminv1.LoginResponse{User: userFromStore(u)}, nil
+	return &adminv1.LoginResponse{User: apiconvgen.UserToProto(u)}, nil
 }
 
 func (h *authHandler) Logout(ctx context.Context, _ *adminv1.LogoutRequest) (*adminv1.LogoutResponse, error) {
@@ -214,7 +216,7 @@ func (h *authHandler) GetCurrentUser(ctx context.Context, _ *adminv1.GetCurrentU
 	if err != nil {
 		return nil, err
 	}
-	return &adminv1.GetCurrentUserResponse{User: userFromStore(p.User)}, nil
+	return &adminv1.GetCurrentUserResponse{User: apiconvgen.UserToProto(p.User)}, nil
 }
 
 // setCookie adds the session cookie to the response with beenfar's fixed
@@ -244,7 +246,7 @@ func (h *adapterHandler) ListAdapters(ctx context.Context, _ *adminv1.ListAdapte
 	list := core.SortedAdapters(ctx, h.registry)
 	resp := &adminv1.ListAdaptersResponse{Adapters: make([]*adminv1.Adapter, 0, len(list))}
 	for _, a := range list {
-		resp.Adapters = append(resp.Adapters, adapterFromCore(a))
+		resp.Adapters = append(resp.Adapters, apiconvgen.AdapterToProto(a))
 	}
 	return resp, nil
 }

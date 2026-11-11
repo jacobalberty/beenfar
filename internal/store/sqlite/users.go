@@ -8,22 +8,11 @@ import (
 	"time"
 
 	"github.com/jacobalberty/beenfar/internal/store"
+	dbconvgen "github.com/jacobalberty/beenfar/internal/store/sqlite/dbconv/gen"
 	"github.com/jacobalberty/beenfar/internal/store/sqlite/gen/db"
 )
 
 // --- users ---
-
-func toUser(u db.User) store.User {
-	return store.User{
-		ID:           u.ID,
-		Username:     u.Username,
-		PasswordHash: u.PasswordHash,
-		Admin:        u.Admin,
-		Revision:     u.Revision,
-		CreateTime:   fromMilli(u.CreateTime),
-		UpdateTime:   fromMilli(u.UpdateTime),
-	}
-}
 
 func validateUsername(name string) error {
 	if name == "" || len(name) > 64 {
@@ -49,7 +38,7 @@ func (s *Store) CreateUser(ctx context.Context, u store.User) (store.User, error
 	if err != nil {
 		return store.User{}, mapErr(err)
 	}
-	return toUser(row), nil
+	return dbconvgen.User(row), nil
 }
 
 func (s *Store) GetUser(ctx context.Context, id string) (store.User, error) {
@@ -57,7 +46,7 @@ func (s *Store) GetUser(ctx context.Context, id string) (store.User, error) {
 	if err != nil {
 		return store.User{}, mapErr(err)
 	}
-	return toUser(row), nil
+	return dbconvgen.User(row), nil
 }
 
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (store.User, error) {
@@ -65,7 +54,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (store.U
 	if err != nil {
 		return store.User{}, mapErr(err)
 	}
-	return toUser(row), nil
+	return dbconvgen.User(row), nil
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]store.User, error) {
@@ -75,7 +64,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]store.User, error) {
 	}
 	out := make([]store.User, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toUser(r))
+		out = append(out, dbconvgen.User(r))
 	}
 	return out, nil
 }
@@ -109,7 +98,7 @@ func (s *Store) UpdateUser(ctx context.Context, u store.User) (store.User, error
 		if err != nil {
 			return mapErr(err)
 		}
-		out = toUser(row)
+		out = dbconvgen.User(row)
 		return nil
 	})
 	return out, err
@@ -149,19 +138,6 @@ func (txs *Store) userExists(ctx context.Context, id string) error {
 
 // --- API tokens ---
 
-func toAPIToken(t db.ApiToken) store.APIToken {
-	return store.APIToken{
-		ID:           t.ID,
-		UserID:       t.UserID,
-		Name:         t.Name,
-		Prefix:       t.Prefix,
-		SecretHash:   t.SecretHash,
-		ExpireTime:   fromOptMilli(t.ExpireTime),
-		LastUsedTime: fromOptMilli(t.LastUsedTime),
-		CreateTime:   fromMilli(t.CreateTime),
-	}
-}
-
 func (s *Store) CreateAPIToken(ctx context.Context, t store.APIToken) (store.APIToken, error) {
 	if t.Name == "" || len(t.Name) > 64 {
 		return store.APIToken{}, fmt.Errorf("%w: name must be 1-64 bytes", store.ErrInvalid)
@@ -181,7 +157,7 @@ func (s *Store) CreateAPIToken(ctx context.Context, t store.APIToken) (store.API
 	if err != nil {
 		return store.APIToken{}, mapErr(err)
 	}
-	return toAPIToken(row), nil
+	return dbconvgen.APIToken(row), nil
 }
 
 func (s *Store) GetAPIToken(ctx context.Context, id string) (store.APIToken, error) {
@@ -189,7 +165,7 @@ func (s *Store) GetAPIToken(ctx context.Context, id string) (store.APIToken, err
 	if err != nil {
 		return store.APIToken{}, mapErr(err)
 	}
-	return toAPIToken(row), nil
+	return dbconvgen.APIToken(row), nil
 }
 
 func (s *Store) GetAPITokenByPrefix(ctx context.Context, prefix string) (store.APIToken, error) {
@@ -197,7 +173,7 @@ func (s *Store) GetAPITokenByPrefix(ctx context.Context, prefix string) (store.A
 	if err != nil {
 		return store.APIToken{}, mapErr(err)
 	}
-	return toAPIToken(row), nil
+	return dbconvgen.APIToken(row), nil
 }
 
 func (s *Store) ListAPITokens(ctx context.Context, userID string) ([]store.APIToken, error) {
@@ -207,7 +183,7 @@ func (s *Store) ListAPITokens(ctx context.Context, userID string) ([]store.APITo
 	}
 	out := make([]store.APIToken, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toAPIToken(r))
+		out = append(out, dbconvgen.APIToken(r))
 	}
 	return out, nil
 }
@@ -229,15 +205,6 @@ func (s *Store) DeleteAPIToken(ctx context.Context, id string) error {
 
 // --- sessions ---
 
-func toSession(s db.Session) store.Session {
-	return store.Session{
-		IDHash:     s.IDHash,
-		UserID:     s.UserID,
-		CreateTime: fromMilli(s.CreateTime),
-		ExpireTime: fromMilli(s.ExpireTime),
-	}
-}
-
 func (s *Store) CreateSession(ctx context.Context, sess store.Session) (store.Session, error) {
 	if sess.IDHash == "" || sess.UserID == "" || sess.ExpireTime.IsZero() {
 		return store.Session{}, fmt.Errorf("%w: id hash, user and expiry are required", store.ErrInvalid)
@@ -251,7 +218,7 @@ func (s *Store) CreateSession(ctx context.Context, sess store.Session) (store.Se
 	if err != nil {
 		return store.Session{}, mapErr(err)
 	}
-	return toSession(row), nil
+	return dbconvgen.Session(row), nil
 }
 
 func (s *Store) GetSession(ctx context.Context, idHash string) (store.Session, error) {
@@ -259,7 +226,7 @@ func (s *Store) GetSession(ctx context.Context, idHash string) (store.Session, e
 	if err != nil {
 		return store.Session{}, mapErr(err)
 	}
-	return toSession(row), nil
+	return dbconvgen.Session(row), nil
 }
 
 func (s *Store) DeleteSession(ctx context.Context, idHash string) error {

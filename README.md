@@ -49,11 +49,16 @@ The OpenAPI 3.1 description of the REST API is served at `/openapi.json`.
 Go clients are generated into the separate `github.com/jacobalberty/beenfar/api`
 module.
 
-To regenerate code after editing the protos or SQL queries:
+Generated code lives only under `gen/` directories. Type conversions between
+the API, domain and database types are generated with
+[goverter](https://github.com/jmattheis/goverter) from the `Converter`
+interfaces in `internal/apiconv` and `internal/store/sqlite/dbconv`.
+
+To regenerate code after editing the protos, SQL queries or converters:
 
 ```sh
 (cd api && go generate -run install . && go generate .)   # buf, Go + Connect, OpenAPI
-go generate ./internal/store/sqlite                     # sqlc
+go generate ./...                                       # sqlc, goverter
 ```
 
 ## Todo

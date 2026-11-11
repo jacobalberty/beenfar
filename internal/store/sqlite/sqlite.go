@@ -23,6 +23,7 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 
 	"github.com/jacobalberty/beenfar/internal/store"
+	dbconvgen "github.com/jacobalberty/beenfar/internal/store/sqlite/dbconv/gen"
 	"github.com/jacobalberty/beenfar/internal/store/sqlite/gen/db"
 )
 
@@ -122,21 +123,12 @@ func newID() string { return strings.ToLower(rand.Text()) }
 
 func (s *Store) nowMilli() int64 { return s.now().UnixMilli() }
 
-func fromMilli(ms int64) time.Time { return time.UnixMilli(ms).UTC() }
-
-// toOptMilli and fromOptMilli map the zero time to 0 and back.
+// toOptMilli maps the zero time to 0 (unset); dbconv.FromOptMilli reverses it.
 func toOptMilli(t time.Time) int64 {
 	if t.IsZero() {
 		return 0
 	}
 	return t.UnixMilli()
-}
-
-func fromOptMilli(ms int64) time.Time {
-	if ms == 0 {
-		return time.Time{}
-	}
-	return fromMilli(ms)
 }
 
 // mapErr translates driver errors into store errors.
@@ -179,22 +171,6 @@ func uniqueMessage(err error) string {
 
 // --- devices ---
 
-func toDevice(d db.Device) store.Device {
-	return store.Device{
-		ID:             d.ID,
-		MAC:            d.Mac,
-		Adapter:        d.Adapter,
-		State:          store.DeviceState(d.State),
-		Model:          d.Model,
-		IP:             d.Ip,
-		Firmware:       d.Firmware,
-		ConfigRevision: d.ConfigRevision,
-		LastSeen:       fromMilli(d.LastSeen),
-		CreateTime:     fromMilli(d.CreateTime),
-		UpdateTime:     fromMilli(d.UpdateTime),
-	}
-}
-
 func (s *Store) ReportDevice(ctx context.Context, d store.DiscoveredDevice) (store.Device, error) {
 	mac, err := store.NormalizeMAC(d.MAC)
 	if err != nil {
@@ -215,7 +191,7 @@ func (s *Store) ReportDevice(ctx context.Context, d store.DiscoveredDevice) (sto
 	if err != nil {
 		return store.Device{}, mapErr(err)
 	}
-	return toDevice(row), nil
+	return dbconvgen.Device(row), nil
 }
 
 func (s *Store) GetDevice(ctx context.Context, id string) (store.Device, error) {
@@ -223,7 +199,7 @@ func (s *Store) GetDevice(ctx context.Context, id string) (store.Device, error) 
 	if err != nil {
 		return store.Device{}, mapErr(err)
 	}
-	return toDevice(row), nil
+	return dbconvgen.Device(row), nil
 }
 
 func (s *Store) GetDeviceByMAC(ctx context.Context, mac string) (store.Device, error) {
@@ -235,7 +211,7 @@ func (s *Store) GetDeviceByMAC(ctx context.Context, mac string) (store.Device, e
 	if err != nil {
 		return store.Device{}, mapErr(err)
 	}
-	return toDevice(row), nil
+	return dbconvgen.Device(row), nil
 }
 
 func (s *Store) ListDevices(ctx context.Context, f store.DeviceFilter) ([]store.Device, error) {
@@ -245,7 +221,7 @@ func (s *Store) ListDevices(ctx context.Context, f store.DeviceFilter) ([]store.
 	}
 	out := make([]store.Device, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toDevice(r))
+		out = append(out, dbconvgen.Device(r))
 	}
 	return out, nil
 }
@@ -255,7 +231,7 @@ func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error
 	err := s.inTx(ctx, func(txs *Store) error {
 		row, err := txs.q.AdoptDevice(ctx, db.AdoptDeviceParams{ID: id, Now: txs.nowMilli()})
 		if err == nil {
-			out = toDevice(row)
+			out = dbconvgen.Device(row)
 			return nil
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -284,25 +260,12 @@ func (s *Store) DeleteDevice(ctx context.Context, id string) error {
 // --- wifi networks ---
 
 func toWifiNetwork(w db.WifiNetwork, groups []string) store.WifiNetwork {
-	if groups == nil {
-		groups = []string{}
+	out := dbconvgen.WifiNetwork(w)
+	out.APGroups = groups
+	if out.APGroups == nil {
+		out.APGroups = []string{}
 	}
-	return store.WifiNetwork{
-		ID:               w.ID,
-		SSID:             w.Ssid,
-		Security:         store.WifiSecurity(w.Security),
-		SecurityKey:      w.SecurityKey,
-		Band:             store.WifiBand(w.Band),
-		NetworkID:        w.NetworkID,
-		Guest:            w.Guest,
-		Hidden:           w.Hidden,
-		APGroups:         groups,
-		DefaultUserGroup: w.DefaultUserGroup,
-		RadiusProfile:    w.RadiusProfile,
-		Revision:         w.Revision,
-		CreateTime:       fromMilli(w.CreateTime),
-		UpdateTime:       fromMilli(w.UpdateTime),
-	}
+	return out
 }
 
 func validateWifi(w store.WifiNetwork) error {

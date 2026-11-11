@@ -19,9 +19,9 @@ import (
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/vanguard"
 
+	"github.com/jacobalberty/beenfar/api"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1/configv1connect"
-	"github.com/jacobalberty/beenfar/api"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/store"

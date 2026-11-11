@@ -65,11 +65,11 @@ jobs:
       - name: Regenerate code
         run: |
           (cd api && go generate -run install . && go generate .)
-          go generate ./internal/store/sqlite
+          go generate ./...   # sqlc, then goverter (package order is alphabetical)
       - name: Fail if generated code is stale
         run: |
           if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::Generated code is out of date. Run 'go generate ./api ./internal/store/sqlite' (after 'go generate -run install ./api') and commit the result."
+            echo "::error::Generated code is out of date. Run 'go generate' in api/ (after 'go generate -run install .') and 'go generate ./...' at the root, then commit the result."
             git status --porcelain
             git --no-pager diff --stat
             exit 1

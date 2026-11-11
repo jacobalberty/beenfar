@@ -7,24 +7,9 @@ import (
 	"fmt"
 
 	"github.com/jacobalberty/beenfar/internal/store"
+	dbconvgen "github.com/jacobalberty/beenfar/internal/store/sqlite/dbconv/gen"
 	"github.com/jacobalberty/beenfar/internal/store/sqlite/gen/db"
 )
-
-func toNetwork(n db.Network) store.Network {
-	return store.Network{
-		ID:          n.ID,
-		Name:        n.Name,
-		VLANID:      int(n.VlanID),
-		Subnet:      n.Subnet,
-		DHCPEnabled: n.DhcpEnabled,
-		DHCPStart:   n.DhcpStart,
-		DHCPStop:    n.DhcpStop,
-		DomainName:  n.DomainName,
-		Revision:    n.Revision,
-		CreateTime:  fromMilli(n.CreateTime),
-		UpdateTime:  fromMilli(n.UpdateTime),
-	}
-}
 
 func validateNetwork(n store.Network) error {
 	if n.Name == "" || len(n.Name) > 64 {
@@ -51,7 +36,7 @@ func (s *Store) CreateNetwork(ctx context.Context, n store.Network) (store.Netwo
 	if err != nil {
 		return store.Network{}, mapErr(err)
 	}
-	return toNetwork(row), nil
+	return dbconvgen.Network(row), nil
 }
 
 func (s *Store) GetNetwork(ctx context.Context, id string) (store.Network, error) {
@@ -59,7 +44,7 @@ func (s *Store) GetNetwork(ctx context.Context, id string) (store.Network, error
 	if err != nil {
 		return store.Network{}, mapErr(err)
 	}
-	return toNetwork(row), nil
+	return dbconvgen.Network(row), nil
 }
 
 func (s *Store) ListNetworks(ctx context.Context) ([]store.Network, error) {
@@ -69,7 +54,7 @@ func (s *Store) ListNetworks(ctx context.Context) ([]store.Network, error) {
 	}
 	out := make([]store.Network, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toNetwork(r))
+		out = append(out, dbconvgen.Network(r))
 	}
 	return out, nil
 }
@@ -98,7 +83,7 @@ func (s *Store) UpdateNetwork(ctx context.Context, n store.Network) (store.Netwo
 		if err != nil {
 			return mapErr(err)
 		}
-		out = toNetwork(row)
+		out = dbconvgen.Network(row)
 		return nil
 	})
 	return out, err
