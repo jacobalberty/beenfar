@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
+	"github.com/jacobalberty/beenfar/api/adapter"
 	adminv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	configv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1"
@@ -43,7 +44,12 @@ type apiFixture struct {
 
 func newAPIFixture(t *testing.T, fopts ...fixtureOption) apiFixture {
 	t.Helper()
-	f := newFixture(t, fopts...)
+	return newAPIFixtureWith(t, []adapter.Adapter{stubAdapter{}}, fopts...)
+}
+
+func newAPIFixtureWith(t *testing.T, adapters []adapter.Adapter, fopts ...fixtureOption) apiFixture {
+	t.Helper()
+	f := newFixtureWith(t, adapters, fopts...)
 	srv := httptest.NewServer(f.handler)
 	t.Cleanup(srv.Close)
 	u, err := f.auth.CreateUser(t.Context(), "admin", "correct horse", true)

@@ -47,6 +47,10 @@ type Options struct {
 	// AdapterHost serves the adapter API to external adapters. Nil leaves the
 	// API unregistered.
 	AdapterHost adapterv1connect.AdapterHostServiceHandler
+	// AdapterHTTP are the device-facing routes of built-in adapters (such as
+	// UniFi's POST /inform), keyed by ServeMux pattern. They authenticate
+	// the devices themselves, so they sit outside the API's auth.
+	AdapterHTTP map[string]http.Handler
 }
 
 // AuthMethods are the sign-in methods beyond API tokens and password login.
@@ -119,9 +123,9 @@ func New(opts Options) (http.Handler, error) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 
-	// TODO(phase 4): the UniFi inform endpoint moves into adapters/unifi and
-	// is mounted through the adapter interface.
-	mux.Handle("POST /inform", &informHandler{store: opts.Store})
+	for pattern, h := range opts.AdapterHTTP {
+		mux.Handle(pattern, h)
+	}
 
 	// withRequestInfo goes outside the telemetry middleware, which reads the
 	// matched route from the request it hands to the mux.
