@@ -29,6 +29,34 @@ beenfard admin token -username admin -name terraform
 or through the API (`ApiTokenService.CreateApiToken`). Send it as
 `Authorization: Bearer <token>`.
 
+## Configuration API
+
+Everything that configures the network is a resource in `beenfar.config.v1`,
+served over Connect, gRPC and REST (`/api/v1/...`, described at
+`/openapi.json`): networks, wifi networks, RADIUS servers, switch ports and
+devices. The UI and the [Terraform provider](https://github.com/jacobalberty/terraform-provider-beenfar)
+use the same RPCs. Resources have server-assigned ids and an `etag`; send the
+etag back on update or delete to fail with `ABORTED` if someone changed the
+resource in the meantime.
+
+**Partial updates.** Every `Update` takes an optional `update_mask`
+([AIP-134](https://google.aip.dev/134)) naming the fields to change; the
+others keep their stored values. An empty mask (or `*`) replaces every
+field. Over REST, use `PATCH` with `?update_mask=ssid,securityKey`. This is
+what lets Terraform manage some fields of a resource while the UI manages
+others: Terraform sends only the fields in its configuration, so for
+instance the access point groups of a wifi network can be left to the UI.
+
+**RADIUS servers.** WPA-enterprise wifi networks name a RADIUS server
+(`radius_server_id`; the old free-text `radius_profile` is deprecated). The
+server's shared secret is write-only: no response contains it, and an update
+without one keeps it. `shared_secret_version` increases whenever it changes.
+
+**Switch ports.** Ports of adopted devices can be given settings (name,
+disabled, native network, tagged networks, PoE mode) by device id and
+1-based port index. A port without settings runs with the device's
+defaults; deleting them restores the defaults.
+
 ## API module
 
 The protobuf API and its generated Go clients, together with the adapter
@@ -209,9 +237,8 @@ for it with `beenfard admin adapter-token create -adapter NAME` (also `list`
 and `revoke`); the token lets its holder act as that adapter only.
 
 ## Todo
-* Terraform provider
 * Per device command queues
-* Translate internal configuration data to per device data (UniFi wifi and VLAN settings)
+* Verify the UniFi `system_cfg` push on hardware, and render guest networks and switch ports
 * [Frontend](https://github.com/jacobalberty/LookMoreLike)
 
 ## Supported device types
