@@ -197,11 +197,14 @@ func (s *Service) SetPassword(ctx context.Context, userID, password string, curr
 		return err
 	}
 	return s.store.WithTx(ctx, func(tx store.Store) error {
+		u, err := tx.GetUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if u.PasswordHash == "" {
+			return fmt.Errorf("%w: %s users sign in through their provider and have no password", store.ErrFailedPrecondition, u.Source)
+		}
 		if current != nil {
-			u, err := tx.GetUser(ctx, userID)
-			if err != nil {
-				return err
-			}
 			ok, err := CheckPassword(u.PasswordHash, *current)
 			if err != nil {
 				return err
@@ -253,6 +256,10 @@ func (s *Service) Login(ctx context.Context, username, password string) (store.U
 	}
 	if err != nil {
 		return store.User{}, "", store.Session{}, err
+	}
+	if u.PasswordHash == "" { // external user: signs in through its provider
+		_, _ = CheckPassword(s.dummyHash(), password)
+		return store.User{}, "", store.Session{}, ErrUnauthenticated
 	}
 	ok, err := CheckPassword(u.PasswordHash, password)
 	if err != nil {

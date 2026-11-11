@@ -163,3 +163,20 @@ func TestBootstrapAndLastAdmin(t *testing.T) {
 		t.Fatalf("wrong current password: %v", err)
 	}
 }
+
+func TestExternalUsersHaveNoPassword(t *testing.T) {
+	svc, st := newService(t)
+	ctx := t.Context()
+	u, err := st.CreateExternalUser(ctx, store.User{Username: "erin", Source: store.UserSourceProxy}, "proxy", "erin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pw := range []string{"", "anything-at-all"} {
+		if _, _, _, err := svc.Login(ctx, "erin", pw); !errors.Is(err, auth.ErrUnauthenticated) {
+			t.Errorf("login with %q: %v, want ErrUnauthenticated", pw, err)
+		}
+	}
+	if err := svc.SetPassword(ctx, u.ID, "password1", nil); !errors.Is(err, store.ErrFailedPrecondition) {
+		t.Errorf("set password: %v, want ErrFailedPrecondition", err)
+	}
+}
