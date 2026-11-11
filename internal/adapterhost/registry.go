@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 
@@ -40,11 +41,12 @@ type Registry struct {
 	prop  propagation.TextMapPropagator
 	now   func() time.Time
 
-	wg       sync.WaitGroup
-	mu       sync.RWMutex
-	adapters map[string]*entry
-	handlers map[string]http.Handler
-	pending  map[string]*pendingCommand // by command id
+	adoptions metric.Int64Counter // nil without a meter
+	wg        sync.WaitGroup
+	mu        sync.RWMutex
+	adapters  map[string]*entry
+	handlers  map[string]http.Handler
+	pending   map[string]*pendingCommand // by command id
 }
 
 var _ core.AdapterRegistry = (*Registry)(nil)
@@ -70,6 +72,9 @@ func NewRegistry(opts Options) (*Registry, error) {
 		pending:  map[string]*pendingCommand{},
 	}
 	if opts.Meter != nil {
+		if err := r.registerMetrics(opts.Meter); err != nil {
+			return nil, err
+		}
 		g, err := opts.Meter.Int64ObservableGauge("beenfar.adapters.connected",
 			metric.WithDescription("Adapters currently running or connected."),
 			metric.WithUnit("{adapter}"))
@@ -180,7 +185,8 @@ func (r *Registry) ListAdapters(context.Context) []core.AdapterStatus {
 	return out
 }
 
-func (r *Registry) AdoptDevice(ctx context.Context, d store.Device) error {
+func (r *Registry) AdoptDevice(ctx context.Context, d store.Device) (err error) {
+	defer func() { r.countAdoption(ctx, d.Adapter, err) }()
 	drv, err := r.driver(d.Adapter)
 	if err != nil {
 		return err
@@ -357,4 +363,55 @@ func (d remoteDriver) send(ctx context.Context, kind CommandKind, dev adapter.De
 	case <-ctx.Done():
 		return fmt.Errorf("waiting for adapter %q: %w", d.s.name, ctx.Err())
 	}
+}
+
+// --- metrics ---
+
+func (r *Registry) registerMetrics(m metric.Meter) error {
+	var err error
+	if r.adoptions, err = m.Int64Counter("beenfar.adoptions",
+		metric.WithDescription("Adoptions handed to an adapter, by adapter and result."),
+		metric.WithUnit("{adoption}")); err != nil {
+		return err
+	}
+	devices, err := m.Int64ObservableGauge("beenfar.devices",
+		metric.WithDescription("Known devices, by adapter and state."),
+		metric.WithUnit("{device}"))
+	if err != nil {
+		return err
+	}
+	_, err = m.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+		all, err := r.store.ListDevices(ctx, store.DeviceFilter{})
+		if err != nil {
+			return err
+		}
+		type key struct {
+			adapter string
+			state   store.DeviceState
+			locked  bool
+		}
+		counts := map[key]int64{}
+		for _, d := range all {
+			counts[key{d.Adapter, d.State, d.Locked}]++
+		}
+		for k, n := range counts {
+			o.ObserveInt64(devices, n, metric.WithAttributes(
+				attribute.String("adapter", k.adapter),
+				attribute.String("state", string(k.state)),
+				attribute.Bool("locked", k.locked)))
+		}
+		return nil
+	}, devices)
+	return err
+}
+
+func (r *Registry) countAdoption(ctx context.Context, adapterName string, err error) {
+	if r.adoptions == nil {
+		return
+	}
+	result := "ok"
+	if err != nil {
+		result = "error"
+	}
+	r.adoptions.Add(ctx, 1, metric.WithAttributes(attribute.String("adapter", adapterName), attribute.String("result", result)))
 }

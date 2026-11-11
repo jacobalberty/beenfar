@@ -127,11 +127,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err := adapters.AddBuiltin(unifi.New(unifi.Options{
+	unifiAdapter, err := unifi.New(unifi.Options{
 		Tracer:   tel.Tracer(),
+		Meter:    tel.Meter(),
 		Interval: cfg.unifiInterval,
 		UseGCM:   cfg.unifiGCM,
-	})); err != nil {
+	})
+	if err != nil {
+		return err
+	}
+	if err := adapters.AddBuiltin(unifiAdapter); err != nil {
 		return err
 	}
 	adapterCtx, stopAdapters := context.WithCancel(ctx)

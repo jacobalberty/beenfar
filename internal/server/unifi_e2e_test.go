@@ -65,7 +65,10 @@ func (d unifiDevice) inform(key []byte, cfgversion string) (int, map[string]any)
 func newUnifiFixture(t *testing.T) (apiFixture, *tracetest.SpanRecorder) {
 	t.Helper()
 	adapterSpans := tracetest.NewSpanRecorder()
-	ad := unifi.New(unifi.Options{Tracer: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(adapterSpans)).Tracer("test")})
+	ad, err := unifi.New(unifi.Options{Tracer: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(adapterSpans)).Tracer("test")})
+	if err != nil {
+		t.Fatal(err)
+	}
 	f := newAPIFixtureWith(t, []adapter.Adapter{ad})
 	// Start runs in a goroutine; Forget on an unknown device is a probe that
 	// only succeeds once it has.

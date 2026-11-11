@@ -37,6 +37,8 @@ import (
 	"github.com/jacobalberty/go-unifi/inform"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -54,6 +56,8 @@ const DefaultInterval = 10
 type Options struct {
 	// Tracer starts the span for each inform. Nil disables tracing.
 	Tracer trace.Tracer
+	// Meter exports the adapter's counters. Nil disables them.
+	Meter metric.Meter
 	// Interval is the inform interval in seconds (default DefaultInterval).
 	Interval int
 	// UseGCM tells devices adopted from now on to switch to AES-GCM. It is off
@@ -68,6 +72,10 @@ type Adapter struct {
 	opts   Options
 	tracer trace.Tracer
 	host   atomic.Pointer[adapter.Host]
+
+	informs  metric.Int64Counter
+	rejected metric.Int64Counter
+	pushes   metric.Int64Counter
 }
 
 var (
@@ -76,7 +84,7 @@ var (
 )
 
 // New returns the adapter.
-func New(opts Options) *Adapter {
+func New(opts Options) (*Adapter, error) {
 	if opts.Interval <= 0 {
 		opts.Interval = DefaultInterval
 	}
@@ -84,7 +92,25 @@ func New(opts Options) *Adapter {
 	if tr == nil {
 		tr = noop.NewTracerProvider().Tracer("")
 	}
-	return &Adapter{opts: opts, tracer: tr}
+	a := &Adapter{opts: opts, tracer: tr}
+	m := opts.Meter
+	if m == nil {
+		m = metricnoop.NewMeterProvider().Meter("")
+	}
+	var err error
+	if a.informs, err = m.Int64Counter("beenfar.unifi.informs.received",
+		metric.WithDescription("Informs received from UniFi devices."), metric.WithUnit("{inform}")); err != nil {
+		return nil, err
+	}
+	if a.rejected, err = m.Int64Counter("beenfar.unifi.informs.rejected",
+		metric.WithDescription("Informs not answered with a reply, by reason."), metric.WithUnit("{inform}")); err != nil {
+		return nil, err
+	}
+	if a.pushes, err = m.Int64Counter("beenfar.unifi.config_pushes",
+		metric.WithDescription("SetParam replies sent to adopted devices, by reason."), metric.WithUnit("{push}")); err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
 func (a *Adapter) Name() string { return Name }
@@ -150,6 +176,7 @@ func (a *Adapter) serveInform(w http.ResponseWriter, r *http.Request) {
 	ctx, span := a.tracer.Start(r.Context(), "unifi.inform", trace.WithAttributes(attribute.String("unifi.response", "error")))
 	defer span.End()
 	ctx = context.WithValue(ctx, remoteIPKey{}, remoteIP(r))
+	a.informs.Add(ctx, 1)
 	h := &inform.Handler{
 		Keys:          a.keys,
 		Serve:         a.serve,
@@ -188,6 +215,7 @@ func (a *Adapter) undecryptable(ctx context.Context, p *inform.Packet) {
 }
 
 func (a *Adapter) onError(ctx context.Context, mac net.HardwareAddr, status int, err error) {
+	a.rejected.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", rejectReason(status, err))))
 	span := trace.SpanFromContext(ctx)
 	if status >= 500 {
 		span.RecordError(err)
@@ -196,6 +224,19 @@ func (a *Adapter) onError(ctx context.Context, mac net.HardwareAddr, status int,
 		return
 	}
 	slog.InfoContext(ctx, "inform rejected", slog.Int("status", status), slog.Any("error", err))
+}
+
+// rejectReason classifies why an inform got no reply.
+func rejectReason(status int, err error) string {
+	switch {
+	case errors.Is(err, inform.ErrUnknownDevice):
+		return "not_adopted"
+	case errors.Is(err, inform.ErrDecrypt):
+		return "undecryptable"
+	case status >= 500:
+		return "error"
+	}
+	return "malformed"
 }
 
 // serve answers a decoded inform.
@@ -300,6 +341,11 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	if pending == nil && !onDefault && in.ConfigVersion == version {
 		return inform.Noop{Interval: a.opts.Interval}, nil
 	}
+	reason := "revision"
+	if pending != nil || onDefault {
+		reason = "key"
+	}
+	a.pushes.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", reason)))
 	return a.setParam(authKey, version, desired)
 }
 

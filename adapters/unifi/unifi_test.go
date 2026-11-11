@@ -15,6 +15,9 @@ import (
 	"time"
 
 	"github.com/jacobalberty/go-unifi/inform"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
@@ -33,6 +36,7 @@ type env struct {
 	devices *core.DeviceService
 	srv     *httptest.Server
 	spans   *tracetest.SpanRecorder
+	metrics *sdkmetric.ManualReader
 }
 
 func newEnv(t *testing.T, opts unifi.Options) *env {
@@ -44,8 +48,13 @@ func newEnv(t *testing.T, opts unifi.Options) *env {
 	t.Cleanup(func() { _ = st.Close() })
 
 	spans := tracetest.NewSpanRecorder()
+	reader := sdkmetric.NewManualReader()
+	opts.Meter = sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter("test")
 	opts.Tracer = sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)).Tracer("test")
-	ad := unifi.New(opts)
+	ad, err := unifi.New(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
 	reg, err := adapterhost.NewRegistry(adapterhost.Options{Store: st})
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +74,7 @@ func newEnv(t *testing.T, opts unifi.Options) *env {
 	t.Cleanup(srv.Close)
 	// Start runs in a goroutine; informs are refused until it has.
 	waitReady(t, ad)
-	return &env{t: t, st: st, ad: ad, devices: core.New(st, reg).Devices, srv: srv, spans: spans}
+	return &env{t: t, st: st, ad: ad, devices: core.New(st, reg).Devices, srv: srv, spans: spans, metrics: reader}
 }
 
 // waitReady waits for the adapter's Start to have run: until then it refuses
@@ -456,4 +465,56 @@ func TestInformSpan(t *testing.T) {
 
 func adapterDevice(d store.Device) adapter.Device {
 	return adapter.Device{ID: d.ID, MAC: d.MAC, State: adapter.DeviceState(d.State)}
+}
+
+// sums returns a counter's values by the value of one attribute ("" for none).
+func (e *env) sums(name, attr string) map[string]int64 {
+	e.t.Helper()
+	var rm metricdata.ResourceMetrics
+	if err := e.metrics.Collect(e.t.Context(), &rm); err != nil {
+		e.t.Fatal(err)
+	}
+	out := map[string]int64{}
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			for _, dp := range m.Data.(metricdata.Sum[int64]).DataPoints {
+				v, _ := dp.Attributes.Value(attribute.Key(attr))
+				out[v.String()] += dp.Value
+			}
+		}
+	}
+	return out
+}
+
+func TestMetrics(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{})
+	d := newDevice(7)
+
+	e.post(d, inform.DefaultKey(), "")           // unknown: pending
+	e.post(newDevice(8), inform.NewKey(), "abc") // no key opens it
+	dev := e.deviceByMAC(d)
+	if _, err := e.devices.Adopt(ctx, dev.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	_, reply := e.post(d, inform.DefaultKey(), "") // key push
+	key := authKey(t, reply)
+	version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	e.post(d, key, version)            // noop
+	e.post(d, key, "0000000000000001") // revision push
+
+	if got := e.sums("beenfar.unifi.informs.received", "")[""]; got != 5 {
+		t.Errorf("received = %d, want 5", got)
+	}
+	rej := e.sums("beenfar.unifi.informs.rejected", "reason")
+	if rej["not_adopted"] != 1 || rej["undecryptable"] != 1 || len(rej) != 2 {
+		t.Errorf("rejected = %v", rej)
+	}
+	push := e.sums("beenfar.unifi.config_pushes", "reason")
+	if push["key"] != 1 || push["revision"] != 1 || len(push) != 2 {
+		t.Errorf("pushes = %v", push)
+	}
 }
