@@ -3,7 +3,7 @@ module github.com/jacobalberty/beenfar
 go 1.27.0
 
 require (
-	connectrpc.com/connect/v2 v2.0.0
+	connectrpc.com/connect/v2 v2.0.2
 	connectrpc.com/otelconnect v0.12.0
 	connectrpc.com/vanguard v0.5.0
 	github.com/coreos/go-oidc/v3 v3.21.0
