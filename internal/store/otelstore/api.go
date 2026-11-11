@@ -106,3 +106,15 @@ func (s *Store) DeleteUserSessions(ctx context.Context, userID string) error {
 func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error) {
 	return run(ctx, s, "DeleteExpiredSessions", func(ctx context.Context) (int64, error) { return s.next.DeleteExpiredSessions(ctx, now) })
 }
+
+func (s *Store) GetUserByIdentity(ctx context.Context, provider, subject string) (store.User, error) {
+	return run(ctx, s, "GetUserByIdentity", func(ctx context.Context) (store.User, error) {
+		return s.next.GetUserByIdentity(ctx, provider, subject)
+	})
+}
+
+func (s *Store) CreateExternalUser(ctx context.Context, u store.User, provider, subject string) (store.User, error) {
+	return run(ctx, s, "CreateExternalUser", func(ctx context.Context) (store.User, error) {
+		return s.next.CreateExternalUser(ctx, u, provider, subject)
+	})
+}

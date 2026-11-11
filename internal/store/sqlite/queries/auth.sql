@@ -22,8 +22,8 @@ UPDATE api_tokens SET last_used_time = sqlc.arg(now) WHERE id = sqlc.arg(id);
 DELETE FROM api_tokens WHERE id = ?;
 
 -- name: CreateSession :one
-INSERT INTO sessions (id_hash, user_id, create_time, expire_time)
-VALUES (sqlc.arg(id_hash), sqlc.arg(user_id), sqlc.arg(now), sqlc.arg(expire_time))
+INSERT INTO sessions (id_hash, user_id, provider, create_time, expire_time)
+VALUES (sqlc.arg(id_hash), sqlc.arg(user_id), sqlc.arg(provider), sqlc.arg(now), sqlc.arg(expire_time))
 RETURNING *;
 
 -- name: GetSession :one

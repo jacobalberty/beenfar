@@ -99,6 +99,7 @@ func UserToProto(source store.User) *v1.User {
 	adminv1User.Id = source.ID
 	adminv1User.Username = source.Username
 	adminv1User.Admin = source.Admin
+	adminv1User.Source = apiconv.UserSourceToProto(source.Source)
 	adminv1User.Etag = apiconv.Etag(source.Revision)
 	adminv1User.CreateTime = apiconv.Timestamp(source.CreateTime)
 	adminv1User.UpdateTime = apiconv.Timestamp(source.UpdateTime)

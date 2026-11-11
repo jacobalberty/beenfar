@@ -123,3 +123,49 @@ func TestUsersTokensSessions(t *testing.T) {
 	_, err = s.GetSession(ctx, "new")
 	wantErr(t, err, store.ErrNotFound)
 }
+
+func TestExternalUsers(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	_, err := s.CreateExternalUser(ctx, store.User{Username: "x", Source: store.UserSourceLocal}, "proxy", "x")
+	wantErr(t, err, store.ErrInvalid)
+	_, err = s.CreateUser(ctx, store.User{Username: "x", PasswordHash: "h", Source: store.UserSourceOIDC})
+	wantErr(t, err, store.ErrInvalid)
+
+	u, err := s.CreateExternalUser(ctx, store.User{Username: "carol", Source: store.UserSourceOIDC}, "oidc:corp", "sub-123")
+	if err != nil || u.Source != store.UserSourceOIDC || u.PasswordHash != "" {
+		t.Fatalf("create = %+v, %v", u, err)
+	}
+	got, err := s.GetUserByIdentity(ctx, "oidc:corp", "sub-123")
+	if err != nil || got.ID != u.ID {
+		t.Fatalf("by identity = %+v, %v", got, err)
+	}
+	_, err = s.GetUserByIdentity(ctx, "oidc:other", "sub-123")
+	wantErr(t, err, store.ErrNotFound)
+
+	// The identity is unique, and so is the username; a failed create leaves
+	// no half-made user behind.
+	_, err = s.CreateExternalUser(ctx, store.User{Username: "carol2", Source: store.UserSourceOIDC}, "oidc:corp", "sub-123")
+	wantErr(t, err, store.ErrConflict)
+	if _, err := s.GetUserByUsername(ctx, "carol2"); err == nil {
+		t.Error("user created despite identity conflict")
+	}
+
+	// Local users default to the local source; sessions keep their provider.
+	l, err := s.CreateUser(ctx, store.User{Username: "dave", PasswordHash: "h"})
+	if err != nil || l.Source != store.UserSourceLocal {
+		t.Fatalf("local = %+v, %v", l, err)
+	}
+	sess, err := s.CreateSession(ctx, store.Session{IDHash: "s", UserID: u.ID, Provider: "oidc:corp", ExpireTime: time.Now().Add(time.Hour)})
+	if err != nil || sess.Provider != "oidc:corp" {
+		t.Fatalf("session = %+v, %v", sess, err)
+	}
+
+	// Deleting the user removes the identity link.
+	if err := s.DeleteUser(ctx, u.ID, 0); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetUserByIdentity(ctx, "oidc:corp", "sub-123")
+	wantErr(t, err, store.ErrNotFound)
+}

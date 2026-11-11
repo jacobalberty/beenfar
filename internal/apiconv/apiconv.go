@@ -37,7 +37,7 @@ import (
 // goverter:ignoreUnexported
 // goverter:useZeroValueOnPointerInconsistency
 // goverter:extend Timestamp WifiSecurityToProto WifiSecurityFromProto WifiBandToProto WifiBandFromProto
-// goverter:extend DeviceStateToProto AdapterKindToProto VLANToProto VLANFromProto
+// goverter:extend DeviceStateToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
 type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
@@ -124,6 +124,12 @@ var adapterKind = biMap[adminv1.AdapterKind, core.AdapterKind]{
 	adminv1.AdapterKind_ADAPTER_KIND_EXTERNAL: core.AdapterExternal,
 }
 
+var userSource = biMap[adminv1.UserSource, store.UserSource]{
+	adminv1.UserSource_USER_SOURCE_LOCAL: store.UserSourceLocal,
+	adminv1.UserSource_USER_SOURCE_PROXY: store.UserSourceProxy,
+	adminv1.UserSource_USER_SOURCE_OIDC:  store.UserSourceOIDC,
+}
+
 // biMap maps proto enum values (P) to domain values (D). The zero proto value
 // (UNSPECIFIED) maps to the zero domain value and back.
 type biMap[P, D comparable] map[P]D
@@ -171,3 +177,5 @@ func DeviceStateFromProto(s configv1.DeviceState) (store.DeviceState, error) {
 }
 
 func AdapterKindToProto(k core.AdapterKind) adminv1.AdapterKind { return adapterKind.toProto(k) }
+
+func UserSourceToProto(s store.UserSource) adminv1.UserSource { return userSource.toProto(s) }
