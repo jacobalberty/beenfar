@@ -90,7 +90,7 @@ func New(opts Options) (http.Handler, error) {
 	adminv1connect.RegisterApiTokenServiceHandler(rpc, &apiTokenHandler{auth: opts.Auth})
 	adminv1connect.RegisterUserServiceHandler(rpc, &userHandler{auth: opts.Auth, store: opts.Store})
 	adminv1connect.RegisterAuthServiceHandler(rpc, &authHandler{auth: opts.Auth, methods: opts.AuthMethods})
-	adminv1connect.RegisterAdapterServiceHandler(rpc, &adapterHandler{registry: opts.Core.Adapters})
+	adminv1connect.RegisterAdapterServiceHandler(rpc, &adapterHandler{registry: opts.Core.Adapters, store: opts.Store})
 	if opts.AdapterHost != nil {
 		adapterv1connect.RegisterAdapterHostServiceHandler(rpc, opts.AdapterHost)
 	}

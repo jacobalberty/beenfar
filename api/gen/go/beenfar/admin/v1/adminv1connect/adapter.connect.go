@@ -27,6 +27,9 @@ const (
 	// AdapterServiceListAdaptersProcedure is the procedure name of the AdapterService's ListAdapters
 	// RPC.
 	AdapterServiceListAdaptersProcedure = "/beenfar.admin.v1.AdapterService/ListAdapters"
+	// AdapterServiceImportUnifiDeviceKeysProcedure is the procedure name of the AdapterService's
+	// ImportUnifiDeviceKeys RPC.
+	AdapterServiceImportUnifiDeviceKeysProcedure = "/beenfar.admin.v1.AdapterService/ImportUnifiDeviceKeys"
 )
 
 var (
@@ -38,12 +41,25 @@ var (
 			IdempotencyLevel: connect.IdempotencyNoSideEffects,
 		}
 	})
+	adapterServiceImportUnifiDeviceKeysSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_beenfar_admin_v1_adapter_proto.Services().ByName("AdapterService").Methods().ByName("ImportUnifiDeviceKeys"),
+			Procedure:  AdapterServiceImportUnifiDeviceKeysProcedure,
+		}
+	})
 )
 
 // AdapterServiceClient is a client for the beenfar.admin.v1.AdapterService service.
 type AdapterServiceClient interface {
 	// ListAdapters returns every registered adapter, ordered by name.
 	ListAdapters(context.Context, *v1.ListAdaptersRequest) (*v1.ListAdaptersResponse, error)
+	// ImportUnifiDeviceKeys stores the credentials of UniFi devices that
+	// another controller manages, so that this controller can read their
+	// informs once they are pointed at it. The devices are recorded as pending
+	// (with their real model once they have informed) and are adopted, which
+	// re-keys them, like any other. The keys are never returned by any API.
+	ImportUnifiDeviceKeys(context.Context, *v1.ImportUnifiDeviceKeysRequest) (*v1.ImportUnifiDeviceKeysResponse, error)
 }
 
 // NewAdapterServiceClient constructs a client for the beenfar.admin.v1.AdapterService service.
@@ -56,6 +72,12 @@ func NewAdapterServiceClient(client *connect.Client) AdapterServiceClient {
 type AdapterServiceHandler interface {
 	// ListAdapters returns every registered adapter, ordered by name.
 	ListAdapters(context.Context, *v1.ListAdaptersRequest) (*v1.ListAdaptersResponse, error)
+	// ImportUnifiDeviceKeys stores the credentials of UniFi devices that
+	// another controller manages, so that this controller can read their
+	// informs once they are pointed at it. The devices are recorded as pending
+	// (with their real model once they have informed) and are adopted, which
+	// re-keys them, like any other. The keys are never returned by any API.
+	ImportUnifiDeviceKeys(context.Context, *v1.ImportUnifiDeviceKeysRequest) (*v1.ImportUnifiDeviceKeysResponse, error)
 }
 
 // RegisterAdapterServiceHandler registers svc as the beenfar.admin.v1.AdapterService implementation
@@ -64,6 +86,7 @@ func RegisterAdapterServiceHandler(server *connect.Server, svc AdapterServiceHan
 	adapter := adapterServiceHandler{svc: svc}
 	server.Register(
 		connect.Method{Spec: adapterServiceListAdaptersSpec(), Handler: adapter.listAdapters},
+		connect.Method{Spec: adapterServiceImportUnifiDeviceKeysSpec(), Handler: adapter.importUnifiDeviceKeys},
 	)
 }
 
@@ -72,6 +95,10 @@ type UnimplementedAdapterServiceHandler struct{}
 
 func (UnimplementedAdapterServiceHandler) ListAdapters(context.Context, *v1.ListAdaptersRequest) (*v1.ListAdaptersResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.admin.v1.AdapterService.ListAdapters is not implemented")
+}
+
+func (UnimplementedAdapterServiceHandler) ImportUnifiDeviceKeys(context.Context, *v1.ImportUnifiDeviceKeysRequest) (*v1.ImportUnifiDeviceKeysResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.admin.v1.AdapterService.ImportUnifiDeviceKeys is not implemented")
 }
 
 type adapterServiceClient struct {
@@ -86,6 +113,14 @@ func (c *adapterServiceClient) ListAdapters(ctx context.Context, req *v1.ListAda
 	return &res, nil
 }
 
+func (c *adapterServiceClient) ImportUnifiDeviceKeys(ctx context.Context, req *v1.ImportUnifiDeviceKeysRequest) (*v1.ImportUnifiDeviceKeysResponse, error) {
+	var res v1.ImportUnifiDeviceKeysResponse
+	if err := c.client.CallUnary(ctx, adapterServiceImportUnifiDeviceKeysSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 type adapterServiceHandler struct{ svc AdapterServiceHandler }
 
 func (h adapterServiceHandler) listAdapters(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
@@ -94,6 +129,18 @@ func (h adapterServiceHandler) listAdapters(ctx context.Context, _ connect.Spec,
 		return err
 	}
 	res, err := h.svc.ListAdapters(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h adapterServiceHandler) importUnifiDeviceKeys(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ImportUnifiDeviceKeysRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ImportUnifiDeviceKeys(ctx, &req)
 	if err != nil {
 		return err
 	}

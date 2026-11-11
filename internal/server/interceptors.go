@@ -93,11 +93,12 @@ var publicProcedures = map[string]bool{
 // Procedures only admins may call. Handlers enforce finer rules (such as
 // "admin or self") on the rest.
 var adminProcedures = map[string]bool{
-	adminv1connect.UserServiceCreateUserProcedure:      true,
-	adminv1connect.UserServiceListUsersProcedure:       true,
-	adminv1connect.UserServiceUpdateUserProcedure:      true,
-	adminv1connect.UserServiceDeleteUserProcedure:      true,
-	adminv1connect.AdapterServiceListAdaptersProcedure: true,
+	adminv1connect.UserServiceCreateUserProcedure:               true,
+	adminv1connect.UserServiceListUsersProcedure:                true,
+	adminv1connect.UserServiceUpdateUserProcedure:               true,
+	adminv1connect.UserServiceDeleteUserProcedure:               true,
+	adminv1connect.AdapterServiceListAdaptersProcedure:          true,
+	adminv1connect.AdapterServiceImportUnifiDeviceKeysProcedure: true,
 }
 
 // authInterceptor authenticates every RPC before its payload is read and puts

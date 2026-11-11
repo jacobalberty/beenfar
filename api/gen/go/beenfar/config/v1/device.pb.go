@@ -81,12 +81,17 @@ type Device struct {
 	// MAC address, lower-case and colon-separated.
 	Mac string `protobuf:"bytes,2,opt,name=mac,proto3" json:"mac,omitempty"`
 	// Name of the adapter that handles this device, e.g. "unifi".
-	Adapter       string                 `protobuf:"bytes,3,opt,name=adapter,proto3" json:"adapter,omitempty"`
-	State         DeviceState            `protobuf:"varint,4,opt,name=state,proto3,enum=beenfar.config.v1.DeviceState" json:"state,omitempty"`
-	Model         string                 `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
-	Ip            string                 `protobuf:"bytes,6,opt,name=ip,proto3" json:"ip,omitempty"`
-	Firmware      string                 `protobuf:"bytes,7,opt,name=firmware,proto3" json:"firmware,omitempty"`
-	LastSeenTime  *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	Adapter      string                 `protobuf:"bytes,3,opt,name=adapter,proto3" json:"adapter,omitempty"`
+	State        DeviceState            `protobuf:"varint,4,opt,name=state,proto3,enum=beenfar.config.v1.DeviceState" json:"state,omitempty"`
+	Model        string                 `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
+	Ip           string                 `protobuf:"bytes,6,opt,name=ip,proto3" json:"ip,omitempty"`
+	Firmware     string                 `protobuf:"bytes,7,opt,name=firmware,proto3" json:"firmware,omitempty"`
+	LastSeenTime *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	// The device was seen but its adapter holds no credentials for it, so it
+	// cannot be adopted yet (for UniFi: it is still managed by another
+	// controller). Import its credentials, or reset it, and it stops being
+	// locked the next time it is seen.
+	Locked        bool                   `protobuf:"varint,9,opt,name=locked,proto3" json:"locked,omitempty"`
 	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -177,6 +182,13 @@ func (x *Device) GetLastSeenTime() *timestamppb.Timestamp {
 		return x.LastSeenTime
 	}
 	return nil
+}
+
+func (x *Device) GetLocked() bool {
+	if x != nil {
+		return x.Locked
+	}
+	return false
 }
 
 func (x *Device) GetCreateTime() *timestamppb.Timestamp {
@@ -680,7 +692,7 @@ var File_beenfar_config_v1_device_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"\x1ebeenfar/config/v1/device.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb4\x03\n" +
+	"\x1ebeenfar/config/v1/device.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd2\x03\n" +
 	"\x06Device\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x16\n" +
 	"\x03mac\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x03mac\x12\x1e\n" +
@@ -689,7 +701,8 @@ const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\x05model\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05model\x12\x14\n" +
 	"\x02ip\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\x02ip\x12 \n" +
 	"\bfirmware\x18\a \x01(\tB\x04\xe2A\x01\x03R\bfirmware\x12F\n" +
-	"\x0elast_seen_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\flastSeenTime\x12A\n" +
+	"\x0elast_seen_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\flastSeenTime\x12\x1c\n" +
+	"\x06locked\x18\t \x01(\bB\x04\xe2A\x01\x03R\x06locked\x12A\n" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
 	"\vupdate_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +

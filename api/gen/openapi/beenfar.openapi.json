@@ -332,6 +332,33 @@
         "title": "GetUserResponse",
         "additionalProperties": false
       },
+      "beenfar.admin.v1.ImportUnifiDeviceKeysRequest": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.admin.v1.UnifiDeviceKey"
+            },
+            "title": "devices"
+          }
+        },
+        "title": "ImportUnifiDeviceKeysRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ImportUnifiDeviceKeysResponse": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "title": "imported",
+            "format": "int32",
+            "description": "How many devices' keys were stored."
+          }
+        },
+        "title": "ImportUnifiDeviceKeysResponse",
+        "additionalProperties": false
+      },
       "beenfar.admin.v1.ListAdaptersRequest": {
         "type": "object",
         "title": "ListAdaptersRequest",
@@ -503,6 +530,34 @@
         "type": "object",
         "title": "SetUserPasswordResponse",
         "additionalProperties": false
+      },
+      "beenfar.admin.v1.UnifiDeviceKey": {
+        "type": "object",
+        "properties": {
+          "mac": {
+            "type": "string",
+            "title": "mac",
+            "description": "MAC address, in any common notation."
+          },
+          "authkey": {
+            "type": "string",
+            "title": "authkey",
+            "description": "The device's AES key: 32 hex digits.",
+            "writeOnly": true
+          },
+          "gcm": {
+            "type": "boolean",
+            "title": "gcm",
+            "description": "Whether the device uses AES-GCM. Informational: each inform says how it\n is encrypted, and the reply uses the same."
+          }
+        },
+        "title": "UnifiDeviceKey",
+        "required": [
+          "mac",
+          "authkey"
+        ],
+        "additionalProperties": false,
+        "description": "UnifiDeviceKey is the credential of one UniFi device, as extracted from the\n controller that manages it (its MongoDB \"x_authkey\", or \"mgmt.authkey\" in\n the device's /var/etc/persisted/cfg/mgmt)."
       },
       "beenfar.admin.v1.UpdateUserRequest": {
         "type": "object",
@@ -762,6 +817,12 @@
             "title": "last_seen_time",
             "readOnly": true,
             "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "locked",
+            "description": "The device was seen but its adapter holds no credentials for it, so it\n cannot be adopted yet (for UniFi: it is still managed by another\n controller). Import its credentials, or reset it, and it stops being\n locked the next time it is seen.",
+            "readOnly": true
           },
           "createTime": {
             "title": "create_time",
@@ -1267,6 +1328,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/beenfar.admin.v1.ListAdaptersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/adapters/unifi:import-device-keys": {
+      "post": {
+        "tags": [
+          "AdapterService"
+        ],
+        "summary": "ImportUnifiDeviceKeys",
+        "description": "ImportUnifiDeviceKeys stores the credentials of UniFi devices that\n another controller manages, so that this controller can read their\n informs once they are pointed at it. The devices are recorded as pending\n (with their real model once they have informed) and are adopted, which\n re-keys them, like any other. The keys are never returned by any API.",
+        "operationId": "beenfar.admin.v1.AdapterService.ImportUnifiDeviceKeys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/beenfar.admin.v1.ImportUnifiDeviceKeysRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.ImportUnifiDeviceKeysResponse"
                 }
               }
             }

@@ -70,6 +70,11 @@ message Device {
   string ip = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   string firmware = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp last_seen_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // The device was seen but its adapter holds no credentials for it, so it
+  // cannot be adopted yet (for UniFi: it is still managed by another
+  // controller). Import its credentials, or reset it, and it stops being
+  // locked the next time it is seen.
+  bool locked = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
