@@ -48,6 +48,7 @@ const (
 	MethodToken   Method = "token"
 	MethodSession Method = "session"
 	MethodBasic   Method = "basic" // Basic auth with a password
+	MethodProxy   Method = "proxy" // identity headers from a trusted proxy
 )
 
 // Principal is an authenticated caller.

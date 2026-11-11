@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -640,5 +641,26 @@ func TestBasicAuthOverHTTP(t *testing.T) {
 	// Browsers cache Basic credentials, so cross-site use is refused.
 	if code := req("admin", "correct horse", "Origin", "https://evil.example"); code != http.StatusForbidden {
 		t.Errorf("cross-origin Basic = %d, want 403", code)
+	}
+}
+
+func TestProxyAuthOverHTTP(t *testing.T) {
+	f := newAPIFixture(t, func(a *auth.Service) auth.Authenticator {
+		proxy, err := a.Proxy(auth.ProxyOptions{
+			TrustedPeers: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
+			UserHeader:   "X-Forwarded-User",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return auth.Chain{a.BearerToken(), proxy, a.SessionCookie()}
+	})
+	code, body, _ := f.rest(t, http.MethodGet, "/api/v1/auth/me", "", "", "X-Forwarded-User", "jill")
+	if code != http.StatusOK || !strings.Contains(string(body), `"jill"`) {
+		t.Fatalf("proxy user = %d %s", code, body)
+	}
+	code, _, _ = f.rest(t, http.MethodGet, "/api/v1/auth/me", "", "", "X-Forwarded-User", "jill", "Origin", "https://evil.example")
+	if code != http.StatusForbidden {
+		t.Errorf("cross-origin proxy request = %d, want 403", code)
 	}
 }
