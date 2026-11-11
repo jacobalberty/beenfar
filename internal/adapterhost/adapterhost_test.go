@@ -185,8 +185,18 @@ func TestHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := st.GetDevice(ctx, d.ID)
-	if got.Locked || got.Firmware != "6.5.1" || got.ConfigRevision != 7 {
+	if got.Locked || got.Firmware != "6.5.1" || got.ConfigRevision != 7 || got.Readoption != store.ReadoptionNone {
 		t.Fatalf("device = %+v", got)
+	}
+
+	// The adapter reports a reset device as awaiting re-adoption and can
+	// read that back, with when the device was last heard from.
+	if err := host.ReportState(ctx, d.ID, adapter.State{Readoption: adapter.ReadoptionAwaiting}); err != nil {
+		t.Fatal(err)
+	}
+	back, err := host.DeviceByMAC(ctx, "de:ad:be:ef:00:02")
+	if err != nil || back.Readoption != adapter.ReadoptionAwaiting || back.LastSeen.IsZero() {
+		t.Fatalf("DeviceByMAC = %+v, %v", back, err)
 	}
 }
 

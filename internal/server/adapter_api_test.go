@@ -60,8 +60,16 @@ func TestAdapterAPIHost(t *testing.T) {
 		t.Fatalf("device = %v", d)
 	}
 	look, err := a.LookupDevice(ctx, &adapterv1.LookupDeviceRequest{Mac: "deadbeef0002"})
-	if err != nil || look.GetDevice().GetId() != d.GetId() {
+	if err != nil || look.GetDevice().GetId() != d.GetId() || look.GetDevice().GetLastSeenTime().AsTime().IsZero() ||
+		look.GetDevice().GetReadoption() != adapterv1.ReadoptionState_READOPTION_STATE_UNSPECIFIED {
 		t.Fatalf("lookup = %v, %v", look, err)
+	}
+	if _, err := a.ReportState(ctx, &adapterv1.ReportStateRequest{DeviceId: d.GetId(), State: &adapterv1.State{Readoption: adapterv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE}}); err != nil {
+		t.Fatal(err)
+	}
+	if look, err = a.LookupDevice(ctx, &adapterv1.LookupDeviceRequest{Mac: "deadbeef0002"}); err != nil ||
+		look.GetDevice().GetReadoption() != adapterv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE {
+		t.Fatalf("readoption did not round trip: %v, %v", look, err)
 	}
 
 	// The device is listed, locked, through the public API.

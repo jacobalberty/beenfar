@@ -94,6 +94,7 @@ func (h *Host) ReportState(ctx context.Context, deviceID string, s adapter.State
 		IP:             s.IP,
 		Firmware:       s.Firmware,
 		ConfigRevision: s.ConfigRevision,
+		Readoption:     store.Readoption(s.Readoption),
 	})
 	return hostErr(err)
 }
@@ -145,6 +146,8 @@ func toDevice(d store.Device) adapter.Device {
 		MAC:            d.MAC,
 		State:          adapter.DeviceState(d.State),
 		ConfigRevision: d.ConfigRevision,
+		LastSeen:       d.LastSeen,
+		Readoption:     adapter.Readoption(d.Readoption),
 	}
 }
 

@@ -52,6 +52,8 @@ func DeviceFromProto(source *v1.Device) model.Device {
 		modelDevice.MAC = (*source).Mac
 		modelDevice.State = wire.DeviceStateFromProto((*source).State)
 		modelDevice.ConfigRevision = (*source).ConfigRevision
+		modelDevice.LastSeen = wire.TimeFromProto((*source).LastSeenTime)
+		modelDevice.Readoption = wire.ReadoptionFromProto((*source).Readoption)
 	}
 	return modelDevice
 }
@@ -61,6 +63,8 @@ func DeviceToProto(source model.Device) *v1.Device {
 	adapterv1Device.Mac = source.MAC
 	adapterv1Device.State = wire.DeviceStateToProto(source.State)
 	adapterv1Device.ConfigRevision = source.ConfigRevision
+	adapterv1Device.LastSeenTime = wire.TimeToProto(source.LastSeen)
+	adapterv1Device.Readoption = wire.ReadoptionToProto(source.Readoption)
 	return &adapterv1Device
 }
 func DiscoveredFromProto(source *v1.Discovered) model.Discovered {
@@ -91,6 +95,7 @@ func StateFromProto(source *v1.State) model.State {
 		modelState.Model = (*source).Model
 		modelState.ConfigRevision = (*source).ConfigRevision
 		modelState.Uptime = wire.DurationFromSeconds((*source).UptimeSeconds)
+		modelState.Readoption = wire.ReadoptionFromProto((*source).Readoption)
 	}
 	return modelState
 }
@@ -101,6 +106,7 @@ func StateToProto(source model.State) *v1.State {
 	adapterv1State.Model = source.Model
 	adapterv1State.ConfigRevision = source.ConfigRevision
 	adapterv1State.UptimeSeconds = wire.SecondsFromDuration(source.Uptime)
+	adapterv1State.Readoption = wire.ReadoptionToProto(source.Readoption)
 	return &adapterv1State
 }
 func modelNetworkToPAdapterv1Network(source model.Network) *v1.Network {

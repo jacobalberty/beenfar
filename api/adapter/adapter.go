@@ -89,6 +89,7 @@ type Host interface {
 // adapter API.
 type (
 	DeviceState   = model.DeviceState
+	Readoption    = model.Readoption
 	Device        = model.Device
 	Discovered    = model.Discovered
 	State         = model.State
@@ -102,6 +103,10 @@ type (
 const (
 	DevicePending = model.DevicePending
 	DeviceAdopted = model.DeviceAdopted
+
+	ReadoptionNone       = model.ReadoptionNone
+	ReadoptionAwaiting   = model.ReadoptionAwaiting
+	ReadoptionInProgress = model.ReadoptionInProgress
 
 	WifiOpen          = model.WifiOpen
 	WifiWEP           = model.WifiWEP

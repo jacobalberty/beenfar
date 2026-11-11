@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package beenfar.adapter.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // AdapterHostService is what the controller offers external device adapters:
 // the Host interface of the adapter SDK (api/adapter) over Connect, plus the
 // command stream through which the controller reaches the adapter.
@@ -58,6 +60,18 @@ enum DeviceState {
   DEVICE_STATE_ADOPTED = 2;
 }
 
+// ReadoptionState says where an adopted device that came back without its key
+// (it was factory reset) stands.
+enum ReadoptionState {
+  // Nothing to do.
+  READOPTION_STATE_UNSPECIFIED = 0;
+  // The device was reset and nobody has accepted re-adopting it yet. The
+  // adapter must send it nothing until then.
+  READOPTION_STATE_AWAITING_ACCEPTANCE = 1;
+  // Re-adoption was accepted; the device is being given a new key.
+  READOPTION_STATE_IN_PROGRESS = 2;
+}
+
 // Device is a device as the controller knows it.
 message Device {
   string id = 1;
@@ -66,6 +80,9 @@ message Device {
   DeviceState state = 3;
   // Revision of the configuration last pushed to the device.
   int64 config_revision = 4;
+  // When the controller last heard from the device through its adapter.
+  google.protobuf.Timestamp last_seen_time = 5;
+  ReadoptionState readoption = 6;
 }
 
 // Discovered is what an adapter reports when it sees a device.
@@ -88,6 +105,8 @@ message State {
   int64 config_revision = 4;
   // Seconds the device has been up.
   int64 uptime_seconds = 5;
+  // What the adapter found out about the device's readoption.
+  ReadoptionState readoption = 6;
 }
 
 // Network is a resolved network.

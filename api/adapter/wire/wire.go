@@ -13,6 +13,8 @@ package wire
 import (
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/jacobalberty/beenfar/api/adapter/model"
 	adapterv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/adapter/v1"
 )
@@ -32,8 +34,11 @@ import (
 // goverter:useZeroValueOnPointerInconsistency
 // goverter:extend DeviceStateToProto DeviceStateFromProto WifiSecurityToProto WifiSecurityFromProto
 // goverter:extend WifiBandToProto WifiBandFromProto SecondsFromDuration DurationFromSeconds Int32 Int
+// goverter:extend TimeToProto TimeFromProto ReadoptionToProto ReadoptionFromProto
 type Converter interface {
+	// goverter:map LastSeen LastSeenTime
 	DeviceToProto(model.Device) *adapterv1.Device
+	// goverter:map LastSeenTime LastSeen
 	DeviceFromProto(*adapterv1.Device) model.Device
 
 	DiscoveredToProto(model.Discovered) *adapterv1.Discovered
@@ -51,6 +56,40 @@ type Converter interface {
 // Int32 and Int convert VLAN ids; 802.1Q ids fit in 12 bits.
 func Int32(v int) int32 { return int32(v) }
 func Int(v int32) int   { return int(v) }
+
+func TimeToProto(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
+}
+
+func TimeFromProto(t *timestamppb.Timestamp) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return t.AsTime()
+}
+
+func ReadoptionToProto(r model.Readoption) adapterv1.ReadoptionState {
+	switch r {
+	case model.ReadoptionAwaiting:
+		return adapterv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE
+	case model.ReadoptionInProgress:
+		return adapterv1.ReadoptionState_READOPTION_STATE_IN_PROGRESS
+	}
+	return adapterv1.ReadoptionState_READOPTION_STATE_UNSPECIFIED
+}
+
+func ReadoptionFromProto(r adapterv1.ReadoptionState) model.Readoption {
+	switch r {
+	case adapterv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE:
+		return model.ReadoptionAwaiting
+	case adapterv1.ReadoptionState_READOPTION_STATE_IN_PROGRESS:
+		return model.ReadoptionInProgress
+	}
+	return model.ReadoptionNone
+}
 
 func SecondsFromDuration(d time.Duration) int64 { return int64(d / time.Second) }
 func DurationFromSeconds(s int64) time.Duration { return time.Duration(s) * time.Second }

@@ -14,6 +14,21 @@ const (
 	DeviceAdopted DeviceState = "adopted"
 )
 
+// Readoption says where an adopted device that came back without its key (it
+// was factory reset) stands. It stays the same adopted device throughout.
+type Readoption string
+
+const (
+	// ReadoptionNone: nothing to do.
+	ReadoptionNone Readoption = ""
+	// ReadoptionAwaiting: the device was reset and nobody has accepted
+	// re-adopting it yet. An adapter must send it nothing until then.
+	ReadoptionAwaiting Readoption = "awaiting"
+	// ReadoptionInProgress: re-adoption was accepted; the device is being
+	// given a new key.
+	ReadoptionInProgress Readoption = "in_progress"
+)
+
 // Device is a device as the controller knows it.
 type Device struct {
 	ID    string
@@ -22,6 +37,11 @@ type Device struct {
 	// ConfigRevision is the revision of the configuration last pushed to the
 	// device.
 	ConfigRevision int64
+	// LastSeen is when the controller last heard from the device through its
+	// adapter. Reports that could not be authenticated do not count.
+	LastSeen time.Time
+	// Readoption is set while an adopted device is being adopted again.
+	Readoption Readoption
 }
 
 // Discovered is what an adapter reports when it sees a device.
@@ -45,6 +65,10 @@ type State struct {
 	ConfigRevision int64
 	// Uptime is how long the device has been up.
 	Uptime time.Duration
+	// Readoption is what the adapter found out about the device's
+	// readoption: awaiting when a reset device showed up, in progress while
+	// it is being given a new key, none once it runs on its key again.
+	Readoption Readoption
 }
 
 // DesiredConfig is the configuration for one device.
