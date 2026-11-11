@@ -32,10 +32,7 @@ func (t *Telemetry) Middleware(next http.Handler) http.Handler {
 	if err != nil {
 		otelError(err)
 	}
-	prop := t.Propagator
-	if prop == nil {
-		prop = propagation.TraceContext{}
-	}
+	prop := t.TextMapPropagator()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

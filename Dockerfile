@@ -2,6 +2,7 @@ FROM golang:1.27 AS build
 
 WORKDIR /go/src/app
 COPY go.mod go.sum ./
+COPY api/go.mod api/go.sum ./api/
 RUN go mod download
 COPY . .
 

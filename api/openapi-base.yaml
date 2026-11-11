@@ -1,0 +1,24 @@
+openapi: 3.1.0
+info:
+  title: beenfar
+  description: |
+    REST binding of the beenfar controller API. The same operations are
+    available over Connect, gRPC and gRPC-Web at their protobuf service paths.
+
+    Authenticate with `Authorization: Bearer <token>` (see ApiTokenService) or
+    with the session cookie set by AuthService.Login.
+  license:
+    name: GPL-3.0-only
+    identifier: GPL-3.0-only
+security:
+  - bearerAuth: []
+  - sessionCookie: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: beenfar_session

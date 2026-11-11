@@ -88,7 +88,7 @@ func TestDevices(t *testing.T) {
 		t.Fatalf("state = %s", adopted.State)
 	}
 	_, err = s.AdoptDevice(ctx, d.ID)
-	wantErr(t, err, store.ErrConflict)
+	wantErr(t, err, store.ErrFailedPrecondition)
 	_, err = s.AdoptDevice(ctx, "missing")
 	wantErr(t, err, store.ErrNotFound)
 
@@ -162,7 +162,7 @@ func TestWifiNetworks(t *testing.T) {
 
 	// A stale revision is rejected; zero is unconditional.
 	_, err = s.UpdateWifiNetwork(ctx, got) // still revision 1
-	wantErr(t, err, store.ErrConflict)
+	wantErr(t, err, store.ErrStale)
 	upd.Revision = 0
 	upd.Hidden = true
 	upd, err = s.UpdateWifiNetwork(ctx, upd)
@@ -183,7 +183,7 @@ func TestWifiNetworks(t *testing.T) {
 		t.Fatalf("list = %+v, %v", list, err)
 	}
 
-	wantErr(t, s.DeleteWifiNetwork(ctx, w.ID, 1), store.ErrConflict)
+	wantErr(t, s.DeleteWifiNetwork(ctx, w.ID, 1), store.ErrStale)
 	if err := s.DeleteWifiNetwork(ctx, w.ID, 3); err != nil {
 		t.Fatal(err)
 	}

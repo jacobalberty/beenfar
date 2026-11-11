@@ -4,6 +4,17 @@
 
 package db
 
+type ApiToken struct {
+	ID           string
+	UserID       string
+	Name         string
+	Prefix       string
+	SecretHash   string
+	ExpireTime   int64
+	LastUsedTime int64
+	CreateTime   int64
+}
+
 type Device struct {
 	ID             string
 	Mac            string
@@ -16,6 +27,37 @@ type Device struct {
 	LastSeen       int64
 	CreateTime     int64
 	UpdateTime     int64
+}
+
+type Network struct {
+	ID          string
+	Name        string
+	VlanID      int64
+	Subnet      string
+	DhcpEnabled bool
+	DhcpStart   string
+	DhcpStop    string
+	DomainName  string
+	Revision    int64
+	CreateTime  int64
+	UpdateTime  int64
+}
+
+type Session struct {
+	IDHash     string
+	UserID     string
+	CreateTime int64
+	ExpireTime int64
+}
+
+type User struct {
+	ID           string
+	Username     string
+	PasswordHash string
+	Admin        bool
+	Revision     int64
+	CreateTime   int64
+	UpdateTime   int64
 }
 
 type WifiNetwork struct {

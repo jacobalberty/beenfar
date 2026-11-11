@@ -1,0 +1,2389 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "beenfar",
+    "description": "REST binding of the beenfar controller API. The same operations are\navailable over Connect, gRPC and gRPC-Web at their protobuf service paths.\n\nAuthenticate with `Authorization: Bearer \u003ctoken\u003e` (see ApiTokenService) or\nwith the session cookie set by AuthService.Login.\n",
+    "license": {
+      "name": "GPL-3.0-only",
+      "identifier": "GPL-3.0-only"
+    },
+    "version": "1.0.0"
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "sessionCookie": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "beenfar_session"
+      }
+    },
+    "schemas": {
+      "beenfar.admin.v1.Adapter": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "name",
+            "description": "(IDENTIFIER) Unique adapter name, e.g. \"unifi\"."
+          },
+          "kind": {
+            "title": "kind",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.admin.v1.AdapterKind"
+          },
+          "version": {
+            "type": "string",
+            "title": "version",
+            "readOnly": true
+          },
+          "healthy": {
+            "type": "boolean",
+            "title": "healthy",
+            "description": "Whether the adapter is running (built-in) or connected (external).",
+            "readOnly": true
+          },
+          "statusMessage": {
+            "type": "string",
+            "title": "status_message",
+            "description": "Last error reported by or about the adapter, if any.",
+            "readOnly": true
+          },
+          "connectTime": {
+            "title": "connect_time",
+            "description": "When the adapter started or last connected.",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "Adapter",
+        "additionalProperties": false,
+        "description": "Adapter is a device adapter, such as the built-in UniFi adapter."
+      },
+      "beenfar.admin.v1.AdapterKind": {
+        "type": "string",
+        "title": "AdapterKind",
+        "enum": [
+          "ADAPTER_KIND_UNSPECIFIED",
+          "ADAPTER_KIND_BUILTIN",
+          "ADAPTER_KIND_EXTERNAL"
+        ],
+        "description": "AdapterKind says where an adapter runs."
+      },
+      "beenfar.admin.v1.ApiToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "name": {
+            "type": "string",
+            "title": "name",
+            "description": "Human-readable label, 1-64 bytes, e.g. \"terraform-ci\"."
+          },
+          "prefix": {
+            "type": "string",
+            "title": "prefix",
+            "description": "The first characters of the token, to help recognise it.",
+            "readOnly": true
+          },
+          "userId": {
+            "type": "string",
+            "title": "user_id",
+            "description": "Id of the user the token acts as.",
+            "readOnly": true
+          },
+          "expireTime": {
+            "title": "expire_time",
+            "description": "(IMMUTABLE) When the token stops working. Unset means it never expires.",
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "lastUsedTime": {
+            "title": "last_used_time",
+            "description": "Approximate time of last use (updated at most once a minute).",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "ApiToken",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "description": "ApiToken describes an issued bearer token. It never contains the secret."
+      },
+      "beenfar.admin.v1.CreateApiTokenRequest": {
+        "type": "object",
+        "properties": {
+          "apiToken": {
+            "title": "api_token",
+            "$ref": "#/components/schemas/beenfar.admin.v1.ApiToken"
+          }
+        },
+        "title": "CreateApiTokenRequest",
+        "required": [
+          "apiToken"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.CreateApiTokenResponse": {
+        "type": "object",
+        "properties": {
+          "apiToken": {
+            "title": "api_token",
+            "$ref": "#/components/schemas/beenfar.admin.v1.ApiToken"
+          },
+          "secret": {
+            "type": "string",
+            "title": "secret",
+            "description": "The bearer token. Send it as \"Authorization: Bearer \u003csecret\u003e\"."
+          }
+        },
+        "title": "CreateApiTokenResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.CreateUserRequest": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          },
+          "password": {
+            "type": "string",
+            "title": "password",
+            "description": "Initial password, at least 8 characters.",
+            "writeOnly": true
+          }
+        },
+        "title": "CreateUserRequest",
+        "required": [
+          "user",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.CreateUserResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          }
+        },
+        "title": "CreateUserResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.DeleteApiTokenRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "DeleteApiTokenRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.DeleteApiTokenResponse": {
+        "type": "object",
+        "title": "DeleteApiTokenResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.DeleteUserRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag"
+          }
+        },
+        "title": "DeleteUserRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.DeleteUserResponse": {
+        "type": "object",
+        "title": "DeleteUserResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.GetCurrentUserRequest": {
+        "type": "object",
+        "title": "GetCurrentUserRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.GetCurrentUserResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          }
+        },
+        "title": "GetCurrentUserResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.GetUserRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetUserRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.GetUserResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          }
+        },
+        "title": "GetUserResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ListAdaptersRequest": {
+        "type": "object",
+        "title": "ListAdaptersRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ListAdaptersResponse": {
+        "type": "object",
+        "properties": {
+          "adapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.admin.v1.Adapter"
+            },
+            "title": "adapters"
+          }
+        },
+        "title": "ListAdaptersResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ListApiTokensRequest": {
+        "type": "object",
+        "title": "ListApiTokensRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ListApiTokensResponse": {
+        "type": "object",
+        "properties": {
+          "apiTokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.admin.v1.ApiToken"
+            },
+            "title": "api_tokens"
+          }
+        },
+        "title": "ListApiTokensResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ListUsersRequest": {
+        "type": "object",
+        "title": "ListUsersRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ListUsersResponse": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.admin.v1.User"
+            },
+            "title": "users"
+          }
+        },
+        "title": "ListUsersResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "username"
+          },
+          "password": {
+            "type": "string",
+            "title": "password",
+            "writeOnly": true
+          }
+        },
+        "title": "LoginRequest",
+        "required": [
+          "username",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.LoginResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          }
+        },
+        "title": "LoginResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.LogoutRequest": {
+        "type": "object",
+        "title": "LogoutRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.LogoutResponse": {
+        "type": "object",
+        "title": "LogoutResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.SetUserPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "password": {
+            "type": "string",
+            "title": "password",
+            "description": "New password, at least 8 characters.",
+            "writeOnly": true
+          },
+          "currentPassword": {
+            "type": "string",
+            "title": "current_password",
+            "description": "Required when users change their own password.",
+            "writeOnly": true
+          }
+        },
+        "title": "SetUserPasswordRequest",
+        "required": [
+          "id",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.SetUserPasswordResponse": {
+        "type": "object",
+        "title": "SetUserPasswordResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "description": "The full resource. id selects the user; etag, when set, guards the\n update.",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          }
+        },
+        "title": "UpdateUserRequest",
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.UpdateUserResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "title": "user",
+            "$ref": "#/components/schemas/beenfar.admin.v1.User"
+          }
+        },
+        "title": "UpdateUserResponse",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "username": {
+            "type": "string",
+            "title": "username",
+            "description": "Sign-in name, 1-64 bytes. Unique."
+          },
+          "admin": {
+            "type": "boolean",
+            "title": "admin",
+            "description": "Admins may manage users, every API token and adapters."
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag",
+            "description": "Opaque version of this resource, for optimistic concurrency.",
+            "readOnly": true
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "updateTime": {
+            "title": "update_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "User",
+        "required": [
+          "username"
+        ],
+        "additionalProperties": false,
+        "description": "User is a person who can sign in to the controller."
+      },
+      "beenfar.config.v1.AdoptDeviceRequest": {
+        "type": "object",
+        "not": {
+          "required": [
+            "id",
+            "mac"
+          ]
+        },
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "mac": {
+            "type": "string",
+            "title": "mac"
+          }
+        },
+        "title": "AdoptDeviceRequest",
+        "additionalProperties": false,
+        "description": "At most one of `id`, `mac` may be set."
+      },
+      "beenfar.config.v1.AdoptDeviceResponse": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          }
+        },
+        "title": "AdoptDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.CreateNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "title": "network",
+            "$ref": "#/components/schemas/beenfar.config.v1.Network"
+          }
+        },
+        "title": "CreateNetworkRequest",
+        "required": [
+          "network"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.CreateNetworkResponse": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "title": "network",
+            "$ref": "#/components/schemas/beenfar.config.v1.Network"
+          }
+        },
+        "title": "CreateNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.CreateWifiNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "wifiNetwork": {
+            "title": "wifi_network",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+          }
+        },
+        "title": "CreateWifiNetworkRequest",
+        "required": [
+          "wifiNetwork"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.CreateWifiNetworkResponse": {
+        "type": "object",
+        "properties": {
+          "wifiNetwork": {
+            "title": "wifi_network",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+          }
+        },
+        "title": "CreateWifiNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag"
+          }
+        },
+        "title": "DeleteNetworkRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteNetworkResponse": {
+        "type": "object",
+        "title": "DeleteNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteWifiNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag"
+          }
+        },
+        "title": "DeleteWifiNetworkRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteWifiNetworkResponse": {
+        "type": "object",
+        "title": "DeleteWifiNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.Device": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "mac": {
+            "type": "string",
+            "title": "mac",
+            "description": "MAC address, lower-case and colon-separated.",
+            "readOnly": true
+          },
+          "adapter": {
+            "type": "string",
+            "title": "adapter",
+            "description": "Name of the adapter that handles this device, e.g. \"unifi\".",
+            "readOnly": true
+          },
+          "state": {
+            "title": "state",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceState"
+          },
+          "model": {
+            "type": "string",
+            "title": "model",
+            "readOnly": true
+          },
+          "ip": {
+            "type": "string",
+            "title": "ip",
+            "readOnly": true
+          },
+          "firmware": {
+            "type": "string",
+            "title": "firmware",
+            "readOnly": true
+          },
+          "lastSeenTime": {
+            "title": "last_seen_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "updateTime": {
+            "title": "update_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "Device",
+        "additionalProperties": false,
+        "description": "Device is a piece of network gear known to the controller."
+      },
+      "beenfar.config.v1.DeviceState": {
+        "type": "string",
+        "title": "DeviceState",
+        "enum": [
+          "DEVICE_STATE_UNSPECIFIED",
+          "DEVICE_STATE_PENDING",
+          "DEVICE_STATE_ADOPTED"
+        ],
+        "description": "DeviceState is the adoption state of a device."
+      },
+      "beenfar.config.v1.ForgetDeviceRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "ForgetDeviceRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ForgetDeviceResponse": {
+        "type": "object",
+        "title": "ForgetDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetDeviceRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetDeviceRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetDeviceResponse": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          }
+        },
+        "title": "GetDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetNetworkRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetNetworkResponse": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "title": "network",
+            "$ref": "#/components/schemas/beenfar.config.v1.Network"
+          }
+        },
+        "title": "GetNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetWifiNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetWifiNetworkRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetWifiNetworkResponse": {
+        "type": "object",
+        "properties": {
+          "wifiNetwork": {
+            "title": "wifi_network",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+          }
+        },
+        "title": "GetWifiNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListDevicesRequest": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "title": "state",
+            "description": "Only return devices in this state. Unspecified returns all.",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceState"
+          },
+          "adapter": {
+            "type": "string",
+            "title": "adapter",
+            "description": "Only return devices handled by this adapter. Empty returns all."
+          }
+        },
+        "title": "ListDevicesRequest",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListDevicesResponse": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.Device"
+            },
+            "title": "devices"
+          }
+        },
+        "title": "ListDevicesResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListNetworksRequest": {
+        "type": "object",
+        "title": "ListNetworksRequest",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListNetworksResponse": {
+        "type": "object",
+        "properties": {
+          "networks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.Network"
+            },
+            "title": "networks"
+          }
+        },
+        "title": "ListNetworksResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListPendingDevicesRequest": {
+        "type": "object",
+        "properties": {
+          "adapter": {
+            "type": "string",
+            "title": "adapter",
+            "description": "Only return devices handled by this adapter. Empty returns all."
+          }
+        },
+        "title": "ListPendingDevicesRequest",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListPendingDevicesResponse": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.Device"
+            },
+            "title": "devices"
+          }
+        },
+        "title": "ListPendingDevicesResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListWifiNetworksRequest": {
+        "type": "object",
+        "title": "ListWifiNetworksRequest",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListWifiNetworksResponse": {
+        "type": "object",
+        "properties": {
+          "wifiNetworks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+            },
+            "title": "wifi_networks"
+          }
+        },
+        "title": "ListWifiNetworksResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.Network": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "name": {
+            "type": "string",
+            "title": "name",
+            "description": "Display name, 1-64 bytes. Unique across networks."
+          },
+          "vlanId": {
+            "type": "integer",
+            "title": "vlan_id",
+            "description": "802.1Q VLAN id, 1-4094, or 0 for untagged."
+          },
+          "subnet": {
+            "type": "string",
+            "title": "subnet",
+            "description": "Gateway address and prefix length in CIDR form, e.g. \"192.168.10.1/24\".\n Empty for a pure L2 network."
+          },
+          "dhcpEnabled": {
+            "type": "boolean",
+            "title": "dhcp_enabled"
+          },
+          "dhcpStart": {
+            "type": "string",
+            "title": "dhcp_start",
+            "description": "First and last address of the DHCP pool. Required, and inside subnet,\n when dhcp_enabled is set."
+          },
+          "dhcpStop": {
+            "type": "string",
+            "title": "dhcp_stop"
+          },
+          "domainName": {
+            "type": "string",
+            "title": "domain_name"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag",
+            "description": "Opaque version of this resource, for optimistic concurrency.",
+            "readOnly": true
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "updateTime": {
+            "title": "update_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "Network",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "description": "Network is a VLAN and its IPv4 subnet."
+      },
+      "beenfar.config.v1.UpdateNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "title": "network",
+            "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+            "$ref": "#/components/schemas/beenfar.config.v1.Network"
+          }
+        },
+        "title": "UpdateNetworkRequest",
+        "required": [
+          "network"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateNetworkResponse": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "title": "network",
+            "$ref": "#/components/schemas/beenfar.config.v1.Network"
+          }
+        },
+        "title": "UpdateNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateWifiNetworkRequest": {
+        "type": "object",
+        "properties": {
+          "wifiNetwork": {
+            "title": "wifi_network",
+            "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+          }
+        },
+        "title": "UpdateWifiNetworkRequest",
+        "required": [
+          "wifiNetwork"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateWifiNetworkResponse": {
+        "type": "object",
+        "properties": {
+          "wifiNetwork": {
+            "title": "wifi_network",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+          }
+        },
+        "title": "UpdateWifiNetworkResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.WifiBand": {
+        "type": "string",
+        "title": "WifiBand",
+        "enum": [
+          "WIFI_BAND_UNSPECIFIED",
+          "WIFI_BAND_BOTH",
+          "WIFI_BAND_2G",
+          "WIFI_BAND_5G"
+        ],
+        "description": "WifiBand selects the radio bands a wireless network is broadcast on."
+      },
+      "beenfar.config.v1.WifiNetwork": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "ssid": {
+            "type": "string",
+            "title": "ssid",
+            "description": "Network name, 1-32 bytes. Unique across wireless networks."
+          },
+          "security": {
+            "title": "security",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiSecurity"
+          },
+          "securityKey": {
+            "type": "string",
+            "title": "security_key",
+            "description": "Pre-shared key. Required for WPA personal (8-63 characters, or 64 hex\n digits) and WEP (5 or 13 characters, or 10 or 26 hex digits); must be\n empty otherwise."
+          },
+          "band": {
+            "title": "band",
+            "$ref": "#/components/schemas/beenfar.config.v1.WifiBand"
+          },
+          "networkId": {
+            "type": "string",
+            "title": "network_id",
+            "description": "Id of the beenfar.config.v1.Network that clients join. Empty means the\n default (untagged) network."
+          },
+          "guest": {
+            "type": "boolean",
+            "title": "guest"
+          },
+          "hidden": {
+            "type": "boolean",
+            "title": "hidden"
+          },
+          "apGroups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "ap_groups",
+            "description": "Access point groups that broadcast this network. Empty means all."
+          },
+          "defaultUserGroup": {
+            "type": "string",
+            "title": "default_user_group"
+          },
+          "radiusProfile": {
+            "type": "string",
+            "title": "radius_profile",
+            "description": "RADIUS profile; required for WPA enterprise."
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag",
+            "description": "Opaque version of this resource, for optimistic concurrency.",
+            "readOnly": true
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "updateTime": {
+            "title": "update_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "WifiNetwork",
+        "required": [
+          "ssid",
+          "security"
+        ],
+        "additionalProperties": false,
+        "description": "WifiNetwork is a wireless network definition."
+      },
+      "beenfar.config.v1.WifiSecurity": {
+        "type": "string",
+        "title": "WifiSecurity",
+        "enum": [
+          "WIFI_SECURITY_UNSPECIFIED",
+          "WIFI_SECURITY_OPEN",
+          "WIFI_SECURITY_WEP",
+          "WIFI_SECURITY_WPA_PERSONAL",
+          "WIFI_SECURITY_WPA_ENTERPRISE"
+        ],
+        "description": "WifiSecurity is the authentication mode of a wireless network."
+      },
+      "google.protobuf.Any": {
+        "type": "object",
+        "properties": {
+          "@type": {
+            "type": "string",
+            "description": "A URL/resource name that uniquely identifies the type of the serialized message."
+          }
+        },
+        "additionalProperties": true,
+        "description": "Contains an arbitrary serialized message along with a @type that describes the type of the serialized message."
+      },
+      "google.protobuf.Timestamp": {
+        "type": "string",
+        "examples": [
+          "2023-01-15T01:30:15.01Z",
+          "2024-12-25T12:00:00Z"
+        ],
+        "format": "date-time",
+        "description": "A point in time in RFC 3339 format, with up to nanosecond precision. Output uses UTC (`Z`); input may use an offset from UTC."
+      },
+      "google.rpc.Status": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The status code, which should be an enum value of google.rpc.Code."
+          },
+          "message": {
+            "type": "string",
+            "description": "A developer-facing error message."
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/google.protobuf.Any"
+            },
+            "description": "A list of messages that carry the error details."
+          }
+        },
+        "description": "The Status type defines a logical error model suitable for gRPC and REST APIs."
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/adapters": {
+      "get": {
+        "tags": [
+          "AdapterService"
+        ],
+        "summary": "ListAdapters",
+        "description": "ListAdapters returns every registered adapter, ordered by name.",
+        "operationId": "beenfar.admin.v1.AdapterService.ListAdapters",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.ListAdaptersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-tokens": {
+      "get": {
+        "tags": [
+          "ApiTokenService"
+        ],
+        "summary": "ListApiTokens",
+        "description": "ListApiTokens lists the caller's tokens, or every token for an admin.",
+        "operationId": "beenfar.admin.v1.ApiTokenService.ListApiTokens",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.ListApiTokensResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ApiTokenService"
+        ],
+        "summary": "CreateApiToken",
+        "description": "CreateApiToken issues a token for the calling user. The secret is\n returned only in this response; the server keeps only its hash.",
+        "operationId": "beenfar.admin.v1.ApiTokenService.CreateApiToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "api_token",
+                "$ref": "#/components/schemas/beenfar.admin.v1.ApiToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.CreateApiTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-tokens/{id}": {
+      "delete": {
+        "tags": [
+          "ApiTokenService"
+        ],
+        "summary": "DeleteApiToken",
+        "description": "DeleteApiToken revokes a token.",
+        "operationId": "beenfar.admin.v1.ApiTokenService.DeleteApiToken",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.DeleteApiTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "AuthService"
+        ],
+        "summary": "Login",
+        "description": "Login checks a username and password and starts a session. The response\n sets an HttpOnly session cookie. Fails with UNAUTHENTICATED on bad\n credentials.",
+        "operationId": "beenfar.admin.v1.AuthService.Login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/beenfar.admin.v1.LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "user",
+                  "$ref": "#/components/schemas/beenfar.admin.v1.User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "AuthService"
+        ],
+        "summary": "Logout",
+        "description": "Logout ends the current session and clears the cookie.",
+        "operationId": "beenfar.admin.v1.AuthService.Logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/beenfar.admin.v1.LogoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.LogoutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "AuthService"
+        ],
+        "summary": "GetCurrentUser",
+        "description": "GetCurrentUser returns the user behind the caller's session or token.",
+        "operationId": "beenfar.admin.v1.AuthService.GetCurrentUser",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "user",
+                  "$ref": "#/components/schemas/beenfar.admin.v1.User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "ListDevices",
+        "description": "ListDevices returns devices, ordered by MAC address.",
+        "operationId": "beenfar.config.v1.DeviceService.ListDevices",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "description": "Only return devices in this state. Unspecified returns all.",
+            "schema": {
+              "title": "state",
+              "$ref": "#/components/schemas/beenfar.config.v1.DeviceState"
+            }
+          },
+          {
+            "name": "adapter",
+            "in": "query",
+            "description": "Only return devices handled by this adapter. Empty returns all.",
+            "schema": {
+              "type": "string",
+              "title": "adapter"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ListDevicesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{id}": {
+      "get": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "GetDevice",
+        "description": "GetDevice returns one device by id.",
+        "operationId": "beenfar.config.v1.DeviceService.GetDevice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "device",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Device"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "ForgetDevice",
+        "description": "ForgetDevice removes a device, adopted or pending. A forgotten device that\n is still on the network shows up again as pending.",
+        "operationId": "beenfar.config.v1.DeviceService.ForgetDevice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ForgetDeviceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices:adopt": {
+      "post": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "AdoptDevice",
+        "description": "AdoptDevice brings a pending device under management. It fails with\n NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it\n is already adopted.",
+        "operationId": "beenfar.config.v1.DeviceService.AdoptDevice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/beenfar.config.v1.AdoptDeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "device",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Device"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/networks": {
+      "get": {
+        "tags": [
+          "NetworkService"
+        ],
+        "summary": "ListNetworks",
+        "description": "ListNetworks returns every network, ordered by name.",
+        "operationId": "beenfar.config.v1.NetworkService.ListNetworks",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ListNetworksResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "NetworkService"
+        ],
+        "summary": "CreateNetwork",
+        "description": "CreateNetwork creates a network. Name and non-zero VLAN ids are unique.",
+        "operationId": "beenfar.config.v1.NetworkService.CreateNetwork",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "network",
+                "$ref": "#/components/schemas/beenfar.config.v1.Network"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Network"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/networks/{id}": {
+      "get": {
+        "tags": [
+          "NetworkService"
+        ],
+        "summary": "GetNetwork",
+        "description": "GetNetwork returns one network by id.",
+        "operationId": "beenfar.config.v1.NetworkService.GetNetwork",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Network"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "NetworkService"
+        ],
+        "summary": "DeleteNetwork",
+        "description": "DeleteNetwork deletes a network. It fails with FAILED_PRECONDITION while\n a wireless network still refers to it.",
+        "operationId": "beenfar.config.v1.NetworkService.DeleteNetwork",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "etag",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "etag"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeleteNetworkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/networks/{network.id}": {
+      "put": {
+        "tags": [
+          "NetworkService"
+        ],
+        "summary": "UpdateNetwork",
+        "description": "UpdateNetwork replaces every mutable field of a network. When etag is\n set it must match the stored etag, or the call fails with ABORTED.",
+        "operationId": "beenfar.config.v1.NetworkService.UpdateNetwork",
+        "parameters": [
+          {
+            "name": "network.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "network",
+                "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.Network"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Network"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pending-devices": {
+      "get": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "ListPendingDevices",
+        "description": "ListPendingDevices returns devices that have been seen but not adopted.",
+        "operationId": "beenfar.config.v1.DeviceService.ListPendingDevices",
+        "parameters": [
+          {
+            "name": "adapter",
+            "in": "query",
+            "description": "Only return devices handled by this adapter. Empty returns all.",
+            "schema": {
+              "type": "string",
+              "title": "adapter"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ListPendingDevicesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "UserService"
+        ],
+        "summary": "ListUsers",
+        "description": "ListUsers returns every user, ordered by username.",
+        "operationId": "beenfar.admin.v1.UserService.ListUsers",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.ListUsersResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "UserService"
+        ],
+        "summary": "CreateUser",
+        "description": "CreateUser creates a user. Usernames are unique.",
+        "operationId": "beenfar.admin.v1.UserService.CreateUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/beenfar.admin.v1.CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "user",
+                  "$ref": "#/components/schemas/beenfar.admin.v1.User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": [
+          "UserService"
+        ],
+        "summary": "GetUser",
+        "description": "GetUser returns one user by id.",
+        "operationId": "beenfar.admin.v1.UserService.GetUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "user",
+                  "$ref": "#/components/schemas/beenfar.admin.v1.User"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "UserService"
+        ],
+        "summary": "DeleteUser",
+        "description": "DeleteUser deletes a user with their tokens and sessions. It fails with\n FAILED_PRECONDITION if it would leave no admin.",
+        "operationId": "beenfar.admin.v1.UserService.DeleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "etag",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "etag"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.DeleteUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}:setPassword": {
+      "post": {
+        "tags": [
+          "UserService"
+        ],
+        "summary": "SetUserPassword",
+        "description": "SetUserPassword changes a password. Users changing their own password\n must give the current one; admins resetting another user's need not.\n Every session of the user is ended; API tokens keep working.",
+        "operationId": "beenfar.admin.v1.UserService.SetUserPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "title": "password",
+                    "description": "New password, at least 8 characters.",
+                    "writeOnly": true
+                  },
+                  "currentPassword": {
+                    "type": "string",
+                    "title": "current_password",
+                    "description": "Required when users change their own password.",
+                    "writeOnly": true
+                  }
+                },
+                "title": "SetUserPasswordRequest",
+                "required": [
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.SetUserPasswordResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user.id}": {
+      "put": {
+        "tags": [
+          "UserService"
+        ],
+        "summary": "UpdateUser",
+        "description": "UpdateUser replaces a user's username and admin flag. It fails with\n FAILED_PRECONDITION if it would leave no admin.",
+        "operationId": "beenfar.admin.v1.UserService.UpdateUser",
+        "parameters": [
+          {
+            "name": "user.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The full resource. id selects the user; etag, when set, guards the\n update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "user",
+                "description": "The full resource. id selects the user; etag, when set, guards the\n update.",
+                "$ref": "#/components/schemas/beenfar.admin.v1.User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "user",
+                  "$ref": "#/components/schemas/beenfar.admin.v1.User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wifi-networks": {
+      "get": {
+        "tags": [
+          "WifiNetworkService"
+        ],
+        "summary": "ListWifiNetworks",
+        "description": "ListWifiNetworks returns every wireless network, ordered by SSID.",
+        "operationId": "beenfar.config.v1.WifiNetworkService.ListWifiNetworks",
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ListWifiNetworksResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "WifiNetworkService"
+        ],
+        "summary": "CreateWifiNetwork",
+        "description": "CreateWifiNetwork creates a wireless network. The SSID must be unique.",
+        "operationId": "beenfar.config.v1.WifiNetworkService.CreateWifiNetwork",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "wifi_network",
+                "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "wifi_network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wifi-networks/{id}": {
+      "get": {
+        "tags": [
+          "WifiNetworkService"
+        ],
+        "summary": "GetWifiNetwork",
+        "description": "GetWifiNetwork returns one wireless network by id.",
+        "operationId": "beenfar.config.v1.WifiNetworkService.GetWifiNetwork",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "wifi_network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "WifiNetworkService"
+        ],
+        "summary": "DeleteWifiNetwork",
+        "description": "DeleteWifiNetwork deletes a wireless network. When etag is set it must\n match the stored etag, or the call fails with ABORTED.",
+        "operationId": "beenfar.config.v1.WifiNetworkService.DeleteWifiNetwork",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "etag",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "etag"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeleteWifiNetworkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/wifi-networks/{wifiNetwork.id}": {
+      "put": {
+        "tags": [
+          "WifiNetworkService"
+        ],
+        "summary": "UpdateWifiNetwork",
+        "description": "UpdateWifiNetwork replaces every mutable field of a wireless network.\n When etag is set it must match the stored etag, or the call fails with\n ABORTED.",
+        "operationId": "beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork",
+        "parameters": [
+          {
+            "name": "wifiNetwork.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "wifi_network",
+                "description": "The full resource. id selects the network; etag, when set, guards the\n update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "wifi_network",
+                  "$ref": "#/components/schemas/beenfar.config.v1.WifiNetwork"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "AdapterService",
+      "description": "AdapterService reports the device adapters registered with the controller."
+    },
+    {
+      "name": "ApiTokenService",
+      "description": "ApiTokenService manages bearer tokens for programmatic access (Terraform,\n scripts). A token acts as the user who created it. Users see and revoke\n their own tokens; admins see and revoke everyone's."
+    },
+    {
+      "name": "UserService",
+      "description": "UserService manages controller users. Only admins may call it, except that\n any user may read their own record and change their own password."
+    },
+    {
+      "name": "AuthService",
+      "description": "AuthService signs browser users in and out with a session cookie. API\n clients use bearer tokens from ApiTokenService instead."
+    },
+    {
+      "name": "DeviceService",
+      "description": "DeviceService manages network devices: discovery results, adoption and\n removal. Devices are created by adapters when they are first seen, in the\n PENDING state; AdoptDevice brings one under management."
+    },
+    {
+      "name": "NetworkService",
+      "description": "NetworkService manages wired/L3 networks (VLANs and their subnets)."
+    },
+    {
+      "name": "WifiNetworkService",
+      "description": "WifiNetworkService manages wireless network definitions."
+    }
+  ]
+}

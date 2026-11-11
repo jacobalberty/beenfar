@@ -2,6 +2,8 @@
 // modernc.org/sqlite driver, sqlc-generated queries and goose migrations.
 package sqlite
 
+// gen/ holds only sqlc output and is wiped first (see api/generate.go).
+//go:generate rm -rf gen
 //go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 
 import (
@@ -21,7 +23,8 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 
 	"github.com/jacobalberty/beenfar/internal/store"
-	"github.com/jacobalberty/beenfar/internal/store/sqlite/db"
+	dbconvgen "github.com/jacobalberty/beenfar/internal/store/sqlite/dbconv/gen"
+	"github.com/jacobalberty/beenfar/internal/store/sqlite/gen/db"
 )
 
 //go:embed migrations/*.sql
@@ -120,7 +123,13 @@ func newID() string { return strings.ToLower(rand.Text()) }
 
 func (s *Store) nowMilli() int64 { return s.now().UnixMilli() }
 
-func fromMilli(ms int64) time.Time { return time.UnixMilli(ms).UTC() }
+// toOptMilli maps the zero time to 0 (unset); dbconv.FromOptMilli reverses it.
+func toOptMilli(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.UnixMilli()
+}
 
 // mapErr translates driver errors into store errors.
 func mapErr(err error) error {
@@ -133,7 +142,7 @@ func mapErr(err error) error {
 	if se, ok := errors.AsType[*sqlite.Error](err); ok {
 		switch se.Code() {
 		case sqlite3.SQLITE_CONSTRAINT_UNIQUE, sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY:
-			return fmt.Errorf("%w: %v", store.ErrConflict, err)
+			return fmt.Errorf("%w: %s", store.ErrConflict, uniqueMessage(err))
 		case sqlite3.SQLITE_CONSTRAINT_CHECK, sqlite3.SQLITE_CONSTRAINT_NOTNULL, sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY:
 			return fmt.Errorf("%w: %v", store.ErrInvalid, err)
 		}
@@ -141,23 +150,26 @@ func mapErr(err error) error {
 	return err
 }
 
-// --- devices ---
-
-func toDevice(d db.Device) store.Device {
-	return store.Device{
-		ID:             d.ID,
-		MAC:            d.Mac,
-		Adapter:        d.Adapter,
-		State:          store.DeviceState(d.State),
-		Model:          d.Model,
-		IP:             d.Ip,
-		Firmware:       d.Firmware,
-		ConfigRevision: d.ConfigRevision,
-		LastSeen:       fromMilli(d.LastSeen),
-		CreateTime:     fromMilli(d.CreateTime),
-		UpdateTime:     fromMilli(d.UpdateTime),
+// uniqueMessage turns "UNIQUE constraint failed: wifi_networks.ssid (2067)"
+// into "ssid already in use", which is safe to show API clients.
+func uniqueMessage(err error) string {
+	_, cols, ok := strings.Cut(err.Error(), "constraint failed: ")
+	if !ok {
+		return "already exists"
 	}
+	cols, _, _ = strings.Cut(cols, " (")
+	var names []string
+	for c := range strings.SplitSeq(cols, ",") {
+		c = strings.TrimSpace(c)
+		if _, col, ok := strings.Cut(c, "."); ok {
+			c = col
+		}
+		names = append(names, c)
+	}
+	return strings.Join(names, ", ") + " already in use"
 }
+
+// --- devices ---
 
 func (s *Store) ReportDevice(ctx context.Context, d store.DiscoveredDevice) (store.Device, error) {
 	mac, err := store.NormalizeMAC(d.MAC)
@@ -179,7 +191,7 @@ func (s *Store) ReportDevice(ctx context.Context, d store.DiscoveredDevice) (sto
 	if err != nil {
 		return store.Device{}, mapErr(err)
 	}
-	return toDevice(row), nil
+	return dbconvgen.Device(row), nil
 }
 
 func (s *Store) GetDevice(ctx context.Context, id string) (store.Device, error) {
@@ -187,7 +199,7 @@ func (s *Store) GetDevice(ctx context.Context, id string) (store.Device, error) 
 	if err != nil {
 		return store.Device{}, mapErr(err)
 	}
-	return toDevice(row), nil
+	return dbconvgen.Device(row), nil
 }
 
 func (s *Store) GetDeviceByMAC(ctx context.Context, mac string) (store.Device, error) {
@@ -199,7 +211,7 @@ func (s *Store) GetDeviceByMAC(ctx context.Context, mac string) (store.Device, e
 	if err != nil {
 		return store.Device{}, mapErr(err)
 	}
-	return toDevice(row), nil
+	return dbconvgen.Device(row), nil
 }
 
 func (s *Store) ListDevices(ctx context.Context, f store.DeviceFilter) ([]store.Device, error) {
@@ -209,7 +221,7 @@ func (s *Store) ListDevices(ctx context.Context, f store.DeviceFilter) ([]store.
 	}
 	out := make([]store.Device, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toDevice(r))
+		out = append(out, dbconvgen.Device(r))
 	}
 	return out, nil
 }
@@ -219,7 +231,7 @@ func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error
 	err := s.inTx(ctx, func(txs *Store) error {
 		row, err := txs.q.AdoptDevice(ctx, db.AdoptDeviceParams{ID: id, Now: txs.nowMilli()})
 		if err == nil {
-			out = toDevice(row)
+			out = dbconvgen.Device(row)
 			return nil
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -229,7 +241,7 @@ func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error
 		if _, err := txs.q.GetDevice(ctx, id); err != nil {
 			return mapErr(err)
 		}
-		return fmt.Errorf("%w: device %s is already adopted", store.ErrConflict, id)
+		return fmt.Errorf("%w: device %s is already adopted", store.ErrFailedPrecondition, id)
 	})
 	return out, err
 }
@@ -248,25 +260,12 @@ func (s *Store) DeleteDevice(ctx context.Context, id string) error {
 // --- wifi networks ---
 
 func toWifiNetwork(w db.WifiNetwork, groups []string) store.WifiNetwork {
-	if groups == nil {
-		groups = []string{}
+	out := dbconvgen.WifiNetwork(w)
+	out.APGroups = groups
+	if out.APGroups == nil {
+		out.APGroups = []string{}
 	}
-	return store.WifiNetwork{
-		ID:               w.ID,
-		SSID:             w.Ssid,
-		Security:         store.WifiSecurity(w.Security),
-		SecurityKey:      w.SecurityKey,
-		Band:             store.WifiBand(w.Band),
-		NetworkID:        w.NetworkID,
-		Guest:            w.Guest,
-		Hidden:           w.Hidden,
-		APGroups:         groups,
-		DefaultUserGroup: w.DefaultUserGroup,
-		RadiusProfile:    w.RadiusProfile,
-		Revision:         w.Revision,
-		CreateTime:       fromMilli(w.CreateTime),
-		UpdateTime:       fromMilli(w.UpdateTime),
-	}
+	return out
 }
 
 func validateWifi(w store.WifiNetwork) error {
@@ -301,6 +300,9 @@ func (s *Store) CreateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 	}
 	var out store.WifiNetwork
 	err := s.inTx(ctx, func(txs *Store) error {
+		if err := txs.checkNetworkRef(ctx, w.NetworkID); err != nil {
+			return err
+		}
 		row, err := txs.q.CreateWifiNetwork(ctx, db.CreateWifiNetworkParams{
 			ID:               newID(),
 			Ssid:             w.SSID,
@@ -365,6 +367,9 @@ func (s *Store) UpdateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 	}
 	var out store.WifiNetwork
 	err := s.inTx(ctx, func(txs *Store) error {
+		if err := txs.checkNetworkRef(ctx, w.NetworkID); err != nil {
+			return err
+		}
 		row, err := txs.q.UpdateWifiNetwork(ctx, db.UpdateWifiNetworkParams{
 			ID:               w.ID,
 			Ssid:             w.SSID,
@@ -380,7 +385,7 @@ func (s *Store) UpdateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 			ExpectedRevision: w.Revision,
 		})
 		if errors.Is(err, sql.ErrNoRows) {
-			return txs.revisionMiss(ctx, w.ID)
+			return txs.revisionMiss(ctx, "wifi network", w.ID, txs.wifiExists)
 		}
 		if err != nil {
 			return mapErr(err)
@@ -402,16 +407,34 @@ func (s *Store) DeleteWifiNetwork(ctx context.Context, id string, revision int64
 			return mapErr(err)
 		}
 		if n == 0 {
-			return txs.revisionMiss(ctx, id)
+			return txs.revisionMiss(ctx, "wifi network", id, txs.wifiExists)
 		}
 		return nil
 	})
 }
 
-// revisionMiss explains why a conditional write matched no row.
-func (txs *Store) revisionMiss(ctx context.Context, id string) error {
-	if _, err := txs.q.GetWifiNetwork(ctx, id); err != nil {
+// checkNetworkRef returns ErrInvalid if id is set but names no network.
+func (txs *Store) checkNetworkRef(ctx context.Context, id string) error {
+	if id == "" {
+		return nil
+	}
+	err := mapErr(txs.networkExists(ctx, id))
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: network %q does not exist", store.ErrInvalid, id)
+	}
+	return err
+}
+
+func (txs *Store) wifiExists(ctx context.Context, id string) error {
+	_, err := txs.q.GetWifiNetwork(ctx, id)
+	return err
+}
+
+// revisionMiss explains why a conditional write by id matched no row: either
+// the record does not exist, or its revision changed.
+func (txs *Store) revisionMiss(ctx context.Context, kind, id string, exists func(context.Context, string) error) error {
+	if err := exists(ctx, id); err != nil {
 		return mapErr(err)
 	}
-	return fmt.Errorf("%w: wifi network %s was modified (revision mismatch)", store.ErrConflict, id)
+	return fmt.Errorf("%w: %s %s was modified", store.ErrStale, kind, id)
 }

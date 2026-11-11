@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jacobalberty/beenfar/internal/auth"
+	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/server"
 	"github.com/jacobalberty/beenfar/internal/store"
 	"github.com/jacobalberty/beenfar/internal/store/otelstore"
@@ -25,7 +27,13 @@ import (
 var version = "dev"
 
 func main() {
-	if err := run(); err != nil {
+	var err error
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		err = runAdmin(os.Args[2:], os.Stdin, os.Stdout)
+	} else {
+		err = run()
+	}
+	if err != nil {
 		slog.ErrorContext(context.Background(), "beenfard exited", slog.Any("error", err))
 		os.Exit(1)
 	}
@@ -36,6 +44,7 @@ type config struct {
 	db        string
 	logFormat string
 	logLevel  slog.Level
+	adminUser string
 }
 
 func parseFlags(args []string) (config, error) {
@@ -45,6 +54,8 @@ func parseFlags(args []string) (config, error) {
 	fs.StringVar(&cfg.db, "db", envOr("BEENFAR_DB", "sqlite://beenfar.db"), "database URL, e.g. sqlite:///var/lib/beenfar/beenfar.db (env BEENFAR_DB)")
 	fs.StringVar(&cfg.logFormat, "log-format", envOr("BEENFAR_LOG_FORMAT", "json"), "log format: json or text (env BEENFAR_LOG_FORMAT)")
 	level := fs.String("log-level", envOr("BEENFAR_LOG_LEVEL", "info"), "log level: debug, info, warn, error (env BEENFAR_LOG_LEVEL)")
+	fs.StringVar(&cfg.adminUser, "admin-user", envOr("BEENFAR_ADMIN_USER", "admin"),
+		"username of the admin created on first start when BEENFAR_ADMIN_PASSWORD is set (env BEENFAR_ADMIN_USER)")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -90,15 +101,29 @@ func run() error {
 		return err
 	}
 
+	authSvc := auth.New(ost)
+	if err := bootstrapAdmin(ctx, authSvc, cfg.adminUser, os.Getenv("BEENFAR_ADMIN_PASSWORD")); err != nil {
+		return err
+	}
+	handler, err := server.New(server.Options{
+		Store:     ost,
+		Telemetry: tel,
+		Auth:      authSvc,
+		Core:      core.New(ost, nil), // TODO(phase 4): the adapter host registry
+	})
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.listen,
-		Handler:           server.New(server.Options{Store: ost, Telemetry: tel}),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
 		Protocols:         new(http.Protocols),
 	}
 	srv.Protocols.SetHTTP1(true)
-	srv.Protocols.SetUnencryptedHTTP2(true) // h2c, for gRPC clients from phase 2 on
+	srv.Protocols.SetUnencryptedHTTP2(true) // h2c, for gRPC clients
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -120,6 +145,29 @@ func run() error {
 	}
 	if err := <-errCh; !errors.Is(err, http.ErrServerClosed) {
 		return err
+	}
+	return nil
+}
+
+// bootstrapAdmin creates the first admin from BEENFAR_ADMIN_PASSWORD when
+// the database has no users, and otherwise explains how to create one.
+func bootstrapAdmin(ctx context.Context, svc *auth.Service, username, password string) error {
+	if password == "" {
+		n, err := svc.CountUsers(ctx)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			slog.WarnContext(ctx, "no users exist; set BEENFAR_ADMIN_PASSWORD or run `beenfard admin create` to create an admin")
+		}
+		return nil
+	}
+	created, err := svc.Bootstrap(ctx, username, password)
+	if err != nil {
+		return fmt.Errorf("creating initial admin: %w", err)
+	}
+	if created {
+		slog.InfoContext(ctx, "created initial admin user", slog.String("username", username))
 	}
 	return nil
 }

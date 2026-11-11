@@ -69,7 +69,7 @@ func run[T any](ctx context.Context, s *Store, op string, fn func(context.Contex
 	return v, err
 }
 
-// errorType classifies err. Expected outcomes (not found, conflict, invalid)
+// errorType classifies err. Expected outcomes (not found, conflict, etc.)
 // are labelled but do not mark the span as failed.
 func errorType(err error) string {
 	switch {
@@ -79,6 +79,10 @@ func errorType(err error) string {
 		return "not_found"
 	case errors.Is(err, store.ErrConflict):
 		return "conflict"
+	case errors.Is(err, store.ErrStale):
+		return "stale"
+	case errors.Is(err, store.ErrFailedPrecondition):
+		return "failed_precondition"
 	case errors.Is(err, store.ErrInvalid):
 		return "invalid"
 	default:

@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package beenfar.config.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// WifiNetworkService manages wireless network definitions.
+service WifiNetworkService {
+  // CreateWifiNetwork creates a wireless network. The SSID must be unique.
+  rpc CreateWifiNetwork(CreateWifiNetworkRequest) returns (CreateWifiNetworkResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/wifi-networks"
+      body: "wifi_network"
+      response_body: "wifi_network"
+    };
+  }
+
+  // GetWifiNetwork returns one wireless network by id.
+  rpc GetWifiNetwork(GetWifiNetworkRequest) returns (GetWifiNetworkResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/wifi-networks/{id}"
+      response_body: "wifi_network"
+    };
+  }
+
+  // ListWifiNetworks returns every wireless network, ordered by SSID.
+  rpc ListWifiNetworks(ListWifiNetworksRequest) returns (ListWifiNetworksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/wifi-networks"};
+  }
+
+  // UpdateWifiNetwork replaces every mutable field of a wireless network.
+  // When etag is set it must match the stored etag, or the call fails with
+  // ABORTED.
+  rpc UpdateWifiNetwork(UpdateWifiNetworkRequest) returns (UpdateWifiNetworkResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/wifi-networks/{wifi_network.id}"
+      body: "wifi_network"
+      response_body: "wifi_network"
+    };
+  }
+
+  // DeleteWifiNetwork deletes a wireless network. When etag is set it must
+  // match the stored etag, or the call fails with ABORTED.
+  rpc DeleteWifiNetwork(DeleteWifiNetworkRequest) returns (DeleteWifiNetworkResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/wifi-networks/{id}"};
+  }
+}
+
+// WifiSecurity is the authentication mode of a wireless network.
+enum WifiSecurity {
+  WIFI_SECURITY_UNSPECIFIED = 0;
+  WIFI_SECURITY_OPEN = 1;
+  WIFI_SECURITY_WEP = 2;
+  WIFI_SECURITY_WPA_PERSONAL = 3;
+  WIFI_SECURITY_WPA_ENTERPRISE = 4;
+}
+
+// WifiBand selects the radio bands a wireless network is broadcast on.
+enum WifiBand {
+  // Unspecified means both bands.
+  WIFI_BAND_UNSPECIFIED = 0;
+  WIFI_BAND_BOTH = 1;
+  WIFI_BAND_2G = 2;
+  WIFI_BAND_5G = 3;
+}
+
+// WifiNetwork is a wireless network definition.
+message WifiNetwork {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // Network name, 1-32 bytes. Unique across wireless networks.
+  string ssid = 2 [(google.api.field_behavior) = REQUIRED];
+  WifiSecurity security = 3 [(google.api.field_behavior) = REQUIRED];
+  // Pre-shared key. Required for WPA personal (8-63 characters, or 64 hex
+  // digits) and WEP (5 or 13 characters, or 10 or 26 hex digits); must be
+  // empty otherwise.
+  string security_key = 4;
+  WifiBand band = 5;
+  // Id of the beenfar.config.v1.Network that clients join. Empty means the
+  // default (untagged) network.
+  string network_id = 6;
+  bool guest = 7;
+  bool hidden = 8;
+  // Access point groups that broadcast this network. Empty means all.
+  repeated string ap_groups = 9;
+  string default_user_group = 10;
+  // RADIUS profile; required for WPA enterprise.
+  string radius_profile = 11;
+
+  // Opaque version of this resource, for optimistic concurrency.
+  string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message CreateWifiNetworkRequest {
+  WifiNetwork wifi_network = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateWifiNetworkResponse {
+  WifiNetwork wifi_network = 1;
+}
+
+message GetWifiNetworkRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetWifiNetworkResponse {
+  WifiNetwork wifi_network = 1;
+}
+
+message ListWifiNetworksRequest {}
+
+message ListWifiNetworksResponse {
+  repeated WifiNetwork wifi_networks = 1;
+}
+
+message UpdateWifiNetworkRequest {
+  // The full resource. id selects the network; etag, when set, guards the
+  // update.
+  WifiNetwork wifi_network = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateWifiNetworkResponse {
+  WifiNetwork wifi_network = 1;
+}
+
+message DeleteWifiNetworkRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string etag = 2;
+}
+
+message DeleteWifiNetworkResponse {}

@@ -16,9 +16,15 @@ import (
 var (
 	// ErrNotFound is returned when the requested record does not exist.
 	ErrNotFound = errors.New("not found")
-	// ErrConflict is returned when a write violates a uniqueness constraint,
-	// when a revision (etag) check fails, or when a state transition is invalid.
+	// ErrConflict is returned when a write violates a uniqueness constraint.
 	ErrConflict = errors.New("conflict")
+	// ErrStale is returned when a revision (etag) check fails: the record
+	// changed since the caller read it.
+	ErrStale = errors.New("stale revision")
+	// ErrFailedPrecondition is returned when the system is not in a state the
+	// operation requires, e.g. adopting an already-adopted device or deleting
+	// a record that others still refer to.
+	ErrFailedPrecondition = errors.New("failed precondition")
 	// ErrInvalid is returned when an argument is malformed.
 	ErrInvalid = errors.New("invalid argument")
 )
@@ -28,6 +34,10 @@ var (
 type Store interface {
 	DeviceStore
 	WifiNetworkStore
+	NetworkStore
+	UserStore
+	APITokenStore
+	SessionStore
 
 	// WithTx runs fn inside a transaction. The Store passed to fn is bound to
 	// the transaction; fn must not use the outer Store. The transaction is
@@ -88,8 +98,8 @@ type DeviceStore interface {
 	GetDevice(ctx context.Context, id string) (Device, error)
 	GetDeviceByMAC(ctx context.Context, mac string) (Device, error)
 	ListDevices(ctx context.Context, f DeviceFilter) ([]Device, error)
-	// AdoptDevice moves a pending device to adopted. It returns ErrConflict if
-	// the device is already adopted.
+	// AdoptDevice moves a pending device to adopted. It returns
+	// ErrFailedPrecondition if the device is already adopted.
 	AdoptDevice(ctx context.Context, id string) (Device, error)
 	// DeleteDevice forgets a device in any state.
 	DeleteDevice(ctx context.Context, id string) error
@@ -133,16 +143,120 @@ type WifiNetwork struct {
 
 type WifiNetworkStore interface {
 	// CreateWifiNetwork assigns ID, Revision and timestamps. It returns
-	// ErrConflict if the SSID is already used.
+	// ErrConflict if the SSID is already used, and ErrInvalid if NetworkID is
+	// set but names no network.
 	CreateWifiNetwork(ctx context.Context, w WifiNetwork) (WifiNetwork, error)
 	GetWifiNetwork(ctx context.Context, id string) (WifiNetwork, error)
 	ListWifiNetworks(ctx context.Context) ([]WifiNetwork, error)
 	// UpdateWifiNetwork replaces every mutable field. If w.Revision is
-	// non-zero it must equal the stored revision, or ErrConflict is returned.
+	// non-zero it must equal the stored revision, or ErrStale is returned.
 	UpdateWifiNetwork(ctx context.Context, w WifiNetwork) (WifiNetwork, error)
 	// DeleteWifiNetwork deletes by ID. If revision is non-zero it must equal
-	// the stored revision, or ErrConflict is returned.
+	// the stored revision, or ErrStale is returned.
 	DeleteWifiNetwork(ctx context.Context, id string, revision int64) error
+}
+
+// Network is a VLAN and its IPv4 subnet.
+type Network struct {
+	ID          string
+	Name        string
+	VLANID      int // 0 means untagged
+	Subnet      string
+	DHCPEnabled bool
+	DHCPStart   string
+	DHCPStop    string
+	DomainName  string
+	// Revision increases on every update and backs the API's etag.
+	Revision   int64
+	CreateTime time.Time
+	UpdateTime time.Time
+}
+
+type NetworkStore interface {
+	// CreateNetwork assigns ID, Revision and timestamps. It returns
+	// ErrConflict if the name or a non-zero VLAN id is already used.
+	CreateNetwork(ctx context.Context, n Network) (Network, error)
+	GetNetwork(ctx context.Context, id string) (Network, error)
+	ListNetworks(ctx context.Context) ([]Network, error)
+	// UpdateNetwork replaces every mutable field, with the same revision
+	// semantics as UpdateWifiNetwork.
+	UpdateNetwork(ctx context.Context, n Network) (Network, error)
+	// DeleteNetwork deletes by ID, with the same revision semantics as
+	// DeleteWifiNetwork. It returns ErrFailedPrecondition while a wireless
+	// network refers to it.
+	DeleteNetwork(ctx context.Context, id string, revision int64) error
+}
+
+// User is a person who can sign in.
+type User struct {
+	ID           string
+	Username     string
+	PasswordHash string // encoded by internal/auth; never leaves the server
+	Admin        bool
+	Revision     int64
+	CreateTime   time.Time
+	UpdateTime   time.Time
+}
+
+type UserStore interface {
+	// CreateUser assigns ID, Revision and timestamps. It returns ErrConflict
+	// if the username is taken.
+	CreateUser(ctx context.Context, u User) (User, error)
+	GetUser(ctx context.Context, id string) (User, error)
+	GetUserByUsername(ctx context.Context, username string) (User, error)
+	ListUsers(ctx context.Context) ([]User, error)
+	CountUsers(ctx context.Context) (int64, error)
+	CountAdmins(ctx context.Context) (int64, error)
+	// UpdateUser replaces Username and Admin (not the password), with the
+	// same revision semantics as UpdateWifiNetwork.
+	UpdateUser(ctx context.Context, u User) (User, error)
+	// SetUserPassword replaces the password hash. It does not change Revision.
+	SetUserPassword(ctx context.Context, id, passwordHash string) error
+	// DeleteUser deletes a user with their API tokens and sessions, with the
+	// same revision semantics as DeleteWifiNetwork.
+	DeleteUser(ctx context.Context, id string, revision int64) error
+}
+
+// APIToken is an issued bearer token. Only a hash of the secret is stored.
+type APIToken struct {
+	ID           string
+	UserID       string
+	Name         string
+	Prefix       string // unique, used to find the token
+	SecretHash   string
+	ExpireTime   time.Time // zero means never
+	LastUsedTime time.Time // zero means never used
+	CreateTime   time.Time
+}
+
+type APITokenStore interface {
+	// CreateAPIToken assigns ID and CreateTime.
+	CreateAPIToken(ctx context.Context, t APIToken) (APIToken, error)
+	GetAPIToken(ctx context.Context, id string) (APIToken, error)
+	GetAPITokenByPrefix(ctx context.Context, prefix string) (APIToken, error)
+	// ListAPITokens lists one user's tokens, or everyone's if userID is empty.
+	ListAPITokens(ctx context.Context, userID string) ([]APIToken, error)
+	TouchAPIToken(ctx context.Context, id string, at time.Time) error
+	DeleteAPIToken(ctx context.Context, id string) error
+}
+
+// Session is a signed-in browser session. Only a hash of the cookie is stored.
+type Session struct {
+	IDHash     string
+	UserID     string
+	CreateTime time.Time
+	ExpireTime time.Time
+}
+
+type SessionStore interface {
+	// CreateSession assigns CreateTime.
+	CreateSession(ctx context.Context, s Session) (Session, error)
+	GetSession(ctx context.Context, idHash string) (Session, error)
+	DeleteSession(ctx context.Context, idHash string) error
+	DeleteUserSessions(ctx context.Context, userID string) error
+	// DeleteExpiredSessions removes sessions that expired at or before now and
+	// returns how many it removed.
+	DeleteExpiredSessions(ctx context.Context, now time.Time) (int64, error)
 }
 
 // NormalizeMAC returns mac as lower-case, colon-separated hex

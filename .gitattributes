@@ -1,0 +1,3 @@
+# Generated code lives only under gen/ directories (enforced in CI).
+**/gen/** linguist-generated=true
+api/buf.lock linguist-generated=true

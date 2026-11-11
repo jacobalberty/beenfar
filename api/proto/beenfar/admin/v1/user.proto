@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package beenfar.admin.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// UserService manages controller users. Only admins may call it, except that
+// any user may read their own record and change their own password.
+service UserService {
+  // CreateUser creates a user. Usernames are unique.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users"
+      body: "*"
+      response_body: "user"
+    };
+  }
+
+  // GetUser returns one user by id.
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/users/{id}"
+      response_body: "user"
+    };
+  }
+
+  // ListUsers returns every user, ordered by username.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/users"};
+  }
+
+  // UpdateUser replaces a user's username and admin flag. It fails with
+  // FAILED_PRECONDITION if it would leave no admin.
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/users/{user.id}"
+      body: "user"
+      response_body: "user"
+    };
+  }
+
+  // DeleteUser deletes a user with their tokens and sessions. It fails with
+  // FAILED_PRECONDITION if it would leave no admin.
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/users/{id}"};
+  }
+
+  // SetUserPassword changes a password. Users changing their own password
+  // must give the current one; admins resetting another user's need not.
+  // Every session of the user is ended; API tokens keep working.
+  rpc SetUserPassword(SetUserPasswordRequest) returns (SetUserPasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users/{id}:setPassword"
+      body: "*"
+    };
+  }
+}
+
+// User is a person who can sign in to the controller.
+message User {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // Sign-in name, 1-64 bytes. Unique.
+  string username = 2 [(google.api.field_behavior) = REQUIRED];
+  // Admins may manage users, every API token and adapters.
+  bool admin = 3;
+
+  // Opaque version of this resource, for optimistic concurrency.
+  string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message CreateUserRequest {
+  User user = 1 [(google.api.field_behavior) = REQUIRED];
+  // Initial password, at least 8 characters.
+  string password = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message GetUserRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message UpdateUserRequest {
+  // The full resource. id selects the user; etag, when set, guards the
+  // update.
+  User user = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string etag = 2;
+}
+
+message DeleteUserResponse {}
+
+message SetUserPasswordRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // New password, at least 8 characters.
+  string password = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+  // Required when users change their own password.
+  string current_password = 3 [(google.api.field_behavior) = INPUT_ONLY];
+}
+
+message SetUserPasswordResponse {}
