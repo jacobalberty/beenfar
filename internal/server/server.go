@@ -87,6 +87,7 @@ func New(opts Options) (http.Handler, error) {
 	configv1connect.RegisterWifiNetworkServiceHandler(rpc, &wifiHandler{svc: opts.Core.Wifi})
 	configv1connect.RegisterNetworkServiceHandler(rpc, &networkHandler{svc: opts.Core.Networks})
 	configv1connect.RegisterRadiusServerServiceHandler(rpc, &radiusHandler{svc: opts.Core.Radius})
+	configv1connect.RegisterSwitchPortServiceHandler(rpc, &switchPortHandler{svc: opts.Core.Ports})
 	configv1connect.RegisterDeviceServiceHandler(rpc, &deviceHandler{svc: opts.Core.Devices})
 	adminv1connect.RegisterApiTokenServiceHandler(rpc, &apiTokenHandler{auth: opts.Auth})
 	adminv1connect.RegisterUserServiceHandler(rpc, &userHandler{auth: opts.Auth, store: opts.Store})

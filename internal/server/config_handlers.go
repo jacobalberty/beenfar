@@ -249,3 +249,66 @@ func (h *radiusHandler) DeleteRadiusServer(ctx context.Context, req *configv1.De
 	}
 	return &configv1.DeleteRadiusServerResponse{}, nil
 }
+
+// --- SwitchPortService ---
+
+type switchPortHandler struct {
+	configv1connect.UnimplementedSwitchPortServiceHandler
+	svc *core.SwitchPortService
+}
+
+func (h *switchPortHandler) CreateSwitchPort(ctx context.Context, req *configv1.CreateSwitchPortRequest) (*configv1.CreateSwitchPortResponse, error) {
+	p, err := apiconvgen.SwitchPortFromProto(req.GetSwitchPort())
+	if err != nil {
+		return nil, err
+	}
+	p.Revision = 0
+	out, err := h.svc.Create(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.CreateSwitchPortResponse{SwitchPort: apiconvgen.SwitchPortToProto(out)}, nil
+}
+
+func (h *switchPortHandler) GetSwitchPort(ctx context.Context, req *configv1.GetSwitchPortRequest) (*configv1.GetSwitchPortResponse, error) {
+	out, err := h.svc.Get(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.GetSwitchPortResponse{SwitchPort: apiconvgen.SwitchPortToProto(out)}, nil
+}
+
+func (h *switchPortHandler) ListSwitchPorts(ctx context.Context, req *configv1.ListSwitchPortsRequest) (*configv1.ListSwitchPortsResponse, error) {
+	list, err := h.svc.List(ctx, req.GetDeviceId())
+	if err != nil {
+		return nil, err
+	}
+	resp := &configv1.ListSwitchPortsResponse{SwitchPorts: make([]*configv1.SwitchPort, 0, len(list))}
+	for _, p := range list {
+		resp.SwitchPorts = append(resp.SwitchPorts, apiconvgen.SwitchPortToProto(p))
+	}
+	return resp, nil
+}
+
+func (h *switchPortHandler) UpdateSwitchPort(ctx context.Context, req *configv1.UpdateSwitchPortRequest) (*configv1.UpdateSwitchPortResponse, error) {
+	p, err := apiconvgen.SwitchPortFromProto(req.GetSwitchPort())
+	if err != nil {
+		return nil, err
+	}
+	out, err := h.svc.Update(ctx, p, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.UpdateSwitchPortResponse{SwitchPort: apiconvgen.SwitchPortToProto(out)}, nil
+}
+
+func (h *switchPortHandler) DeleteSwitchPort(ctx context.Context, req *configv1.DeleteSwitchPortRequest) (*configv1.DeleteSwitchPortResponse, error) {
+	rev, err := apiconv.ParseEtag(req.GetEtag())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.Delete(ctx, req.GetId(), rev); err != nil {
+		return nil, err
+	}
+	return &configv1.DeleteSwitchPortResponse{}, nil
+}

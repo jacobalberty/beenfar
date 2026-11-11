@@ -134,6 +134,64 @@ func RadiusToProto(source store.RadiusServer) *v11.RadiusServer {
 	configv1RadiusServer.UpdateTime = apiconv.Timestamp(source.UpdateTime)
 	return &configv1RadiusServer
 }
+func SwitchPortFromProto(source *v11.SwitchPort) (store.SwitchPort, error) {
+	var storeSwitchPort store.SwitchPort
+	if source != nil {
+		storeSwitchPort.ID = (*source).Id
+		storeSwitchPort.DeviceID = (*source).DeviceId
+		xint, err := apiconv.PortFromProto((*source).PortIndex)
+		if err != nil {
+			return storeSwitchPort, err
+		}
+		storeSwitchPort.PortIndex = xint
+		storeSwitchPort.Name = (*source).Name
+		storeSwitchPort.Disabled = (*source).Disabled
+		storeSwitchPort.NativeNetworkID = (*source).NativeNetworkId
+		storeSwitchPortTagging, err := apiconv.SwitchPortTaggingFromProto((*source).Tagging)
+		if err != nil {
+			return storeSwitchPort, err
+		}
+		storeSwitchPort.Tagging = storeSwitchPortTagging
+		if (*source).TaggedNetworkIds != nil {
+			storeSwitchPort.TaggedNetworkIDs = make([]string, len((*source).TaggedNetworkIds))
+			for i := 0; i < len((*source).TaggedNetworkIds); i++ {
+				storeSwitchPort.TaggedNetworkIDs[i] = (*source).TaggedNetworkIds[i]
+			}
+		}
+		storePoEMode, err := apiconv.PoEModeFromProto((*source).PoeMode)
+		if err != nil {
+			return storeSwitchPort, err
+		}
+		storeSwitchPort.PoEMode = storePoEMode
+		xint64, err := apiconv.ParseEtag((*source).Etag)
+		if err != nil {
+			return storeSwitchPort, err
+		}
+		storeSwitchPort.Revision = xint64
+	}
+	return storeSwitchPort, nil
+}
+func SwitchPortToProto(source store.SwitchPort) *v11.SwitchPort {
+	var configv1SwitchPort v11.SwitchPort
+	configv1SwitchPort.Id = source.ID
+	configv1SwitchPort.DeviceId = source.DeviceID
+	configv1SwitchPort.PortIndex = apiconv.PortToProto(source.PortIndex)
+	configv1SwitchPort.Name = source.Name
+	configv1SwitchPort.Disabled = source.Disabled
+	configv1SwitchPort.NativeNetworkId = source.NativeNetworkID
+	configv1SwitchPort.Tagging = apiconv.SwitchPortTaggingToProto(source.Tagging)
+	if source.TaggedNetworkIDs != nil {
+		configv1SwitchPort.TaggedNetworkIds = make([]string, len(source.TaggedNetworkIDs))
+		for i := 0; i < len(source.TaggedNetworkIDs); i++ {
+			configv1SwitchPort.TaggedNetworkIds[i] = source.TaggedNetworkIDs[i]
+		}
+	}
+	configv1SwitchPort.PoeMode = apiconv.PoEModeToProto(source.PoEMode)
+	configv1SwitchPort.Etag = apiconv.Etag(source.Revision)
+	configv1SwitchPort.CreateTime = apiconv.Timestamp(source.CreateTime)
+	configv1SwitchPort.UpdateTime = apiconv.Timestamp(source.UpdateTime)
+	return &configv1SwitchPort
+}
 func UserToProto(source store.User) *v1.User {
 	var adminv1User v1.User
 	adminv1User.Id = source.ID

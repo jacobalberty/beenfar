@@ -38,6 +38,7 @@ func TestFieldSettersCoverMutableFields(t *testing.T) {
 	checkSetters(t, wifiFields)
 	checkSetters(t, networkFields)
 	checkSetters(t, radiusFields, "SecretVersion")
+	checkSetters(t, switchPortFields, "DeviceID", "PortIndex")
 }
 
 func TestFieldSettersApply(t *testing.T) {

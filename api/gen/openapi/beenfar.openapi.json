@@ -727,6 +727,31 @@
         "title": "CreateRadiusServerResponse",
         "additionalProperties": false
       },
+      "beenfar.config.v1.CreateSwitchPortRequest": {
+        "type": "object",
+        "properties": {
+          "switchPort": {
+            "title": "switch_port",
+            "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+          }
+        },
+        "title": "CreateSwitchPortRequest",
+        "required": [
+          "switchPort"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.CreateSwitchPortResponse": {
+        "type": "object",
+        "properties": {
+          "switchPort": {
+            "title": "switch_port",
+            "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+          }
+        },
+        "title": "CreateSwitchPortResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.CreateWifiNetworkRequest": {
         "type": "object",
         "properties": {
@@ -796,6 +821,29 @@
       "beenfar.config.v1.DeleteRadiusServerResponse": {
         "type": "object",
         "title": "DeleteRadiusServerResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteSwitchPortRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag"
+          }
+        },
+        "title": "DeleteSwitchPortRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.DeleteSwitchPortResponse": {
+        "type": "object",
+        "title": "DeleteSwitchPortResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.DeleteWifiNetworkRequest": {
@@ -997,6 +1045,31 @@
         "title": "GetRadiusServerResponse",
         "additionalProperties": false
       },
+      "beenfar.config.v1.GetSwitchPortRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetSwitchPortRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetSwitchPortResponse": {
+        "type": "object",
+        "properties": {
+          "switchPort": {
+            "title": "switch_port",
+            "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+          }
+        },
+        "title": "GetSwitchPortResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.GetWifiNetworkRequest": {
         "type": "object",
         "properties": {
@@ -1117,6 +1190,32 @@
         "title": "ListRadiusServersResponse",
         "additionalProperties": false
       },
+      "beenfar.config.v1.ListSwitchPortsRequest": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "title": "device_id",
+            "description": "Only the ports of this device; empty lists every device's ports."
+          }
+        },
+        "title": "ListSwitchPortsRequest",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ListSwitchPortsResponse": {
+        "type": "object",
+        "properties": {
+          "switchPorts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+            },
+            "title": "switch_ports"
+          }
+        },
+        "title": "ListSwitchPortsResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.ListWifiNetworksRequest": {
         "type": "object",
         "title": "ListWifiNetworksRequest",
@@ -1200,6 +1299,16 @@
         "additionalProperties": false,
         "description": "Network is a VLAN and its IPv4 subnet."
       },
+      "beenfar.config.v1.PoeMode": {
+        "type": "string",
+        "title": "PoeMode",
+        "enum": [
+          "POE_MODE_UNSPECIFIED",
+          "POE_MODE_AUTO",
+          "POE_MODE_OFF"
+        ],
+        "description": "PoeMode is the Power over Ethernet output of a port."
+      },
       "beenfar.config.v1.RadiusServer": {
         "type": "object",
         "properties": {
@@ -1276,6 +1385,91 @@
         ],
         "description": "ReadoptionState says where an adopted device that came back without its\n key stands. It is the same managed device throughout, not a new one."
       },
+      "beenfar.config.v1.SwitchPort": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier."
+          },
+          "deviceId": {
+            "type": "string",
+            "title": "device_id",
+            "description": "(IMMUTABLE) Id of the beenfar.config.v1.Device the port belongs to."
+          },
+          "portIndex": {
+            "type": "integer",
+            "title": "port_index",
+            "description": "(IMMUTABLE) 1-based port number, as printed on the device."
+          },
+          "name": {
+            "type": "string",
+            "title": "name",
+            "description": "Label, at most 64 bytes."
+          },
+          "disabled": {
+            "type": "boolean",
+            "title": "disabled",
+            "description": "Turns the port off."
+          },
+          "nativeNetworkId": {
+            "type": "string",
+            "title": "native_network_id",
+            "description": "Id of the beenfar.config.v1.Network carried untagged. Empty means the\n default network."
+          },
+          "tagging": {
+            "title": "tagging",
+            "$ref": "#/components/schemas/beenfar.config.v1.SwitchPortTagging"
+          },
+          "taggedNetworkIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "tagged_network_ids",
+            "description": "Ids of the networks carried tagged. Only with\n SWITCH_PORT_TAGGING_CUSTOM; must not include the native network."
+          },
+          "poeMode": {
+            "title": "poe_mode",
+            "$ref": "#/components/schemas/beenfar.config.v1.PoeMode"
+          },
+          "etag": {
+            "type": "string",
+            "title": "etag",
+            "description": "Opaque version of this resource, for optimistic concurrency.",
+            "readOnly": true
+          },
+          "createTime": {
+            "title": "create_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "updateTime": {
+            "title": "update_time",
+            "readOnly": true,
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "SwitchPort",
+        "required": [
+          "deviceId",
+          "portIndex"
+        ],
+        "additionalProperties": false,
+        "description": "SwitchPort holds the settings of one port of an adopted switch."
+      },
+      "beenfar.config.v1.SwitchPortTagging": {
+        "type": "string",
+        "title": "SwitchPortTagging",
+        "enum": [
+          "SWITCH_PORT_TAGGING_UNSPECIFIED",
+          "SWITCH_PORT_TAGGING_ALL",
+          "SWITCH_PORT_TAGGING_NONE",
+          "SWITCH_PORT_TAGGING_CUSTOM"
+        ],
+        "description": "SwitchPortTagging says which networks a port carries tagged."
+      },
       "beenfar.config.v1.UpdateNetworkRequest": {
         "type": "object",
         "properties": {
@@ -1336,6 +1530,37 @@
           }
         },
         "title": "UpdateRadiusServerResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateSwitchPortRequest": {
+        "type": "object",
+        "properties": {
+          "switchPort": {
+            "title": "switch_port",
+            "description": "id selects the port; etag, when set, guards the update.",
+            "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+          },
+          "updateMask": {
+            "title": "update_mask",
+            "description": "Fields to update, named by their proto field names. Fields not listed\n keep their stored values. When the mask is empty or \"*\", every mutable\n field is replaced.",
+            "$ref": "#/components/schemas/google.protobuf.FieldMask"
+          }
+        },
+        "title": "UpdateSwitchPortRequest",
+        "required": [
+          "switchPort"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateSwitchPortResponse": {
+        "type": "object",
+        "properties": {
+          "switchPort": {
+            "title": "switch_port",
+            "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+          }
+        },
+        "title": "UpdateSwitchPortResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.UpdateWifiNetworkRequest": {
@@ -2678,6 +2903,311 @@
         }
       }
     },
+    "/api/v1/switch-ports": {
+      "get": {
+        "tags": [
+          "SwitchPortService"
+        ],
+        "summary": "ListSwitchPorts",
+        "description": "ListSwitchPorts returns switch ports ordered by device and port index.",
+        "operationId": "beenfar.config.v1.SwitchPortService.ListSwitchPorts",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "query",
+            "description": "Only the ports of this device; empty lists every device's ports.",
+            "schema": {
+              "type": "string",
+              "title": "device_id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.ListSwitchPortsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "SwitchPortService"
+        ],
+        "summary": "CreateSwitchPort",
+        "description": "CreateSwitchPort sets up a port. The device must be adopted, and each\n (device_id, port_index) can have one SwitchPort.",
+        "operationId": "beenfar.config.v1.SwitchPortService.CreateSwitchPort",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "switch_port",
+                "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "switch_port",
+                  "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/switch-ports/{id}": {
+      "get": {
+        "tags": [
+          "SwitchPortService"
+        ],
+        "summary": "GetSwitchPort",
+        "description": "GetSwitchPort returns one switch port by id.",
+        "operationId": "beenfar.config.v1.SwitchPortService.GetSwitchPort",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "switch_port",
+                  "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "SwitchPortService"
+        ],
+        "summary": "DeleteSwitchPort",
+        "description": "DeleteSwitchPort returns a port to the device's defaults.",
+        "operationId": "beenfar.config.v1.SwitchPortService.DeleteSwitchPort",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "etag",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "etag"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeleteSwitchPortResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/switch-ports/{switchPort.id}": {
+      "put": {
+        "tags": [
+          "SwitchPortService"
+        ],
+        "summary": "UpdateSwitchPort",
+        "description": "UpdateSwitchPort replaces the fields named by update_mask, or every\n mutable field when the mask is empty. device_id and port_index cannot\n change. When etag is set it must match the stored etag, or the call\n fails with ABORTED.",
+        "operationId": "beenfar.config.v1.SwitchPortService.UpdateSwitchPort",
+        "parameters": [
+          {
+            "name": "switchPort.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names. Fields not listed\n keep their stored values. When the mask is empty or \"*\", every mutable\n field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the port; etag, when set, guards the update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "switch_port",
+                "description": "id selects the port; etag, when set, guards the update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "switch_port",
+                  "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "SwitchPortService"
+        ],
+        "summary": "UpdateSwitchPort",
+        "description": "UpdateSwitchPort replaces the fields named by update_mask, or every\n mutable field when the mask is empty. device_id and port_index cannot\n change. When etag is set it must match the stored etag, or the call\n fails with ABORTED.",
+        "operationId": "beenfar.config.v1.SwitchPortService.UpdateSwitchPort2",
+        "parameters": [
+          {
+            "name": "switchPort.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names. Fields not listed\n keep their stored values. When the mask is empty or \"*\", every mutable\n field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the port; etag, when set, guards the update.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "switch_port",
+                "description": "id selects the port; etag, when set, guards the update.",
+                "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "switch_port",
+                  "$ref": "#/components/schemas/beenfar.config.v1.SwitchPort"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
         "tags": [
@@ -3296,6 +3826,10 @@
     {
       "name": "RadiusServerService",
       "description": "RadiusServerService manages the RADIUS servers that WPA-enterprise\n wireless networks authenticate against."
+    },
+    {
+      "name": "SwitchPortService",
+      "description": "SwitchPortService manages the settings of individual ports of adopted\n switches. A port with no SwitchPort runs with the device's defaults;\n deleting a SwitchPort returns the port to them."
     },
     {
       "name": "WifiNetworkService",
