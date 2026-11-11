@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"connectrpc.com/connect/v2"
@@ -191,11 +190,7 @@ func (h *authHandler) Login(ctx context.Context, req *adminv1.LoginRequest) (*ad
 		}
 		return nil, err
 	}
-	setCookie(ctx, &http.Cookie{
-		Value:   cookie,
-		Expires: sess.ExpireTime,
-		MaxAge:  int(time.Until(sess.ExpireTime).Seconds()),
-	})
+	setCookie(ctx, cookie, sess.ExpireTime)
 	return &adminv1.LoginResponse{User: apiconvgen.UserToProto(u)}, nil
 }
 
@@ -207,7 +202,7 @@ func (h *authHandler) Logout(ctx context.Context, _ *adminv1.LogoutRequest) (*ad
 			}
 		}
 	}
-	setCookie(ctx, &http.Cookie{MaxAge: -1})
+	setCookie(ctx, "", time.Time{}) // clears it
 	return &adminv1.LogoutResponse{}, nil
 }
 
@@ -219,19 +214,15 @@ func (h *authHandler) GetCurrentUser(ctx context.Context, _ *adminv1.GetCurrentU
 	return &adminv1.GetCurrentUserResponse{User: apiconvgen.UserToProto(p.User)}, nil
 }
 
-// setCookie adds the session cookie to the response with beenfar's fixed
-// attributes. Secure is set when the request arrived over TLS (directly or
-// via a proxy that says so).
-func setCookie(ctx context.Context, c *http.Cookie) {
+// setCookie sets (or, with an empty value, clears) the session cookie on
+// the response. Secure is set when the request arrived over TLS, directly or
+// via a proxy that says so.
+func setCookie(ctx context.Context, value string, expires time.Time) {
 	info, ok := connect.CallInfoForServerContext(ctx)
 	if !ok {
 		return
 	}
-	c.Name = SessionCookieName
-	c.Path = "/"
-	c.HttpOnly = true
-	c.SameSite = http.SameSiteStrictMode
-	c.Secure = requestInfoFrom(ctx).secure
+	c := auth.NewSessionCookie(value, expires, requestInfoFrom(ctx).secure)
 	info.ResponseHeader().Add("Set-Cookie", c.String())
 }
 

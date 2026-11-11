@@ -49,6 +49,7 @@ const (
 	MethodSession Method = "session"
 	MethodBasic   Method = "basic" // Basic auth with a password
 	MethodProxy   Method = "proxy" // identity headers from a trusted proxy
+	MethodOIDC    Method = "oidc"  // a session started by OIDC sign-in
 )
 
 // Principal is an authenticated caller.
@@ -62,6 +63,9 @@ type Principal struct {
 	// TokenID is set for MethodToken; SessionHash for MethodSession.
 	TokenID     string
 	SessionHash string
+	// SessionProvider is how a session started ("" for password login,
+	// "oidc:<id>"), for signing out upstream.
+	SessionProvider string
 }
 
 // IsAdmin reports whether the principal may perform admin operations.
@@ -324,6 +328,17 @@ func (s *Service) Login(ctx context.Context, username, password string, peer net
 		return store.User{}, "", store.Session{}, err
 	}
 
+	cookie, sess, err := s.StartSession(ctx, u.ID, "")
+	if err != nil {
+		return store.User{}, "", store.Session{}, err
+	}
+	return u, cookie, sess, nil
+}
+
+// StartSession creates a browser session for userID and returns the cookie
+// value, which is shown to the client once and stored only as a hash.
+// provider records how the user signed in ("" for password login).
+func (s *Service) StartSession(ctx context.Context, userID, provider string) (string, store.Session, error) {
 	now := s.now()
 	if _, err := s.store.DeleteExpiredSessions(ctx, now); err != nil {
 		slog.WarnContext(ctx, "sweeping expired sessions", slog.Any("error", err))
@@ -331,13 +346,14 @@ func (s *Service) Login(ctx context.Context, username, password string, peer net
 	cookie := rand.Text() + rand.Text()
 	sess, err := s.store.CreateSession(ctx, store.Session{
 		IDHash:     hashSecret(cookie),
-		UserID:     u.ID,
+		UserID:     userID,
+		Provider:   provider,
 		ExpireTime: now.Add(s.sessionTTL),
 	})
 	if err != nil {
-		return store.User{}, "", store.Session{}, err
+		return "", store.Session{}, err
 	}
-	return u, cookie, sess, nil
+	return cookie, sess, nil
 }
 
 // Logout ends the session identified by a cookie value.
@@ -369,7 +385,11 @@ func (s *Service) AuthenticateSession(ctx context.Context, cookie string) (*Prin
 	if err != nil {
 		return nil, err
 	}
-	return &Principal{User: u, Method: MethodSession, SessionHash: h, Ambient: true}, nil
+	method := MethodSession
+	if strings.HasPrefix(sess.Provider, oidcProviderPrefix) {
+		method = MethodOIDC
+	}
+	return &Principal{User: u, Method: method, SessionHash: h, Ambient: true, SessionProvider: sess.Provider}, nil
 }
 
 func (s *Service) dummyHash() string {
