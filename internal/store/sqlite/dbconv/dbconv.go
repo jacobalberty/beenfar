@@ -44,6 +44,9 @@ type Converter interface {
 	APIToken(db.ApiToken) store.APIToken
 	APITokens([]db.ApiToken) []store.APIToken
 
+	// goverter:map LastUsedTime LastUsedTime | FromOptMilli
+	AdapterToken(db.AdapterToken) store.AdapterToken
+
 	Session(db.Session) store.Session
 }
 

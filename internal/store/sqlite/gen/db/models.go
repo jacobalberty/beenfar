@@ -4,6 +4,15 @@
 
 package db
 
+type AdapterToken struct {
+	ID           string
+	Adapter      string
+	Prefix       string
+	SecretHash   string
+	LastUsedTime int64
+	CreateTime   int64
+}
+
 type ApiToken struct {
 	ID           string
 	UserID       string

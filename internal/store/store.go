@@ -37,6 +37,7 @@ type Store interface {
 	NetworkStore
 	UserStore
 	APITokenStore
+	AdapterTokenStore
 	SessionStore
 
 	// WithTx runs fn inside a transaction. The Store passed to fn is bound to
@@ -281,6 +282,26 @@ type APITokenStore interface {
 	ListAPITokens(ctx context.Context, userID string) ([]APIToken, error)
 	TouchAPIToken(ctx context.Context, id string, at time.Time) error
 	DeleteAPIToken(ctx context.Context, id string) error
+}
+
+// AdapterToken is a credential of an external adapter. Only a hash of the
+// secret is stored.
+type AdapterToken struct {
+	ID           string
+	Adapter      string // the adapter the token may act as
+	Prefix       string // unique, used to find the token
+	SecretHash   string
+	LastUsedTime time.Time // zero means never used
+	CreateTime   time.Time
+}
+
+type AdapterTokenStore interface {
+	// CreateAdapterToken assigns ID and CreateTime.
+	CreateAdapterToken(ctx context.Context, t AdapterToken) (AdapterToken, error)
+	GetAdapterTokenByPrefix(ctx context.Context, prefix string) (AdapterToken, error)
+	ListAdapterTokens(ctx context.Context) ([]AdapterToken, error)
+	TouchAdapterToken(ctx context.Context, id string, at time.Time) error
+	DeleteAdapterToken(ctx context.Context, id string) error
 }
 
 // Session is a signed-in browser session. Only a hash of the cookie is stored.

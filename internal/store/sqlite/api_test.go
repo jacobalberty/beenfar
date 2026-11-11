@@ -169,3 +169,35 @@ func TestExternalUsers(t *testing.T) {
 	_, err = s.GetUserByIdentity(ctx, "oidc:corp", "sub-123")
 	wantErr(t, err, store.ErrNotFound)
 }
+
+func TestAdapterTokens(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	tok, err := s.CreateAdapterToken(ctx, store.AdapterToken{Adapter: "meraki", Prefix: "abc", SecretHash: "h"})
+	if err != nil || tok.ID == "" || tok.Adapter != "meraki" || tok.CreateTime.IsZero() {
+		t.Fatalf("create = %+v, %v", tok, err)
+	}
+	_, err = s.CreateAdapterToken(ctx, store.AdapterToken{Adapter: "meraki", Prefix: "abc", SecretHash: "h"})
+	wantErr(t, err, store.ErrConflict)
+	_, err = s.CreateAdapterToken(ctx, store.AdapterToken{Adapter: "", Prefix: "x", SecretHash: "h"})
+	wantErr(t, err, store.ErrInvalid)
+
+	now := time.Now().Truncate(time.Millisecond)
+	if err := s.TouchAdapterToken(ctx, tok.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetAdapterTokenByPrefix(ctx, "abc")
+	if err != nil || !got.LastUsedTime.Equal(now) {
+		t.Fatalf("get = %+v, %v", got, err)
+	}
+	if l, err := s.ListAdapterTokens(ctx); err != nil || len(l) != 1 {
+		t.Fatalf("list = %v, %v", l, err)
+	}
+	if err := s.DeleteAdapterToken(ctx, tok.ID); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteAdapterToken(ctx, tok.ID), store.ErrNotFound)
+	_, err = s.GetAdapterTokenByPrefix(ctx, "abc")
+	wantErr(t, err, store.ErrNotFound)
+}
