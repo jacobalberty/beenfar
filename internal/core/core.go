@@ -35,7 +35,7 @@ func New(st store.Store, adapters AdapterRegistry) *Services {
 	return &Services{
 		Wifi:     &WifiService{store: st},
 		Networks: &NetworkService{store: st},
-		Devices:  &DeviceService{store: st},
+		Devices:  &DeviceService{store: st, adapters: adapters},
 		Adapters: adapters,
 	}
 }
@@ -60,15 +60,29 @@ type AdapterStatus struct {
 	ConnectTime   time.Time
 }
 
-// AdapterRegistry lists registered adapters. The adapter host implements it.
+// AdapterRegistry lists registered adapters and hands devices to them. The
+// adapter host implements it.
 type AdapterRegistry interface {
 	ListAdapters(ctx context.Context) []AdapterStatus
+	// AdoptDevice asks the device's adapter to take the device over. It
+	// returns ErrFailedPrecondition if that adapter is not connected.
+	AdoptDevice(ctx context.Context, d store.Device) error
+	// ForgetDevice tells the device's adapter the device is no longer managed.
+	ForgetDevice(ctx context.Context, d store.Device) error
 }
 
 // NoAdapters is an AdapterRegistry with nothing registered.
 type NoAdapters struct{}
 
 func (NoAdapters) ListAdapters(context.Context) []AdapterStatus { return nil }
+
+func (NoAdapters) AdoptDevice(_ context.Context, d store.Device) error {
+	return fmt.Errorf("%w: adapter %q is not connected", store.ErrFailedPrecondition, d.Adapter)
+}
+
+func (NoAdapters) ForgetDevice(_ context.Context, d store.Device) error {
+	return fmt.Errorf("%w: adapter %q is not connected", store.ErrFailedPrecondition, d.Adapter)
+}
 
 // SortedAdapters returns r's adapters ordered by name.
 func SortedAdapters(ctx context.Context, r AdapterRegistry) []AdapterStatus {

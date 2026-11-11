@@ -8,7 +8,8 @@ import (
 
 // DeviceService manages adoption of discovered devices.
 type DeviceService struct {
-	store store.Store
+	store    store.Store
+	adapters AdapterRegistry
 }
 
 func (s *DeviceService) Get(ctx context.Context, id string) (store.Device, error) {

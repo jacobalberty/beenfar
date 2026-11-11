@@ -62,6 +62,10 @@ type HTTPProvider interface {
 
 // Host is what an adapter may ask of the controller.
 type Host interface {
+	// DeviceByMAC returns the device with that MAC, or ErrNotFound. Adapters
+	// use it before a device is decoded, when only the MAC is known, e.g. to
+	// find the secrets to try.
+	DeviceByMAC(ctx context.Context, mac string) (Device, error)
 	// ReportDevice records that a device was seen. A new device becomes
 	// pending; a known one is refreshed. It returns the device as the
 	// controller knows it.
