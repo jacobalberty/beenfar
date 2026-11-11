@@ -47,6 +47,7 @@ type Method string
 const (
 	MethodToken   Method = "token"
 	MethodSession Method = "session"
+	MethodBasic   Method = "basic" // Basic auth with a password
 )
 
 // Principal is an authenticated caller.
@@ -155,6 +156,10 @@ func (s *Service) CountUsers(ctx context.Context) (int64, error) { return s.stor
 // SessionTTL returns the browser session lifetime.
 func (s *Service) SessionTTL() time.Duration { return s.sessionTTL }
 
+// hashSecret returns the hex SHA-256 of a random, high-entropy secret (API
+// tokens carry 130 random bits, session cookies 260). A fast hash is right
+// for these: unlike passwords they cannot be guessed, and they are checked
+// on every request. Passwords never come here; they use PBKDF2.
 func hashSecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])

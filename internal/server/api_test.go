@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	configv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1/configv1connect"
+	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/server"
 	"github.com/jacobalberty/beenfar/internal/store"
 )
@@ -38,9 +40,9 @@ type apiFixture struct {
 	adminToken string
 }
 
-func newAPIFixture(t *testing.T) apiFixture {
+func newAPIFixture(t *testing.T, authn ...func(*auth.Service) auth.Authenticator) apiFixture {
 	t.Helper()
-	f := newFixture(t)
+	f := newFixture(t, authn...)
 	srv := httptest.NewServer(f.handler)
 	t.Cleanup(srv.Close)
 	u, err := f.auth.CreateUser(t.Context(), "admin", "correct horse", true)
@@ -614,5 +616,29 @@ func TestRPCTracing(t *testing.T) {
 	}
 	if !enduser {
 		t.Errorf("store span lacks enduser.id: %v", storeSpan.Attributes())
+	}
+}
+
+func TestBasicAuthOverHTTP(t *testing.T) {
+	f := newAPIFixture(t, func(a *auth.Service) auth.Authenticator {
+		return auth.Chain{a.BearerToken(), a.Basic(auth.BasicOptions{Passwords: true}), a.SessionCookie()}
+	})
+	req := func(user, pass string, header ...string) int {
+		h := append([]string{"Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))}, header...)
+		code, _, _ := f.rest(t, http.MethodGet, "/api/v1/auth/me", "", "", h...)
+		return code
+	}
+	if code := req("admin", "correct horse"); code != http.StatusOK {
+		t.Errorf("password = %d", code)
+	}
+	if code := req("x", f.adminToken); code != http.StatusOK {
+		t.Errorf("token = %d", code)
+	}
+	if code := req("admin", "wrong horse"); code != http.StatusUnauthorized {
+		t.Errorf("wrong password = %d", code)
+	}
+	// Browsers cache Basic credentials, so cross-site use is refused.
+	if code := req("admin", "correct horse", "Origin", "https://evil.example"); code != http.StatusForbidden {
+		t.Errorf("cross-origin Basic = %d, want 403", code)
 	}
 }
