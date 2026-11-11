@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -13,7 +14,6 @@ import (
 	"io"
 	"log"
 	"math/big"
-	"math/rand"
 	"strconv"
 
 	"github.com/golang/snappy"
