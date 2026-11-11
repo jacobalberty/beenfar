@@ -1,6 +1,7 @@
 package sqlite_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -259,5 +260,92 @@ func TestRadiusServers(t *testing.T) {
 	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 0), store.ErrNotFound)
 	if list, err := s.ListRadiusServers(ctx); err != nil || len(list) != 0 {
 		t.Fatalf("list = %+v, %v", list, err)
+	}
+}
+
+func TestSwitchPorts(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lan, err := s.CreateNetwork(ctx, store.Network{Name: "lan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	iot, err := s.CreateNetwork(ctx, store.Network{Name: "iot", VLANID: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cams, err := s.CreateNetwork(ctx, store.Network{Name: "cams", VLANID: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	port := store.SwitchPort{
+		DeviceID: d.ID, PortIndex: 3, Name: "uplink", NativeNetworkID: lan.ID,
+		Tagging: store.SwitchPortTaggingCustom, TaggedNetworkIDs: []string{iot.ID, cams.ID, iot.ID},
+		PoEMode: store.PoEModeOff,
+	}
+	p, err := s.CreateSwitchPort(ctx, port)
+	if err != nil || p.ID == "" || p.Revision != 1 || len(p.TaggedNetworkIDs) != 2 || p.PoEMode != store.PoEModeOff {
+		t.Fatalf("create = %+v, %v", p, err)
+	}
+	_, err = s.CreateSwitchPort(ctx, port)
+	wantErr(t, err, store.ErrConflict) // same device and index
+
+	for name, bad := range map[string]store.SwitchPort{
+		"missing device": {DeviceID: "missing", PortIndex: 1, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto},
+		"missing native": {DeviceID: d.ID, PortIndex: 1, NativeNetworkID: "missing", Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto},
+		"missing tagged": {DeviceID: d.ID, PortIndex: 1, Tagging: store.SwitchPortTaggingCustom, TaggedNetworkIDs: []string{"missing"}, PoEMode: store.PoEModeAuto},
+		"index 0":        {DeviceID: d.ID, PortIndex: 0, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto},
+	} {
+		if _, err := s.CreateSwitchPort(ctx, bad); !errors.Is(err, store.ErrInvalid) {
+			t.Errorf("%s: err = %v, want invalid", name, err)
+		}
+	}
+
+	// Networks in use by a port cannot be deleted.
+	wantErr(t, s.DeleteNetwork(ctx, lan.ID, 0), store.ErrFailedPrecondition)
+	wantErr(t, s.DeleteNetwork(ctx, cams.ID, 0), store.ErrFailedPrecondition)
+
+	// Update replaces the settings but never the device or index.
+	p.TaggedNetworkIDs = []string{iot.ID}
+	p.DeviceID, p.PortIndex = "other", 9
+	upd, err := s.UpdateSwitchPort(ctx, p)
+	if err != nil || upd.Revision != 2 || upd.DeviceID != d.ID || upd.PortIndex != 3 || len(upd.TaggedNetworkIDs) != 1 {
+		t.Fatalf("update = %+v, %v", upd, err)
+	}
+	if err := s.DeleteNetwork(ctx, cams.ID, 0); err != nil {
+		t.Fatalf("cams is no longer used: %v", err)
+	}
+	_, err = s.UpdateSwitchPort(ctx, p) // revision 1 is stale
+	wantErr(t, err, store.ErrStale)
+
+	if _, err := s.CreateSwitchPort(ctx, store.SwitchPort{DeviceID: d.ID, PortIndex: 1, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto}); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.ListSwitchPorts(ctx, d.ID)
+	if err != nil || len(list) != 2 || list[0].PortIndex != 1 || list[1].PortIndex != 3 || list[1].TaggedNetworkIDs[0] != iot.ID {
+		t.Fatalf("list = %+v, %v", list, err)
+	}
+	if other, err := s.ListSwitchPorts(ctx, "nobody"); err != nil || len(other) != 0 {
+		t.Fatalf("list other = %+v, %v", other, err)
+	}
+
+	wantErr(t, s.DeleteSwitchPort(ctx, upd.ID, 1), store.ErrStale)
+	if err := s.DeleteSwitchPort(ctx, upd.ID, upd.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteSwitchPort(ctx, upd.ID, 0), store.ErrNotFound)
+
+	// Forgetting the device drops its port settings.
+	if err := s.DeleteDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	if all, err := s.ListSwitchPorts(ctx, ""); err != nil || len(all) != 0 {
+		t.Fatalf("after forget = %+v, %v", all, err)
 	}
 }

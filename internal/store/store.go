@@ -36,6 +36,7 @@ type Store interface {
 	WifiNetworkStore
 	NetworkStore
 	RadiusServerStore
+	SwitchPortStore
 	UserStore
 	APITokenStore
 	AdapterTokenStore
@@ -136,7 +137,8 @@ type DeviceStore interface {
 	// becomes in progress). It returns
 	// ErrFailedPrecondition if the device is already adopted.
 	AdoptDevice(ctx context.Context, id string) (Device, error)
-	// DeleteDevice forgets a device in any state, along with its secrets.
+	// DeleteDevice forgets a device in any state, along with its secrets
+	// and switch port settings.
 	DeleteDevice(ctx context.Context, id string) error
 	// RecordDeviceState stores what the device reported about itself and
 	// marks it seen and unlocked.
@@ -235,7 +237,7 @@ type NetworkStore interface {
 	UpdateNetwork(ctx context.Context, n Network) (Network, error)
 	// DeleteNetwork deletes by ID, with the same revision semantics as
 	// DeleteWifiNetwork. It returns ErrFailedPrecondition while a wireless
-	// network refers to it.
+	// network or a switch port refers to it.
 	DeleteNetwork(ctx context.Context, id string, revision int64) error
 }
 
@@ -274,6 +276,61 @@ type RadiusServerStore interface {
 	// DeleteWifiNetwork. It returns ErrFailedPrecondition while a wireless
 	// network refers to it.
 	DeleteRadiusServer(ctx context.Context, id string, revision int64) error
+}
+
+// SwitchPortTagging says which networks a switch port carries tagged.
+type SwitchPortTagging string
+
+const (
+	SwitchPortTaggingAll    SwitchPortTagging = "all"    // every network except the native one
+	SwitchPortTaggingNone   SwitchPortTagging = "none"   // only the native network, untagged
+	SwitchPortTaggingCustom SwitchPortTagging = "custom" // the networks in TaggedNetworkIDs
+)
+
+// PoEMode is the Power over Ethernet output of a switch port.
+type PoEMode string
+
+const (
+	PoEModeAuto PoEMode = "auto"
+	PoEModeOff  PoEMode = "off"
+)
+
+// SwitchPort holds the settings of one port of an adopted switch. A port
+// with no SwitchPort runs with the device's defaults.
+type SwitchPort struct {
+	ID       string
+	DeviceID string // immutable
+	// PortIndex is 1-based, as printed on the device. Immutable.
+	PortIndex int
+	Name      string
+	Disabled  bool
+	// NativeNetworkID is the untagged network; empty means the default
+	// network.
+	NativeNetworkID  string
+	Tagging          SwitchPortTagging
+	TaggedNetworkIDs []string // sorted; only with SwitchPortTaggingCustom
+	PoEMode          PoEMode
+	// Revision increases on every update and backs the API's etag.
+	Revision   int64
+	CreateTime time.Time
+	UpdateTime time.Time
+}
+
+type SwitchPortStore interface {
+	// CreateSwitchPort assigns ID, Revision and timestamps. It returns
+	// ErrConflict if the device's port already has settings, and ErrInvalid
+	// if the device or a network does not exist.
+	CreateSwitchPort(ctx context.Context, p SwitchPort) (SwitchPort, error)
+	GetSwitchPort(ctx context.Context, id string) (SwitchPort, error)
+	// ListSwitchPorts lists the ports of one device, or of all devices when
+	// deviceID is empty, ordered by device and port index.
+	ListSwitchPorts(ctx context.Context, deviceID string) ([]SwitchPort, error)
+	// UpdateSwitchPort replaces every mutable field (not DeviceID or
+	// PortIndex), with the same revision semantics as UpdateWifiNetwork.
+	UpdateSwitchPort(ctx context.Context, p SwitchPort) (SwitchPort, error)
+	// DeleteSwitchPort deletes by ID, with the same revision semantics as
+	// DeleteWifiNetwork, returning the port to the device's defaults.
+	DeleteSwitchPort(ctx context.Context, id string, revision int64) error
 }
 
 // UserSource says where a user account comes from.

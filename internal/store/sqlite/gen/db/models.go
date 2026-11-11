@@ -82,6 +82,25 @@ type Session struct {
 	Provider   string
 }
 
+type SwitchPort struct {
+	ID              string
+	DeviceID        string
+	PortIndex       int64
+	Name            string
+	Disabled        bool
+	NativeNetworkID string
+	Tagging         string
+	PoeMode         string
+	Revision        int64
+	CreateTime      int64
+	UpdateTime      int64
+}
+
+type SwitchPortTaggedNetwork struct {
+	SwitchPortID string
+	NetworkID    string
+}
+
 type User struct {
 	ID           string
 	Username     string

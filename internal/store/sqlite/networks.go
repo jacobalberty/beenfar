@@ -91,15 +91,19 @@ func (s *Store) UpdateNetwork(ctx context.Context, n store.Network) (store.Netwo
 
 func (s *Store) DeleteNetwork(ctx context.Context, id string, revision int64) error {
 	return s.inTx(ctx, func(txs *Store) error {
-		users, err := txs.q.CountWifiNetworksUsingNetwork(ctx, id)
+		wifi, err := txs.q.CountWifiNetworksUsingNetwork(ctx, id)
 		if err != nil {
 			return mapErr(err)
 		}
-		if users > 0 {
+		ports, err := txs.q.CountSwitchPortsUsingNetwork(ctx, id)
+		if err != nil {
+			return mapErr(err)
+		}
+		if wifi > 0 || ports > 0 {
 			if err := txs.networkExists(ctx, id); err != nil {
 				return mapErr(err)
 			}
-			return fmt.Errorf("%w: network %s is used by %d wireless network(s)", store.ErrFailedPrecondition, id, users)
+			return fmt.Errorf("%w: network %s is used by %d wireless network(s) and %d switch port(s)", store.ErrFailedPrecondition, id, wifi, ports)
 		}
 		n, err := txs.q.DeleteNetwork(ctx, db.DeleteNetworkParams{ID: id, ExpectedRevision: revision})
 		if err != nil {

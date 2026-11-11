@@ -24,7 +24,7 @@ import (
 // goverter:output:format function
 // goverter:matchIgnoreCase
 // goverter:extend FromMilli Int
-// goverter:extend DeviceState Readoption WifiSecurity WifiBand UserSource
+// goverter:extend DeviceState Readoption WifiSecurity WifiBand UserSource SwitchPortTagging PoEMode
 type Converter interface {
 	Device(db.Device) store.Device
 	Devices([]db.Device) []store.Device
@@ -37,6 +37,11 @@ type Converter interface {
 
 	RadiusServer(db.RadiusServer) store.RadiusServer
 	RadiusServers([]db.RadiusServer) []store.RadiusServer
+
+	// Tagged networks live in their own table; the caller fills them in.
+	// goverter:map PoeMode PoEMode
+	// goverter:ignore TaggedNetworkIDs
+	SwitchPort(db.SwitchPort) store.SwitchPort
 	Networks([]db.Network) []store.Network
 
 	User(db.User) store.User
@@ -74,3 +79,6 @@ func Readoption(s string) store.Readoption     { return store.Readoption(s) }
 func WifiSecurity(s string) store.WifiSecurity { return store.WifiSecurity(s) }
 func WifiBand(s string) store.WifiBand         { return store.WifiBand(s) }
 func UserSource(s string) store.UserSource     { return store.UserSource(s) }
+
+func SwitchPortTagging(s string) store.SwitchPortTagging { return store.SwitchPortTagging(s) }
+func PoEMode(s string) store.PoEMode                     { return store.PoEMode(s) }

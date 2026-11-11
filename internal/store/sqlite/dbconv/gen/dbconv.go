@@ -126,6 +126,21 @@ func Session(source db.Session) store.Session {
 	storeSession.ExpireTime = dbconv.FromMilli(source.ExpireTime)
 	return storeSession
 }
+func SwitchPort(source db.SwitchPort) store.SwitchPort {
+	var storeSwitchPort store.SwitchPort
+	storeSwitchPort.ID = source.ID
+	storeSwitchPort.DeviceID = source.DeviceID
+	storeSwitchPort.PortIndex = dbconv.Int(source.PortIndex)
+	storeSwitchPort.Name = source.Name
+	storeSwitchPort.Disabled = source.Disabled
+	storeSwitchPort.NativeNetworkID = source.NativeNetworkID
+	storeSwitchPort.Tagging = dbconv.SwitchPortTagging(source.Tagging)
+	storeSwitchPort.PoEMode = dbconv.PoEMode(source.PoeMode)
+	storeSwitchPort.Revision = source.Revision
+	storeSwitchPort.CreateTime = dbconv.FromMilli(source.CreateTime)
+	storeSwitchPort.UpdateTime = dbconv.FromMilli(source.UpdateTime)
+	return storeSwitchPort
+}
 func User(source db.User) store.User {
 	var storeUser store.User
 	storeUser.ID = source.ID
