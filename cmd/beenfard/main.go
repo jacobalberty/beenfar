@@ -45,6 +45,7 @@ type config struct {
 	logFormat string
 	logLevel  slog.Level
 	adminUser string
+	auth      *authConfig
 }
 
 func parseFlags(args []string) (config, error) {
@@ -56,6 +57,7 @@ func parseFlags(args []string) (config, error) {
 	level := fs.String("log-level", envOr("BEENFAR_LOG_LEVEL", "info"), "log level: debug, info, warn, error (env BEENFAR_LOG_LEVEL)")
 	fs.StringVar(&cfg.adminUser, "admin-user", envOr("BEENFAR_ADMIN_USER", "admin"),
 		"username of the admin created on first start when BEENFAR_ADMIN_PASSWORD is set (env BEENFAR_ADMIN_USER)")
+	cfg.auth = registerAuthFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -101,15 +103,21 @@ func run() error {
 		return err
 	}
 
-	authSvc := auth.New(ost)
+	authSvc := auth.New(ost, cfg.auth.serviceOptions()...)
 	if err := bootstrapAdmin(ctx, authSvc, cfg.adminUser, os.Getenv("BEENFAR_ADMIN_PASSWORD")); err != nil {
 		return err
 	}
+	authn, methods, err := cfg.auth.build(authSvc, os.Getenv)
+	if err != nil {
+		return fmt.Errorf("auth configuration: %w", err)
+	}
 	handler, err := server.New(server.Options{
-		Store:     ost,
-		Telemetry: tel,
-		Auth:      authSvc,
-		Core:      core.New(ost, nil), // TODO(phase 4): the adapter host registry
+		Store:         ost,
+		Telemetry:     tel,
+		Auth:          authSvc,
+		Authenticator: authn,
+		AuthMethods:   methods,
+		Core:          core.New(ost, nil), // TODO(phase 4): the adapter host registry
 	})
 	if err != nil {
 		return err
