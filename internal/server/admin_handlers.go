@@ -184,7 +184,7 @@ type authHandler struct {
 }
 
 func (h *authHandler) Login(ctx context.Context, req *adminv1.LoginRequest) (*adminv1.LoginResponse, error) {
-	u, cookie, sess, err := h.auth.Login(ctx, req.GetUsername(), req.GetPassword())
+	u, cookie, sess, err := h.auth.Login(ctx, req.GetUsername(), req.GetPassword(), requestInfoFrom(ctx).peer)
 	if err != nil {
 		if code, ok := codeOf(err); ok && code == connect.CodeUnauthenticated {
 			return nil, connect.NewError(connect.CodeUnauthenticated, "invalid username or password")

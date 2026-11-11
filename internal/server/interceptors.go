@@ -55,6 +55,8 @@ func codeOf(err error) (connect.Code, bool) {
 		return connect.CodeFailedPrecondition, true
 	case errors.Is(err, auth.ErrUnauthenticated):
 		return connect.CodeUnauthenticated, true
+	case errors.Is(err, auth.ErrRateLimited):
+		return connect.CodeResourceExhausted, true
 	case errors.Is(err, auth.ErrPermissionDenied):
 		return connect.CodePermissionDenied, true
 	}

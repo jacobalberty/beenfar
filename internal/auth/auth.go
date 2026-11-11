@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -86,6 +87,9 @@ type Service struct {
 
 	dummyOnce sync.Once
 	dummy     string // hash compared against when a username is unknown
+
+	userFailures *limiter // failed sign-ins per username
+	ipFailures   *limiter // failed sign-ins per client address
 }
 
 // Option configures a Service.
@@ -101,13 +105,48 @@ func WithSessionTTL(d time.Duration) Option { return func(s *Service) { s.sessio
 // WithClock replaces time.Now.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
 
+// WithFailureLimits sets how many failed sign-ins a username and a client
+// address may have per window before further attempts are refused. A limit
+// of 0 disables that check.
+func WithFailureLimits(perUser, perIP int, window time.Duration) Option {
+	return func(s *Service) {
+		s.userFailures = newLimiter(perUser, window, s.clock)
+		s.ipFailures = newLimiter(perIP, window, s.clock)
+	}
+}
+
 // New returns a Service backed by st.
 func New(st store.Store, opts ...Option) *Service {
 	s := &Service{store: st, iterations: DefaultIterations, sessionTTL: DefaultSessionTTL, now: time.Now}
+	WithFailureLimits(DefaultMaxFailuresPerUser, DefaultMaxFailuresPerIP, DefaultFailureWindow)(s)
 	for _, o := range opts {
 		o(s)
 	}
 	return s
+}
+
+// clock reads s.now late, so WithClock applies whatever the option order.
+func (s *Service) clock() time.Time { return s.now() }
+
+// checkPassword verifies a username and password for any password-based
+// sign-in (login form, Basic auth), applying the failure limits. peer may be
+// invalid when unknown.
+func (s *Service) checkPassword(ctx context.Context, username, password string, peer netip.Addr) (store.User, error) {
+	userKey, ipKey := "user:"+username, "ip:"+peer.String()
+	if s.userFailures.blocked(userKey) || (peer.IsValid() && s.ipFailures.blocked(ipKey)) {
+		return store.User{}, ErrRateLimited
+	}
+	u, err := s.verifyPassword(ctx, username, password)
+	switch {
+	case errors.Is(err, ErrUnauthenticated):
+		s.userFailures.fail(userKey)
+		if peer.IsValid() {
+			s.ipFailures.fail(ipKey)
+		}
+	case err == nil:
+		s.userFailures.reset(userKey)
+	}
+	return u, err
 }
 
 // CountUsers returns how many users exist.
@@ -245,28 +284,38 @@ func (s *Service) Bootstrap(ctx context.Context, username, password string) (boo
 
 // --- sessions ---
 
-// Login checks credentials and starts a session. It returns the cookie value,
-// which is shown to the client once and stored only as a hash.
-func (s *Service) Login(ctx context.Context, username, password string) (store.User, string, store.Session, error) {
+// verifyPassword checks a username and password, spending the same time
+// whether or not the user exists so usernames cannot be probed.
+func (s *Service) verifyPassword(ctx context.Context, username, password string) (store.User, error) {
 	u, err := s.store.GetUserByUsername(ctx, username)
 	if errors.Is(err, store.ErrNotFound) {
-		// Spend the same time as a real check so usernames cannot be probed.
 		_, _ = CheckPassword(s.dummyHash(), password)
-		return store.User{}, "", store.Session{}, ErrUnauthenticated
+		return store.User{}, ErrUnauthenticated
 	}
 	if err != nil {
-		return store.User{}, "", store.Session{}, err
+		return store.User{}, err
 	}
 	if u.PasswordHash == "" { // external user: signs in through its provider
 		_, _ = CheckPassword(s.dummyHash(), password)
-		return store.User{}, "", store.Session{}, ErrUnauthenticated
+		return store.User{}, ErrUnauthenticated
 	}
 	ok, err := CheckPassword(u.PasswordHash, password)
 	if err != nil {
-		return store.User{}, "", store.Session{}, err
+		return store.User{}, err
 	}
 	if !ok {
-		return store.User{}, "", store.Session{}, ErrUnauthenticated
+		return store.User{}, ErrUnauthenticated
+	}
+	return u, nil
+}
+
+// Login checks credentials and starts a session. It returns the cookie value,
+// which is shown to the client once and stored only as a hash. peer is the
+// client address for rate limiting (invalid if unknown).
+func (s *Service) Login(ctx context.Context, username, password string, peer netip.Addr) (store.User, string, store.Session, error) {
+	u, err := s.checkPassword(ctx, username, password, peer)
+	if err != nil {
+		return store.User{}, "", store.Session{}, err
 	}
 
 	now := s.now()
