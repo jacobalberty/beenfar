@@ -98,7 +98,7 @@ func (p InformBuilder) Uncompress() (io.Reader, error) {
 		return snappy.NewReader(b), nil
 	}
 
-	return nil, fmt.Errorf("Unimplemented compression")
+	return nil, fmt.Errorf("unimplemented compression")
 }
 
 func (p InformBuilder) GetMac() string {

@@ -19,7 +19,7 @@ func TestWifiNetworkList(t *testing.T) {
 		h            *service.BeenFarService
 		bTmp         bytes.Buffer
 		response     *httptest.ResponseRecorder
-		wifiNetworks []interface{}
+		wifiNetworks []any
 	)
 
 	t.Parallel()
