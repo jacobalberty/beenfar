@@ -1,17 +1,21 @@
-FROM golang:1.25 as build
+FROM golang:1.27 AS build
 
 WORKDIR /go/src/app
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
 
-RUN go mod download
 RUN go vet -v ./...
 RUN go test -v ./...
 
-RUN mkdir -p /go/bin/app
+ARG VERSION=dev
+RUN mkdir -p /go/bin/app && \
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /go/bin/app/ ./cmd/...
 
-RUN CGO_ENABLED=0 go build -o /go/bin/app/ /go/src/app/cmd/*
-
-FROM gcr.io/distroless/static-debian11
+FROM gcr.io/distroless/static-debian12
 
 COPY --from=build /go/bin/app /
+ENV BEENFAR_DB=sqlite:///data/beenfar.db
+VOLUME /data
+EXPOSE 8080
 CMD ["/beenfard"]
