@@ -9,6 +9,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/golang/snappy v0.0.4
 	github.com/jacobalberty/beenfar/api v0.0.0
+	github.com/jacobalberty/go-unifi v0.1.0
 	github.com/pressly/goose/v3 v3.30.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
