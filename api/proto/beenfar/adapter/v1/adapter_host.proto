@@ -1,0 +1,225 @@
+syntax = "proto3";
+
+package beenfar.adapter.v1;
+
+// AdapterHostService is what the controller offers external device adapters:
+// the Host interface of the adapter SDK (api/adapter) over Connect, plus the
+// command stream through which the controller reaches the adapter.
+//
+// Adapters authenticate with a per-adapter token in the Authorization
+// header ("Authorization: Bearer <token>"). The token names the adapter, so
+// an adapter can only see and change the devices it reported itself.
+service AdapterHostService {
+  // Register announces the adapter and opens the command stream. The first
+  // message carries REGISTERED; after that the controller sends ADOPT and
+  // FORGET commands, which the adapter answers with CompleteCommand. The
+  // adapter is connected for as long as the stream is open. Registering a
+  // name that is already connected fails with ALREADY_EXISTS.
+  rpc Register(RegisterRequest) returns (stream RegisterResponse);
+
+  // CompleteCommand reports the outcome of a command from the stream.
+  rpc CompleteCommand(CompleteCommandRequest) returns (CompleteCommandResponse);
+
+  // LookupDevice finds a device by MAC address. It fails with NOT_FOUND for
+  // a device the adapter has not reported.
+  rpc LookupDevice(LookupDeviceRequest) returns (LookupDeviceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ReportDevice records that a device was seen. A new device becomes
+  // pending; a known one is refreshed.
+  rpc ReportDevice(ReportDeviceRequest) returns (ReportDeviceResponse);
+
+  // GetDesiredConfig returns the configuration the controller wants the
+  // device to run.
+  rpc GetDesiredConfig(GetDesiredConfigRequest) returns (GetDesiredConfigResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ReportState records what the device reported about itself.
+  rpc ReportState(ReportStateRequest) returns (ReportStateResponse);
+
+  // GetDeviceSecret returns an adapter-private secret of a device.
+  rpc GetDeviceSecret(GetDeviceSecretRequest) returns (GetDeviceSecretResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // SetDeviceSecret stores an adapter-private secret of a device. An empty
+  // secret removes it.
+  rpc SetDeviceSecret(SetDeviceSecretRequest) returns (SetDeviceSecretResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+}
+
+// DeviceState is the adoption state of a device.
+enum DeviceState {
+  DEVICE_STATE_UNSPECIFIED = 0;
+  DEVICE_STATE_PENDING = 1;
+  DEVICE_STATE_ADOPTED = 2;
+}
+
+// Device is a device as the controller knows it.
+message Device {
+  string id = 1;
+  // MAC address, lower-case and colon-separated.
+  string mac = 2;
+  DeviceState state = 3;
+  // Revision of the configuration last pushed to the device.
+  int64 config_revision = 4;
+}
+
+// Discovered is what an adapter reports when it sees a device.
+message Discovered {
+  string mac = 1;
+  string model = 2;
+  string ip = 3;
+  string firmware = 4;
+  // The adapter cannot talk to the device yet because it lacks the device's
+  // credentials.
+  bool locked = 5;
+}
+
+// State is what an adapter reports about a device it manages.
+message State {
+  string ip = 1;
+  string firmware = 2;
+  string model = 3;
+  // The configuration revision the device says it runs.
+  int64 config_revision = 4;
+  // Seconds the device has been up.
+  int64 uptime_seconds = 5;
+}
+
+// Network is a resolved network.
+message Network {
+  string id = 1;
+  string name = 2;
+  // 0 means untagged.
+  int32 vlan_id = 3;
+  string subnet = 4;
+  bool dhcp_enabled = 5;
+  string dhcp_start = 6;
+  string dhcp_stop = 7;
+  string domain_name = 8;
+}
+
+enum WifiSecurity {
+  WIFI_SECURITY_UNSPECIFIED = 0;
+  WIFI_SECURITY_OPEN = 1;
+  WIFI_SECURITY_WEP = 2;
+  WIFI_SECURITY_WPA_PERSONAL = 3;
+  WIFI_SECURITY_WPA_ENTERPRISE = 4;
+}
+
+enum WifiBand {
+  WIFI_BAND_UNSPECIFIED = 0;
+  WIFI_BAND_BOTH = 1;
+  WIFI_BAND_2G = 2;
+  WIFI_BAND_5G = 3;
+}
+
+// WifiNetwork is a resolved wifi network.
+message WifiNetwork {
+  string id = 1;
+  string ssid = 2;
+  WifiSecurity security = 3;
+  string security_key = 4;
+  WifiBand band = 5;
+  // The network the SSID's clients join; empty means the default one.
+  string network_id = 6;
+  bool guest = 7;
+  bool hidden = 8;
+}
+
+// DesiredConfig is the configuration for one device.
+message DesiredConfig {
+  // Changes whenever any network or wifi network changes.
+  int64 revision = 1;
+  repeated Network networks = 2;
+  repeated WifiNetwork wifi = 3;
+}
+
+message RegisterRequest {
+  // The adapter's version, shown in the adapter list.
+  string version = 1;
+}
+
+// RegisterResponse is one event on the command stream.
+message RegisterResponse {
+  // Identifies the command; the adapter passes it to CompleteCommand. Empty
+  // for REGISTERED.
+  string command_id = 1;
+  oneof event {
+    // The adapter is registered and connected.
+    Registered registered = 2;
+    // Take the device over.
+    Device adopt = 3;
+    // The device is no longer managed.
+    Device forget = 4;
+  }
+  // W3C trace context (traceparent, tracestate, baggage) of the request that
+  // caused the command. The stream's own headers can only carry the trace of
+  // Register, so each command brings its own; the adapter continues it while
+  // it carries the command out.
+  map<string, string> trace_context = 5;
+}
+
+message Registered {}
+
+message CompleteCommandRequest {
+  string command_id = 1;
+  // Empty on success; otherwise why the command failed.
+  string error = 2;
+}
+
+message CompleteCommandResponse {}
+
+message LookupDeviceRequest {
+  string mac = 1;
+}
+
+message LookupDeviceResponse {
+  Device device = 1;
+}
+
+message ReportDeviceRequest {
+  Discovered discovered = 1;
+}
+
+message ReportDeviceResponse {
+  Device device = 1;
+}
+
+message GetDesiredConfigRequest {
+  string device_id = 1;
+}
+
+message GetDesiredConfigResponse {
+  DesiredConfig config = 1;
+}
+
+message ReportStateRequest {
+  string device_id = 1;
+  State state = 2;
+}
+
+message ReportStateResponse {}
+
+message GetDeviceSecretRequest {
+  string device_id = 1;
+  string name = 2;
+}
+
+message GetDeviceSecretResponse {
+  // False when the device has no secret with that name.
+  bool found = 1;
+  bytes secret = 2;
+}
+
+message SetDeviceSecretRequest {
+  string device_id = 1;
+  string name = 2;
+  bytes secret = 3;
+}
+
+message SetDeviceSecretResponse {}

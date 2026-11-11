@@ -19,6 +19,9 @@ plugins:
   - local: protoc-gen-connect-openapi
     out: gen/openapi
     strategy: all
+    # The adapter API is not part of the public REST surface.
+    exclude_types:
+      - beenfar.adapter.v1
     opt:
       - path=beenfar.openapi.json
       - format=json
