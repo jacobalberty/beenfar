@@ -118,11 +118,69 @@ To regenerate code after editing the protos, SQL queries or converters:
 go generate ./...                                       # sqlc, goverter
 ```
 
+## Device adapters
+
+Adapters speak a vendor's device protocol. The UniFi adapter is built in;
+others run as separate processes and connect to the controller.
+
+### UniFi
+
+Point devices at `http://<controller>:8080/inform` (DNS or `set-inform`). An
+unknown device is recorded as pending (and answered 404, so it keeps
+trying); adopt it through the API (`AdoptDevice`) or Terraform. Adoption gives
+the device a private key, which is stored in the database and kept across
+restarts; a device that loses the reply keeps working, because its old key is
+accepted until it has switched.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
+| `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
+| `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |
+
+**Reset devices.** An adopted device that comes back speaking the default key
+was factory reset. It stays the same adopted device and the API reports it
+with `readoption: AWAITING_ACCEPTANCE`, so a UI can show "needs re-adoption"
+rather than a new device; it is not listed among pending devices. Nothing is
+sent to it until you accept, with the same `AdoptDevice` call used for new
+devices (`readoption` is then `IN_PROGRESS` until the device runs on its new
+key). It is never re-keyed automatically: the default key is public, so the
+reply would be readable by anyone on the network, and anyone can send an
+inform with it for any MAC. Only a device that has been silent for
+`BEENFAR_UNIFI_READOPT_AFTER` is considered, so a live device is not flagged by
+a spoofed inform. With that set to `0` a reset device stays locked, and has to
+be forgotten and adopted again.
+
+**Known limitation.** Adopted devices are re-keyed and tracked by config
+revision, but are not yet sent wifi or VLAN settings: the `system_cfg` key
+names have not been verified against real devices, so that part
+(`renderSystemConfig` in `adapters/unifi/systemcfg.go`) renders nothing.
+
+**Taking over devices from another controller.** Extract each device's
+credentials with an outside tool (the `x_authkey` in the old controller's
+MongoDB, or `mgmt.authkey` in the device's `/var/etc/persisted/cfg/mgmt`),
+write them as `[{"mac": "...", "authkey": "32 hex digits", "gcm": false}]` and
+run `beenfard admin import-unifi -file keys.json` (or call
+`AdapterService.ImportUnifiDeviceKeys` as an admin). Once the device is
+pointed at beenfar it appears as pending with its real model; adopting it
+re-keys it. Keys are never returned by any API. A device that no key opens is
+listed with `locked: true`. Setting a device's inform URL over SSH is left to
+outside tools.
+
+### External adapters
+
+An external adapter uses the SDK in `github.com/jacobalberty/beenfar/api/adapter`:
+implement `adapter.Adapter` and call `adapter.RunRemote(ctx, url, token, impl)`.
+It registers with the controller, receives adopt and forget commands over a
+stream, and reports devices and reads configuration through a Connect-backed
+`Host`. Traces started at the API continue inside the adapter. Create a token
+for it with `beenfard admin adapter-token create -adapter NAME` (also `list`
+and `revoke`); the token lets its holder act as that adapter only.
+
 ## Todo
-* Device adapters: UniFi provisioning and external adapters
 * Terraform provider
 * Per device command queues
-* Translate internal configuration data to per device data
+* Translate internal configuration data to per device data (UniFi wifi and VLAN settings)
 * [Frontend](https://github.com/jacobalberty/LookMoreLike)
 
 ## Supported device types

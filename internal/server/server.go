@@ -20,6 +20,7 @@ import (
 	"connectrpc.com/vanguard"
 
 	"github.com/jacobalberty/beenfar/api"
+	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/adapter/v1/adapterv1connect"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1/configv1connect"
 	"github.com/jacobalberty/beenfar/internal/auth"
@@ -43,6 +44,13 @@ type Options struct {
 	// GetAuthConfig, Login and Logout, and mounts the OIDC routes.
 	AuthMethods AuthMethods
 	Core        *core.Services
+	// AdapterHost serves the adapter API to external adapters. Nil leaves the
+	// API unregistered.
+	AdapterHost adapterv1connect.AdapterHostServiceHandler
+	// AdapterHTTP are the device-facing routes of built-in adapters (such as
+	// UniFi's POST /inform), keyed by ServeMux pattern. They authenticate
+	// the devices themselves, so they sit outside the API's auth.
+	AdapterHTTP map[string]http.Handler
 }
 
 // AuthMethods are the sign-in methods beyond API tokens and password login.
@@ -75,14 +83,17 @@ func New(opts Options) (http.Handler, error) {
 
 	// Outermost first: telemetry sees the final status code, errors are mapped
 	// before that, and auth runs before any payload is decoded.
-	rpc := connect.NewServer(otelInterceptor, errorInterceptor, recoverInterceptor, authInterceptor(authn))
+	rpc := connect.NewServer(otelInterceptor, errorInterceptor, recoverInterceptor, authInterceptor(authn, opts.Auth))
 	configv1connect.RegisterWifiNetworkServiceHandler(rpc, &wifiHandler{svc: opts.Core.Wifi})
 	configv1connect.RegisterNetworkServiceHandler(rpc, &networkHandler{svc: opts.Core.Networks})
 	configv1connect.RegisterDeviceServiceHandler(rpc, &deviceHandler{svc: opts.Core.Devices})
 	adminv1connect.RegisterApiTokenServiceHandler(rpc, &apiTokenHandler{auth: opts.Auth})
 	adminv1connect.RegisterUserServiceHandler(rpc, &userHandler{auth: opts.Auth, store: opts.Store})
 	adminv1connect.RegisterAuthServiceHandler(rpc, &authHandler{auth: opts.Auth, methods: opts.AuthMethods})
-	adminv1connect.RegisterAdapterServiceHandler(rpc, &adapterHandler{registry: opts.Core.Adapters})
+	adminv1connect.RegisterAdapterServiceHandler(rpc, &adapterHandler{registry: opts.Core.Adapters, store: opts.Store})
+	if opts.AdapterHost != nil {
+		adapterv1connect.RegisterAdapterHostServiceHandler(rpc, opts.AdapterHost)
+	}
 
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, rpc, connecthttp.WithReadMaxBytes(maxMessageBytes))
@@ -112,9 +123,9 @@ func New(opts Options) (http.Handler, error) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 
-	// TODO(phase 4): the UniFi inform endpoint moves into adapters/unifi and
-	// is mounted through the adapter interface.
-	mux.Handle("POST /inform", &informHandler{store: opts.Store})
+	for pattern, h := range opts.AdapterHTTP {
+		mux.Handle(pattern, h)
+	}
 
 	// withRequestInfo goes outside the telemetry middleware, which reads the
 	// matched route from the request it hands to the mux.

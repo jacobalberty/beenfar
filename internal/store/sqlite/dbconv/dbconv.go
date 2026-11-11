@@ -24,7 +24,7 @@ import (
 // goverter:output:format function
 // goverter:matchIgnoreCase
 // goverter:extend FromMilli Int
-// goverter:extend DeviceState WifiSecurity WifiBand UserSource
+// goverter:extend DeviceState Readoption WifiSecurity WifiBand UserSource
 type Converter interface {
 	Device(db.Device) store.Device
 	Devices([]db.Device) []store.Device
@@ -43,6 +43,9 @@ type Converter interface {
 	// goverter:map LastUsedTime LastUsedTime | FromOptMilli
 	APIToken(db.ApiToken) store.APIToken
 	APITokens([]db.ApiToken) []store.APIToken
+
+	// goverter:map LastUsedTime LastUsedTime | FromOptMilli
+	AdapterToken(db.AdapterToken) store.AdapterToken
 
 	Session(db.Session) store.Session
 }
@@ -64,6 +67,7 @@ func Int(v int64) int { return int(v) }
 // The enum columns are constrained by CHECKs to the domain values.
 
 func DeviceState(s string) store.DeviceState   { return store.DeviceState(s) }
+func Readoption(s string) store.Readoption     { return store.Readoption(s) }
 func WifiSecurity(s string) store.WifiSecurity { return store.WifiSecurity(s) }
 func WifiBand(s string) store.WifiBand         { return store.WifiBand(s) }
 func UserSource(s string) store.UserSource     { return store.UserSource(s) }

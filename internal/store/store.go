@@ -37,6 +37,7 @@ type Store interface {
 	NetworkStore
 	UserStore
 	APITokenStore
+	AdapterTokenStore
 	SessionStore
 
 	// WithTx runs fn inside a transaction. The Store passed to fn is bound to
@@ -60,6 +61,21 @@ const (
 	DeviceStateAdopted DeviceState = "adopted"
 )
 
+// Readoption says where an adopted device that came back without its key (it
+// was factory reset) stands. It stays the same adopted device throughout.
+type Readoption string
+
+const (
+	// ReadoptionNone: nothing to do.
+	ReadoptionNone Readoption = ""
+	// ReadoptionAwaiting: the device was reset and nobody has accepted
+	// re-adopting it yet. Its adapter sends it nothing until then.
+	ReadoptionAwaiting Readoption = "awaiting"
+	// ReadoptionInProgress: re-adoption was accepted and the device is
+	// being given a new key.
+	ReadoptionInProgress Readoption = "in_progress"
+)
+
 // Device is a piece of network gear known to the controller.
 type Device struct {
 	ID       string
@@ -71,9 +87,14 @@ type Device struct {
 	Firmware string
 	// ConfigRevision is the revision of the configuration last pushed to the device.
 	ConfigRevision int64
-	LastSeen       time.Time
-	CreateTime     time.Time
-	UpdateTime     time.Time
+	// Locked means the adapter has seen the device but holds no credentials
+	// for it, so it cannot manage it yet.
+	Locked bool
+	// Readoption is set while an adopted device is being adopted again.
+	Readoption Readoption
+	LastSeen   time.Time
+	CreateTime time.Time
+	UpdateTime time.Time
 }
 
 // DiscoveredDevice is what an adapter reports when it sees a device.
@@ -83,6 +104,17 @@ type DiscoveredDevice struct {
 	Model    string
 	IP       string
 	Firmware string
+	Locked   bool
+}
+
+// DeviceReport is what an adapter learned from a device it manages. Blank
+// strings keep the values already known.
+type DeviceReport struct {
+	Model          string
+	IP             string
+	Firmware       string
+	ConfigRevision int64
+	Readoption     Readoption
 }
 
 // DeviceFilter narrows ListDevices. Zero values match everything.
@@ -98,11 +130,25 @@ type DeviceStore interface {
 	GetDevice(ctx context.Context, id string) (Device, error)
 	GetDeviceByMAC(ctx context.Context, mac string) (Device, error)
 	ListDevices(ctx context.Context, f DeviceFilter) ([]Device, error)
-	// AdoptDevice moves a pending device to adopted. It returns
+	// AdoptDevice moves a pending device to adopted, or accepts the
+	// re-adoption of an adopted device whose readoption is awaiting (it
+	// becomes in progress). It returns
 	// ErrFailedPrecondition if the device is already adopted.
 	AdoptDevice(ctx context.Context, id string) (Device, error)
-	// DeleteDevice forgets a device in any state.
+	// DeleteDevice forgets a device in any state, along with its secrets.
 	DeleteDevice(ctx context.Context, id string) error
+	// RecordDeviceState stores what the device reported about itself and
+	// marks it seen and unlocked.
+	RecordDeviceState(ctx context.Context, id string, r DeviceReport) (Device, error)
+	// GetDeviceSecret returns an adapter secret of the device, or
+	// ErrNotFound.
+	GetDeviceSecret(ctx context.Context, deviceID, name string) ([]byte, error)
+	// SetDeviceSecret stores a non-empty secret, replacing any with the
+	// same name. It returns ErrNotFound for an unknown device.
+	SetDeviceSecret(ctx context.Context, deviceID, name string, secret []byte) error
+	// DeleteDeviceSecret removes a secret. Removing one that does not exist
+	// is not an error.
+	DeleteDeviceSecret(ctx context.Context, deviceID, name string) error
 }
 
 type WifiSecurity string
@@ -256,6 +302,26 @@ type APITokenStore interface {
 	ListAPITokens(ctx context.Context, userID string) ([]APIToken, error)
 	TouchAPIToken(ctx context.Context, id string, at time.Time) error
 	DeleteAPIToken(ctx context.Context, id string) error
+}
+
+// AdapterToken is a credential of an external adapter. Only a hash of the
+// secret is stored.
+type AdapterToken struct {
+	ID           string
+	Adapter      string // the adapter the token may act as
+	Prefix       string // unique, used to find the token
+	SecretHash   string
+	LastUsedTime time.Time // zero means never used
+	CreateTime   time.Time
+}
+
+type AdapterTokenStore interface {
+	// CreateAdapterToken assigns ID and CreateTime.
+	CreateAdapterToken(ctx context.Context, t AdapterToken) (AdapterToken, error)
+	GetAdapterTokenByPrefix(ctx context.Context, prefix string) (AdapterToken, error)
+	ListAdapterTokens(ctx context.Context) ([]AdapterToken, error)
+	TouchAdapterToken(ctx context.Context, id string, at time.Time) error
+	DeleteAdapterToken(ctx context.Context, id string) error
 }
 
 // Session is a signed-in browser session. Only a hash of the cookie is stored.

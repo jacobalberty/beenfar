@@ -13,6 +13,18 @@ service AdapterService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (google.api.http) = {get: "/api/v1/adapters"};
   }
+
+  // ImportUnifiDeviceKeys stores the credentials of UniFi devices that
+  // another controller manages, so that this controller can read their
+  // informs once they are pointed at it. The devices are recorded as pending
+  // (with their real model once they have informed) and are adopted, which
+  // re-keys them, like any other. The keys are never returned by any API.
+  rpc ImportUnifiDeviceKeys(ImportUnifiDeviceKeysRequest) returns (ImportUnifiDeviceKeysResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/adapters/unifi:import-device-keys"
+      body: "*"
+    };
+  }
 }
 
 // AdapterKind says where an adapter runs.
@@ -42,4 +54,29 @@ message ListAdaptersRequest {}
 
 message ListAdaptersResponse {
   repeated Adapter adapters = 1;
+}
+
+// UnifiDeviceKey is the credential of one UniFi device, as extracted from the
+// controller that manages it (its MongoDB "x_authkey", or "mgmt.authkey" in
+// the device's /var/etc/persisted/cfg/mgmt).
+message UnifiDeviceKey {
+  // MAC address, in any common notation.
+  string mac = 1 [(google.api.field_behavior) = REQUIRED];
+  // The device's AES key: 32 hex digits.
+  string authkey = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+  // Whether the device uses AES-GCM. Informational: each inform says how it
+  // is encrypted, and the reply uses the same.
+  bool gcm = 3;
+}
+
+message ImportUnifiDeviceKeysRequest {
+  repeated UnifiDeviceKey devices = 1;
+}
+
+message ImportUnifiDeviceKeysResponse {
+  // How many devices' keys were stored.
+  int32 imported = 1;
 }

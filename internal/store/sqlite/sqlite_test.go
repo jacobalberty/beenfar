@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jacobalberty/beenfar/internal/store"
 	"github.com/jacobalberty/beenfar/internal/store/sqlite"
@@ -238,5 +239,136 @@ func TestConcurrentReports(t *testing.T) {
 	list, _ := s.ListDevices(ctx, store.DeviceFilter{})
 	if len(list) != 1 {
 		t.Fatalf("got %d devices, want 1", len(list))
+	}
+}
+
+func TestDeviceLockedAndState(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi", Locked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.Locked {
+		t.Fatalf("device not locked: %+v", d)
+	}
+	// Reporting it again unlocked clears the flag.
+	d, err = s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi", Model: "U6-Lite"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Locked || d.Model != "U6-Lite" {
+		t.Fatalf("unexpected device %+v", d)
+	}
+
+	got, err := s.RecordDeviceState(ctx, d.ID, store.DeviceReport{IP: "10.0.0.9", ConfigRevision: 42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.IP != "10.0.0.9" || got.ConfigRevision != 42 || got.Model != "U6-Lite" {
+		t.Fatalf("unexpected state %+v", got)
+	}
+	_, err = s.RecordDeviceState(ctx, "nope", store.DeviceReport{})
+	wantErr(t, err, store.ErrNotFound)
+}
+
+func TestDeviceSecrets(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:20", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetDeviceSecret(ctx, d.ID, "current")
+	wantErr(t, err, store.ErrNotFound)
+
+	if err := s.SetDeviceSecret(ctx, d.ID, "current", []byte("one")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetDeviceSecret(ctx, d.ID, "current", []byte("two")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetDeviceSecret(ctx, d.ID, "current")
+	if err != nil || string(got) != "two" {
+		t.Fatalf("got %q, %v; want two", got, err)
+	}
+
+	wantErr(t, s.SetDeviceSecret(ctx, "nope", "current", []byte("x")), store.ErrNotFound)
+	wantErr(t, s.SetDeviceSecret(ctx, d.ID, "current", nil), store.ErrInvalid)
+
+	if err := s.DeleteDeviceSecret(ctx, d.ID, "current"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteDeviceSecret(ctx, d.ID, "current"); err != nil {
+		t.Fatalf("deleting a missing secret: %v", err)
+	}
+
+	// Forgetting the device removes its secrets.
+	if err := s.SetDeviceSecret(ctx, d.ID, "pending", []byte("p")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetDeviceSecret(ctx, d.ID, "pending")
+	wantErr(t, err, store.ErrNotFound)
+}
+
+func TestReadoption(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:40", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdoptDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	// An adopted device is not adopted again unless it is awaiting that.
+	_, err = s.AdoptDevice(ctx, d.ID)
+	wantErr(t, err, store.ErrFailedPrecondition)
+
+	got, err := s.RecordDeviceState(ctx, d.ID, store.DeviceReport{Readoption: store.ReadoptionAwaiting})
+	if err != nil || got.Readoption != store.ReadoptionAwaiting || got.State != store.DeviceStateAdopted {
+		t.Fatalf("awaiting = %+v, %v", got, err)
+	}
+	// Accepting moves it on and leaves it adopted.
+	got, err = s.AdoptDevice(ctx, d.ID)
+	if err != nil || got.Readoption != store.ReadoptionInProgress || got.State != store.DeviceStateAdopted {
+		t.Fatalf("accepted = %+v, %v", got, err)
+	}
+	// Accepting twice is refused: it is in progress, not awaiting.
+	_, err = s.AdoptDevice(ctx, d.ID)
+	wantErr(t, err, store.ErrFailedPrecondition)
+
+	got, err = s.RecordDeviceState(ctx, d.ID, store.DeviceReport{})
+	if err != nil || got.Readoption != store.ReadoptionNone {
+		t.Fatalf("readoption did not clear: %+v, %v", got, err)
+	}
+}
+
+func TestLockedReportsDoNotCountAsContact(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:41", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := d.LastSeen
+	time.Sleep(5 * time.Millisecond)
+	// A locked report is unauthenticated: it flags the device but does not
+	// count as hearing from it.
+	locked, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:41", Adapter: "unifi", Locked: true})
+	if err != nil || !locked.Locked || !locked.LastSeen.Equal(seen) {
+		t.Fatalf("locked report: %+v (last seen was %v), %v", locked, seen, err)
+	}
+	time.Sleep(5 * time.Millisecond)
+	again, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:41", Adapter: "unifi"})
+	if err != nil || !again.LastSeen.After(seen) || again.Locked {
+		t.Fatalf("ordinary report: %+v, %v", again, err)
 	}
 }

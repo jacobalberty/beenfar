@@ -37,3 +37,20 @@ DELETE FROM sessions WHERE user_id = ?;
 
 -- name: DeleteExpiredSessions :execrows
 DELETE FROM sessions WHERE expire_time <= sqlc.arg(now);
+
+-- name: CreateAdapterToken :one
+INSERT INTO adapter_tokens (id, adapter, prefix, secret_hash, create_time)
+VALUES (sqlc.arg(id), sqlc.arg(adapter), sqlc.arg(prefix), sqlc.arg(secret_hash), sqlc.arg(now))
+RETURNING *;
+
+-- name: GetAdapterTokenByPrefix :one
+SELECT * FROM adapter_tokens WHERE prefix = ?;
+
+-- name: ListAdapterTokens :many
+SELECT * FROM adapter_tokens ORDER BY adapter, create_time, id;
+
+-- name: TouchAdapterToken :exec
+UPDATE adapter_tokens SET last_used_time = sqlc.arg(now) WHERE id = sqlc.arg(id);
+
+-- name: DeleteAdapterToken :execrows
+DELETE FROM adapter_tokens WHERE id = ?;

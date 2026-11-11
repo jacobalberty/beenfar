@@ -129,6 +129,22 @@ func (s *Store) DeleteDevice(ctx context.Context, id string) error {
 	return run0(ctx, s, "DeleteDevice", func(ctx context.Context) error { return s.next.DeleteDevice(ctx, id) })
 }
 
+func (s *Store) RecordDeviceState(ctx context.Context, id string, r store.DeviceReport) (store.Device, error) {
+	return run(ctx, s, "RecordDeviceState", func(ctx context.Context) (store.Device, error) { return s.next.RecordDeviceState(ctx, id, r) })
+}
+
+func (s *Store) GetDeviceSecret(ctx context.Context, deviceID, name string) ([]byte, error) {
+	return run(ctx, s, "GetDeviceSecret", func(ctx context.Context) ([]byte, error) { return s.next.GetDeviceSecret(ctx, deviceID, name) })
+}
+
+func (s *Store) SetDeviceSecret(ctx context.Context, deviceID, name string, secret []byte) error {
+	return run0(ctx, s, "SetDeviceSecret", func(ctx context.Context) error { return s.next.SetDeviceSecret(ctx, deviceID, name, secret) })
+}
+
+func (s *Store) DeleteDeviceSecret(ctx context.Context, deviceID, name string) error {
+	return run0(ctx, s, "DeleteDeviceSecret", func(ctx context.Context) error { return s.next.DeleteDeviceSecret(ctx, deviceID, name) })
+}
+
 func (s *Store) CreateWifiNetwork(ctx context.Context, w store.WifiNetwork) (store.WifiNetwork, error) {
 	return run(ctx, s, "CreateWifiNetwork", func(ctx context.Context) (store.WifiNetwork, error) { return s.next.CreateWifiNetwork(ctx, w) })
 }

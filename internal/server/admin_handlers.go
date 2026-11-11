@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"connectrpc.com/connect/v2"
 
+	"github.com/jacobalberty/beenfar/adapters/unifi"
 	adminv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
+	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/apiconv"
 	apiconvgen "github.com/jacobalberty/beenfar/internal/apiconv/gen"
 	"github.com/jacobalberty/beenfar/internal/auth"
@@ -270,6 +273,20 @@ func setCookie(ctx context.Context, value string, expires time.Time) {
 type adapterHandler struct {
 	adminv1connect.UnimplementedAdapterServiceHandler
 	registry core.AdapterRegistry
+	store    store.Store
+}
+
+func (h *adapterHandler) ImportUnifiDeviceKeys(ctx context.Context, req *adminv1.ImportUnifiDeviceKeysRequest) (*adminv1.ImportUnifiDeviceKeysResponse, error) {
+	in := make([]unifi.KeyImport, 0, len(req.GetDevices()))
+	for _, d := range req.GetDevices() {
+		in = append(in, unifi.KeyImport{MAC: d.GetMac(), AuthKey: d.GetAuthkey(), GCM: d.GetGcm()})
+	}
+	n, err := unifi.ImportKeys(ctx, adapterhost.NewHost(unifi.Name, h.store), in)
+	if err != nil {
+		return nil, err
+	}
+	slog.InfoContext(ctx, "imported UniFi device keys", slog.Int("devices", n))
+	return &adminv1.ImportUnifiDeviceKeysResponse{Imported: int32(n)}, nil
 }
 
 func (h *adapterHandler) ListAdapters(ctx context.Context, _ *adminv1.ListAdaptersRequest) (*adminv1.ListAdaptersResponse, error) {

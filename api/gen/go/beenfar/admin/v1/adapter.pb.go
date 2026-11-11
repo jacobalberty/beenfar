@@ -244,6 +244,162 @@ func (x *ListAdaptersResponse) GetAdapters() []*Adapter {
 	return nil
 }
 
+// UnifiDeviceKey is the credential of one UniFi device, as extracted from the
+// controller that manages it (its MongoDB "x_authkey", or "mgmt.authkey" in
+// the device's /var/etc/persisted/cfg/mgmt).
+type UnifiDeviceKey struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// MAC address, in any common notation.
+	Mac string `protobuf:"bytes,1,opt,name=mac,proto3" json:"mac,omitempty"`
+	// The device's AES key: 32 hex digits.
+	Authkey string `protobuf:"bytes,2,opt,name=authkey,proto3" json:"authkey,omitempty"`
+	// Whether the device uses AES-GCM. Informational: each inform says how it
+	// is encrypted, and the reply uses the same.
+	Gcm           bool `protobuf:"varint,3,opt,name=gcm,proto3" json:"gcm,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnifiDeviceKey) Reset() {
+	*x = UnifiDeviceKey{}
+	mi := &file_beenfar_admin_v1_adapter_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnifiDeviceKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnifiDeviceKey) ProtoMessage() {}
+
+func (x *UnifiDeviceKey) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_adapter_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnifiDeviceKey.ProtoReflect.Descriptor instead.
+func (*UnifiDeviceKey) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_adapter_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UnifiDeviceKey) GetMac() string {
+	if x != nil {
+		return x.Mac
+	}
+	return ""
+}
+
+func (x *UnifiDeviceKey) GetAuthkey() string {
+	if x != nil {
+		return x.Authkey
+	}
+	return ""
+}
+
+func (x *UnifiDeviceKey) GetGcm() bool {
+	if x != nil {
+		return x.Gcm
+	}
+	return false
+}
+
+type ImportUnifiDeviceKeysRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Devices       []*UnifiDeviceKey      `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportUnifiDeviceKeysRequest) Reset() {
+	*x = ImportUnifiDeviceKeysRequest{}
+	mi := &file_beenfar_admin_v1_adapter_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportUnifiDeviceKeysRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportUnifiDeviceKeysRequest) ProtoMessage() {}
+
+func (x *ImportUnifiDeviceKeysRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_adapter_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportUnifiDeviceKeysRequest.ProtoReflect.Descriptor instead.
+func (*ImportUnifiDeviceKeysRequest) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_adapter_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ImportUnifiDeviceKeysRequest) GetDevices() []*UnifiDeviceKey {
+	if x != nil {
+		return x.Devices
+	}
+	return nil
+}
+
+type ImportUnifiDeviceKeysResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many devices' keys were stored.
+	Imported      int32 `protobuf:"varint,1,opt,name=imported,proto3" json:"imported,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportUnifiDeviceKeysResponse) Reset() {
+	*x = ImportUnifiDeviceKeysResponse{}
+	mi := &file_beenfar_admin_v1_adapter_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportUnifiDeviceKeysResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportUnifiDeviceKeysResponse) ProtoMessage() {}
+
+func (x *ImportUnifiDeviceKeysResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_admin_v1_adapter_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportUnifiDeviceKeysResponse.ProtoReflect.Descriptor instead.
+func (*ImportUnifiDeviceKeysResponse) Descriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_adapter_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ImportUnifiDeviceKeysResponse) GetImported() int32 {
+	if x != nil {
+		return x.Imported
+	}
+	return 0
+}
+
 var File_beenfar_admin_v1_adapter_proto protoreflect.FileDescriptor
 
 const file_beenfar_admin_v1_adapter_proto_rawDesc = "" +
@@ -258,13 +414,22 @@ const file_beenfar_admin_v1_adapter_proto_rawDesc = "" +
 	"\fconnect_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\vconnectTime\"\x15\n" +
 	"\x13ListAdaptersRequest\"M\n" +
 	"\x14ListAdaptersResponse\x125\n" +
-	"\badapters\x18\x01 \x03(\v2\x19.beenfar.admin.v1.AdapterR\badapters*`\n" +
+	"\badapters\x18\x01 \x03(\v2\x19.beenfar.admin.v1.AdapterR\badapters\"[\n" +
+	"\x0eUnifiDeviceKey\x12\x16\n" +
+	"\x03mac\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x03mac\x12\x1f\n" +
+	"\aauthkey\x18\x02 \x01(\tB\x05\xe2A\x02\x02\x04R\aauthkey\x12\x10\n" +
+	"\x03gcm\x18\x03 \x01(\bR\x03gcm\"Z\n" +
+	"\x1cImportUnifiDeviceKeysRequest\x12:\n" +
+	"\adevices\x18\x01 \x03(\v2 .beenfar.admin.v1.UnifiDeviceKeyR\adevices\";\n" +
+	"\x1dImportUnifiDeviceKeysResponse\x12\x1a\n" +
+	"\bimported\x18\x01 \x01(\x05R\bimported*`\n" +
 	"\vAdapterKind\x12\x1c\n" +
 	"\x18ADAPTER_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14ADAPTER_KIND_BUILTIN\x10\x01\x12\x19\n" +
-	"\x15ADAPTER_KIND_EXTERNAL\x10\x022\x8c\x01\n" +
+	"\x15ADAPTER_KIND_EXTERNAL\x10\x022\xbd\x02\n" +
 	"\x0eAdapterService\x12z\n" +
-	"\fListAdapters\x12%.beenfar.admin.v1.ListAdaptersRequest\x1a&.beenfar.admin.v1.ListAdaptersResponse\"\x1b\x82\xd3\xe4\x93\x02\x12\x12\x10/api/v1/adapters\x90\x02\x01B\xcb\x01\n" +
+	"\fListAdapters\x12%.beenfar.admin.v1.ListAdaptersRequest\x1a&.beenfar.admin.v1.ListAdaptersResponse\"\x1b\x82\xd3\xe4\x93\x02\x12\x12\x10/api/v1/adapters\x90\x02\x01\x12\xae\x01\n" +
+	"\x15ImportUnifiDeviceKeys\x12..beenfar.admin.v1.ImportUnifiDeviceKeysRequest\x1a/.beenfar.admin.v1.ImportUnifiDeviceKeysResponse\"4\x82\xd3\xe4\x93\x02.:\x01*\")/api/v1/adapters/unifi:import-device-keysB\xcb\x01\n" +
 	"\x14com.beenfar.admin.v1B\fAdapterProtoP\x01ZCgithub.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1;adminv1\xa2\x02\x03BAX\xaa\x02\x10Beenfar.Admin.V1\xca\x02\x10Beenfar\\Admin\\V1\xe2\x02\x1cBeenfar\\Admin\\V1\\GPBMetadata\xea\x02\x12Beenfar::Admin::V1b\x06proto3"
 
 var (
@@ -280,25 +445,31 @@ func file_beenfar_admin_v1_adapter_proto_rawDescGZIP() []byte {
 }
 
 var file_beenfar_admin_v1_adapter_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_beenfar_admin_v1_adapter_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_beenfar_admin_v1_adapter_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_beenfar_admin_v1_adapter_proto_goTypes = []any{
-	(AdapterKind)(0),              // 0: beenfar.admin.v1.AdapterKind
-	(*Adapter)(nil),               // 1: beenfar.admin.v1.Adapter
-	(*ListAdaptersRequest)(nil),   // 2: beenfar.admin.v1.ListAdaptersRequest
-	(*ListAdaptersResponse)(nil),  // 3: beenfar.admin.v1.ListAdaptersResponse
-	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(AdapterKind)(0),                      // 0: beenfar.admin.v1.AdapterKind
+	(*Adapter)(nil),                       // 1: beenfar.admin.v1.Adapter
+	(*ListAdaptersRequest)(nil),           // 2: beenfar.admin.v1.ListAdaptersRequest
+	(*ListAdaptersResponse)(nil),          // 3: beenfar.admin.v1.ListAdaptersResponse
+	(*UnifiDeviceKey)(nil),                // 4: beenfar.admin.v1.UnifiDeviceKey
+	(*ImportUnifiDeviceKeysRequest)(nil),  // 5: beenfar.admin.v1.ImportUnifiDeviceKeysRequest
+	(*ImportUnifiDeviceKeysResponse)(nil), // 6: beenfar.admin.v1.ImportUnifiDeviceKeysResponse
+	(*timestamppb.Timestamp)(nil),         // 7: google.protobuf.Timestamp
 }
 var file_beenfar_admin_v1_adapter_proto_depIdxs = []int32{
 	0, // 0: beenfar.admin.v1.Adapter.kind:type_name -> beenfar.admin.v1.AdapterKind
-	4, // 1: beenfar.admin.v1.Adapter.connect_time:type_name -> google.protobuf.Timestamp
+	7, // 1: beenfar.admin.v1.Adapter.connect_time:type_name -> google.protobuf.Timestamp
 	1, // 2: beenfar.admin.v1.ListAdaptersResponse.adapters:type_name -> beenfar.admin.v1.Adapter
-	2, // 3: beenfar.admin.v1.AdapterService.ListAdapters:input_type -> beenfar.admin.v1.ListAdaptersRequest
-	3, // 4: beenfar.admin.v1.AdapterService.ListAdapters:output_type -> beenfar.admin.v1.ListAdaptersResponse
-	4, // [4:5] is the sub-list for method output_type
-	3, // [3:4] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 3: beenfar.admin.v1.ImportUnifiDeviceKeysRequest.devices:type_name -> beenfar.admin.v1.UnifiDeviceKey
+	2, // 4: beenfar.admin.v1.AdapterService.ListAdapters:input_type -> beenfar.admin.v1.ListAdaptersRequest
+	5, // 5: beenfar.admin.v1.AdapterService.ImportUnifiDeviceKeys:input_type -> beenfar.admin.v1.ImportUnifiDeviceKeysRequest
+	3, // 6: beenfar.admin.v1.AdapterService.ListAdapters:output_type -> beenfar.admin.v1.ListAdaptersResponse
+	6, // 7: beenfar.admin.v1.AdapterService.ImportUnifiDeviceKeys:output_type -> beenfar.admin.v1.ImportUnifiDeviceKeysResponse
+	6, // [6:8] is the sub-list for method output_type
+	4, // [4:6] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_admin_v1_adapter_proto_init() }
@@ -312,7 +483,7 @@ func file_beenfar_admin_v1_adapter_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beenfar_admin_v1_adapter_proto_rawDesc), len(file_beenfar_admin_v1_adapter_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
+	"github.com/jacobalberty/beenfar/api/adapter"
 	adminv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	configv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1"
@@ -43,7 +44,12 @@ type apiFixture struct {
 
 func newAPIFixture(t *testing.T, fopts ...fixtureOption) apiFixture {
 	t.Helper()
-	f := newFixture(t, fopts...)
+	return newAPIFixtureWith(t, []adapter.Adapter{stubAdapter{}}, fopts...)
+}
+
+func newAPIFixtureWith(t *testing.T, adapters []adapter.Adapter, fopts ...fixtureOption) apiFixture {
+	t.Helper()
+	f := newFixtureWith(t, adapters, fopts...)
 	srv := httptest.NewServer(f.handler)
 	t.Cleanup(srv.Close)
 	u, err := f.auth.CreateUser(t.Context(), "admin", "correct horse", true)
@@ -522,8 +528,12 @@ func TestUserAndTokenPermissions(t *testing.T) {
 func TestListAdapters(t *testing.T) {
 	f := newAPIFixture(t)
 	res, err := adminv1connect.NewAdapterServiceClient(f.client(f.adminToken)).ListAdapters(t.Context(), &adminv1.ListAdaptersRequest{})
-	if err != nil || len(res.GetAdapters()) != 0 {
+	if err != nil || len(res.GetAdapters()) != 1 {
 		t.Fatalf("adapters = %v, %v", res, err)
+	}
+	a := res.GetAdapters()[0]
+	if a.GetName() != "unifi" || a.GetKind() != adminv1.AdapterKind_ADAPTER_KIND_BUILTIN || !a.GetHealthy() || a.GetConnectTime() == nil {
+		t.Fatalf("adapter = %v", a)
 	}
 }
 

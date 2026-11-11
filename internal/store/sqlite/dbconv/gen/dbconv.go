@@ -31,6 +31,16 @@ func APITokens(source []db.ApiToken) []store.APIToken {
 	}
 	return storeAPITokenList
 }
+func AdapterToken(source db.AdapterToken) store.AdapterToken {
+	var storeAdapterToken store.AdapterToken
+	storeAdapterToken.ID = source.ID
+	storeAdapterToken.Adapter = source.Adapter
+	storeAdapterToken.Prefix = source.Prefix
+	storeAdapterToken.SecretHash = source.SecretHash
+	storeAdapterToken.LastUsedTime = dbconv.FromOptMilli(source.LastUsedTime)
+	storeAdapterToken.CreateTime = dbconv.FromMilli(source.CreateTime)
+	return storeAdapterToken
+}
 func Device(source db.Device) store.Device {
 	var storeDevice store.Device
 	storeDevice.ID = source.ID
@@ -41,6 +51,8 @@ func Device(source db.Device) store.Device {
 	storeDevice.IP = source.Ip
 	storeDevice.Firmware = source.Firmware
 	storeDevice.ConfigRevision = source.ConfigRevision
+	storeDevice.Locked = source.Locked
+	storeDevice.Readoption = dbconv.Readoption(source.Readoption)
 	storeDevice.LastSeen = dbconv.FromMilli(source.LastSeen)
 	storeDevice.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeDevice.UpdateTime = dbconv.FromMilli(source.UpdateTime)

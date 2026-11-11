@@ -42,6 +42,8 @@ func DeviceToProto(source store.Device) *v11.Device {
 	configv1Device.Ip = source.IP
 	configv1Device.Firmware = source.Firmware
 	configv1Device.LastSeenTime = apiconv.Timestamp(source.LastSeen)
+	configv1Device.Locked = source.Locked
+	configv1Device.Readoption = apiconv.ReadoptionToProto(source.Readoption)
 	configv1Device.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1Device.UpdateTime = apiconv.Timestamp(source.UpdateTime)
 	return &configv1Device

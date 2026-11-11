@@ -50,6 +50,40 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 	return i, err
 }
 
+const createAdapterToken = `-- name: CreateAdapterToken :one
+INSERT INTO adapter_tokens (id, adapter, prefix, secret_hash, create_time)
+VALUES (?1, ?2, ?3, ?4, ?5)
+RETURNING id, adapter, prefix, secret_hash, last_used_time, create_time
+`
+
+type CreateAdapterTokenParams struct {
+	ID         string
+	Adapter    string
+	Prefix     string
+	SecretHash string
+	Now        int64
+}
+
+func (q *Queries) CreateAdapterToken(ctx context.Context, arg CreateAdapterTokenParams) (AdapterToken, error) {
+	row := q.db.QueryRowContext(ctx, createAdapterToken,
+		arg.ID,
+		arg.Adapter,
+		arg.Prefix,
+		arg.SecretHash,
+		arg.Now,
+	)
+	var i AdapterToken
+	err := row.Scan(
+		&i.ID,
+		&i.Adapter,
+		&i.Prefix,
+		&i.SecretHash,
+		&i.LastUsedTime,
+		&i.CreateTime,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id_hash, user_id, provider, create_time, expire_time)
 VALUES (?1, ?2, ?3, ?4, ?5)
@@ -89,6 +123,18 @@ DELETE FROM api_tokens WHERE id = ?
 
 func (q *Queries) DeleteAPIToken(ctx context.Context, id string) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteAPIToken, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteAdapterToken = `-- name: DeleteAdapterToken :execrows
+DELETE FROM adapter_tokens WHERE id = ?
+`
+
+func (q *Queries) DeleteAdapterToken(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAdapterToken, id)
 	if err != nil {
 		return 0, err
 	}
@@ -165,6 +211,24 @@ func (q *Queries) GetAPITokenByPrefix(ctx context.Context, prefix string) (ApiTo
 	return i, err
 }
 
+const getAdapterTokenByPrefix = `-- name: GetAdapterTokenByPrefix :one
+SELECT id, adapter, prefix, secret_hash, last_used_time, create_time FROM adapter_tokens WHERE prefix = ?
+`
+
+func (q *Queries) GetAdapterTokenByPrefix(ctx context.Context, prefix string) (AdapterToken, error) {
+	row := q.db.QueryRowContext(ctx, getAdapterTokenByPrefix, prefix)
+	var i AdapterToken
+	err := row.Scan(
+		&i.ID,
+		&i.Adapter,
+		&i.Prefix,
+		&i.SecretHash,
+		&i.LastUsedTime,
+		&i.CreateTime,
+	)
+	return i, err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id_hash, user_id, create_time, expire_time, provider FROM sessions WHERE id_hash = ?
 `
@@ -220,6 +284,40 @@ func (q *Queries) ListAPITokens(ctx context.Context, userID string) ([]ApiToken,
 	return items, nil
 }
 
+const listAdapterTokens = `-- name: ListAdapterTokens :many
+SELECT id, adapter, prefix, secret_hash, last_used_time, create_time FROM adapter_tokens ORDER BY adapter, create_time, id
+`
+
+func (q *Queries) ListAdapterTokens(ctx context.Context) ([]AdapterToken, error) {
+	rows, err := q.db.QueryContext(ctx, listAdapterTokens)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AdapterToken{}
+	for rows.Next() {
+		var i AdapterToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.Adapter,
+			&i.Prefix,
+			&i.SecretHash,
+			&i.LastUsedTime,
+			&i.CreateTime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const touchAPIToken = `-- name: TouchAPIToken :exec
 UPDATE api_tokens SET last_used_time = ?1 WHERE id = ?2
 `
@@ -231,5 +329,19 @@ type TouchAPITokenParams struct {
 
 func (q *Queries) TouchAPIToken(ctx context.Context, arg TouchAPITokenParams) error {
 	_, err := q.db.ExecContext(ctx, touchAPIToken, arg.Now, arg.ID)
+	return err
+}
+
+const touchAdapterToken = `-- name: TouchAdapterToken :exec
+UPDATE adapter_tokens SET last_used_time = ?1 WHERE id = ?2
+`
+
+type TouchAdapterTokenParams struct {
+	Now int64
+	ID  string
+}
+
+func (q *Queries) TouchAdapterToken(ctx context.Context, arg TouchAdapterTokenParams) error {
+	_, err := q.db.ExecContext(ctx, touchAdapterToken, arg.Now, arg.ID)
 	return err
 }

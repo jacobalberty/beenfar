@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jacobalberty/beenfar/adapters/unifi"
+	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/server"
@@ -46,6 +48,12 @@ type config struct {
 	logLevel  slog.Level
 	adminUser string
 	auth      *authConfig
+
+	unifiInterval int  // seconds between informs of a UniFi device
+	unifiGCM      bool // adopt UniFi devices onto AES-GCM
+	// How long an adopted UniFi device must be silent before one on the
+	// default key is taken for factory reset and offered for re-adoption.
+	unifiReadoptAfter time.Duration
 }
 
 func parseFlags(args []string) (config, error) {
@@ -58,11 +66,23 @@ func parseFlags(args []string) (config, error) {
 	fs.StringVar(&cfg.adminUser, "admin-user", envOr("BEENFAR_ADMIN_USER", "admin"),
 		"username of the admin created on first start when BEENFAR_ADMIN_PASSWORD is set (env BEENFAR_ADMIN_USER)")
 	cfg.auth = registerAuthFlags(fs)
+	fs.IntVar(&cfg.unifiInterval, "unifi-inform-interval", cfg.auth.envInt("BEENFAR_UNIFI_INFORM_INTERVAL", unifi.DefaultInterval),
+		"seconds between informs of a UniFi device (env BEENFAR_UNIFI_INFORM_INTERVAL)")
+	fs.DurationVar(&cfg.unifiReadoptAfter, "unifi-readopt-after", cfg.auth.envDuration("BEENFAR_UNIFI_READOPT_AFTER", 2*time.Minute),
+		"silence after which an adopted UniFi device on the default key is offered for re-adoption; 0 turns it off (env BEENFAR_UNIFI_READOPT_AFTER)")
+	fs.BoolVar(&cfg.unifiGCM, "unifi-gcm", cfg.auth.envBool("BEENFAR_UNIFI_GCM", false),
+		"switch UniFi devices to AES-GCM when adopting them (env BEENFAR_UNIFI_GCM)")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
 	if err := cfg.logLevel.UnmarshalText([]byte(*level)); err != nil {
 		return cfg, fmt.Errorf("log level: %w", err)
+	}
+	if cfg.unifiInterval < 1 {
+		return cfg, fmt.Errorf("unifi inform interval %d: want at least 1 second", cfg.unifiInterval)
+	}
+	if cfg.unifiReadoptAfter < 0 {
+		return cfg, fmt.Errorf("unifi readopt-after %s: must not be negative", cfg.unifiReadoptAfter)
 	}
 	if cfg.logFormat != "json" && cfg.logFormat != "text" {
 		return cfg, fmt.Errorf("log format %q: want json or text", cfg.logFormat)
@@ -111,13 +131,36 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("auth configuration: %w", err)
 	}
+	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter(), Propagator: tel.TextMapPropagator()})
+	if err != nil {
+		return err
+	}
+	unifiAdapter, err := unifi.New(unifi.Options{
+		Tracer:   tel.Tracer(),
+		Meter:    tel.Meter(),
+		Interval: cfg.unifiInterval,
+		UseGCM:   cfg.unifiGCM,
+
+		ReadoptAfter: cfg.unifiReadoptAfter,
+	})
+	if err != nil {
+		return err
+	}
+	if err := adapters.AddBuiltin(unifiAdapter); err != nil {
+		return err
+	}
+	adapterCtx, stopAdapters := context.WithCancel(ctx)
+	adapters.Start(adapterCtx)
+	defer func() { stopAdapters(); adapters.Wait() }() // also on startup errors
 	handler, err := server.New(server.Options{
 		Store:         ost,
 		Telemetry:     tel,
 		Auth:          authSvc,
 		Authenticator: authn,
 		AuthMethods:   methods,
-		Core:          core.New(ost, nil), // TODO(phase 4): the adapter host registry
+		Core:          core.New(ost, adapters),
+		AdapterHost:   adapterhost.NewService(adapters, ost),
+		AdapterHTTP:   adapters.HTTPHandlers(),
 	})
 	if err != nil {
 		return err

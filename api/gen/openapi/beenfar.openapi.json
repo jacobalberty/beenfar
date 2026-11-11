@@ -332,6 +332,33 @@
         "title": "GetUserResponse",
         "additionalProperties": false
       },
+      "beenfar.admin.v1.ImportUnifiDeviceKeysRequest": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.admin.v1.UnifiDeviceKey"
+            },
+            "title": "devices"
+          }
+        },
+        "title": "ImportUnifiDeviceKeysRequest",
+        "additionalProperties": false
+      },
+      "beenfar.admin.v1.ImportUnifiDeviceKeysResponse": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "title": "imported",
+            "format": "int32",
+            "description": "How many devices' keys were stored."
+          }
+        },
+        "title": "ImportUnifiDeviceKeysResponse",
+        "additionalProperties": false
+      },
       "beenfar.admin.v1.ListAdaptersRequest": {
         "type": "object",
         "title": "ListAdaptersRequest",
@@ -503,6 +530,34 @@
         "type": "object",
         "title": "SetUserPasswordResponse",
         "additionalProperties": false
+      },
+      "beenfar.admin.v1.UnifiDeviceKey": {
+        "type": "object",
+        "properties": {
+          "mac": {
+            "type": "string",
+            "title": "mac",
+            "description": "MAC address, in any common notation."
+          },
+          "authkey": {
+            "type": "string",
+            "title": "authkey",
+            "description": "The device's AES key: 32 hex digits.",
+            "writeOnly": true
+          },
+          "gcm": {
+            "type": "boolean",
+            "title": "gcm",
+            "description": "Whether the device uses AES-GCM. Informational: each inform says how it\n is encrypted, and the reply uses the same."
+          }
+        },
+        "title": "UnifiDeviceKey",
+        "required": [
+          "mac",
+          "authkey"
+        ],
+        "additionalProperties": false,
+        "description": "UnifiDeviceKey is the credential of one UniFi device, as extracted from the\n controller that manages it (its MongoDB \"x_authkey\", or \"mgmt.authkey\" in\n the device's /var/etc/persisted/cfg/mgmt)."
       },
       "beenfar.admin.v1.UpdateUserRequest": {
         "type": "object",
@@ -762,6 +817,18 @@
             "title": "last_seen_time",
             "readOnly": true,
             "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "locked",
+            "description": "The device was seen but its adapter holds no credentials for it, so it\n cannot be adopted yet (for UniFi: it is still managed by another\n controller). Import its credentials, or reset it, and it stops being\n locked the next time it is seen.",
+            "readOnly": true
+          },
+          "readoption": {
+            "title": "readoption",
+            "description": "Set while an adopted device that was reset is being adopted again.",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.config.v1.ReadoptionState"
           },
           "createTime": {
             "title": "create_time",
@@ -1041,6 +1108,16 @@
         "additionalProperties": false,
         "description": "Network is a VLAN and its IPv4 subnet."
       },
+      "beenfar.config.v1.ReadoptionState": {
+        "type": "string",
+        "title": "ReadoptionState",
+        "enum": [
+          "READOPTION_STATE_UNSPECIFIED",
+          "READOPTION_STATE_AWAITING_ACCEPTANCE",
+          "READOPTION_STATE_IN_PROGRESS"
+        ],
+        "description": "ReadoptionState says where an adopted device that came back without its\n key stands. It is the same managed device throughout, not a new one."
+      },
       "beenfar.config.v1.UpdateNetworkRequest": {
         "type": "object",
         "properties": {
@@ -1267,6 +1344,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/beenfar.admin.v1.ListAdaptersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/adapters/unifi:import-device-keys": {
+      "post": {
+        "tags": [
+          "AdapterService"
+        ],
+        "summary": "ImportUnifiDeviceKeys",
+        "description": "ImportUnifiDeviceKeys stores the credentials of UniFi devices that\n another controller manages, so that this controller can read their\n informs once they are pointed at it. The devices are recorded as pending\n (with their real model once they have informed) and are adopted, which\n re-keys them, like any other. The keys are never returned by any API.",
+        "operationId": "beenfar.admin.v1.AdapterService.ImportUnifiDeviceKeys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/beenfar.admin.v1.ImportUnifiDeviceKeysRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/beenfar.admin.v1.ImportUnifiDeviceKeysResponse"
                 }
               }
             }
@@ -1682,7 +1801,7 @@
           "DeviceService"
         ],
         "summary": "AdoptDevice",
-        "description": "AdoptDevice brings a pending device under management. It fails with\n NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it\n is already adopted.",
+        "description": "AdoptDevice brings a pending device under management, or accepts the\n re-adoption of an adopted device whose readoption is AWAITING_ACCEPTANCE.\n It fails with NOT_FOUND if no such device has been seen and\n FAILED_PRECONDITION if it is already adopted and not awaiting.",
         "operationId": "beenfar.config.v1.DeviceService.AdoptDevice",
         "requestBody": {
           "content": {

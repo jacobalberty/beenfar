@@ -288,3 +288,60 @@ func (s *Store) DeleteExpiredSessions(ctx context.Context, now time.Time) (int64
 	n, err := s.q.DeleteExpiredSessions(ctx, now.UnixMilli())
 	return n, mapErr(err)
 }
+
+// --- adapter tokens ---
+
+func (s *Store) CreateAdapterToken(ctx context.Context, t store.AdapterToken) (store.AdapterToken, error) {
+	if t.Adapter == "" || len(t.Adapter) > 64 {
+		return store.AdapterToken{}, fmt.Errorf("%w: adapter must be 1-64 bytes", store.ErrInvalid)
+	}
+	if t.Prefix == "" || t.SecretHash == "" {
+		return store.AdapterToken{}, fmt.Errorf("%w: prefix and secret hash are required", store.ErrInvalid)
+	}
+	row, err := s.q.CreateAdapterToken(ctx, db.CreateAdapterTokenParams{
+		ID:         newID(),
+		Adapter:    t.Adapter,
+		Prefix:     t.Prefix,
+		SecretHash: t.SecretHash,
+		Now:        s.nowMilli(),
+	})
+	if err != nil {
+		return store.AdapterToken{}, mapErr(err)
+	}
+	return dbconvgen.AdapterToken(row), nil
+}
+
+func (s *Store) GetAdapterTokenByPrefix(ctx context.Context, prefix string) (store.AdapterToken, error) {
+	row, err := s.q.GetAdapterTokenByPrefix(ctx, prefix)
+	if err != nil {
+		return store.AdapterToken{}, mapErr(err)
+	}
+	return dbconvgen.AdapterToken(row), nil
+}
+
+func (s *Store) ListAdapterTokens(ctx context.Context) ([]store.AdapterToken, error) {
+	rows, err := s.q.ListAdapterTokens(ctx)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	out := make([]store.AdapterToken, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, dbconvgen.AdapterToken(r))
+	}
+	return out, nil
+}
+
+func (s *Store) TouchAdapterToken(ctx context.Context, id string, at time.Time) error {
+	return mapErr(s.q.TouchAdapterToken(ctx, db.TouchAdapterTokenParams{ID: id, Now: at.UnixMilli()}))
+}
+
+func (s *Store) DeleteAdapterToken(ctx context.Context, id string) error {
+	n, err := s.q.DeleteAdapterToken(ctx, id)
+	if err != nil {
+		return mapErr(err)
+	}
+	if n == 0 {
+		return store.ErrNotFound
+	}
+	return nil
+}

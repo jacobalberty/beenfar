@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -12,7 +13,9 @@ import (
 
 	"connectrpc.com/connect/v2"
 
+	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/adapter/v1/adapterv1connect"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
+	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/store"
 	"github.com/jacobalberty/beenfar/internal/telemetry"
@@ -90,16 +93,20 @@ var publicProcedures = map[string]bool{
 // Procedures only admins may call. Handlers enforce finer rules (such as
 // "admin or self") on the rest.
 var adminProcedures = map[string]bool{
-	adminv1connect.UserServiceCreateUserProcedure:      true,
-	adminv1connect.UserServiceListUsersProcedure:       true,
-	adminv1connect.UserServiceUpdateUserProcedure:      true,
-	adminv1connect.UserServiceDeleteUserProcedure:      true,
-	adminv1connect.AdapterServiceListAdaptersProcedure: true,
+	adminv1connect.UserServiceCreateUserProcedure:               true,
+	adminv1connect.UserServiceListUsersProcedure:                true,
+	adminv1connect.UserServiceUpdateUserProcedure:               true,
+	adminv1connect.UserServiceDeleteUserProcedure:               true,
+	adminv1connect.AdapterServiceListAdaptersProcedure:          true,
+	adminv1connect.AdapterServiceImportUnifiDeviceKeysProcedure: true,
 }
 
 // authInterceptor authenticates every RPC before its payload is read and puts
 // the principal into the context.
-func authInterceptor(authn auth.Authenticator) connect.ServerInterceptor {
+//
+// The adapter API is authenticated apart from the rest: its callers are
+// adapters, not users, and only adapter tokens are accepted there.
+func authInterceptor(authn auth.Authenticator, adapters *auth.Service) connect.ServerInterceptor {
 	return func(next connect.ServerFunc) connect.ServerFunc {
 		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
 			if publicProcedures[spec.Procedure] {
@@ -110,6 +117,20 @@ func authInterceptor(authn auth.Authenticator) connect.ServerInterceptor {
 				return connect.NewError(connect.CodeInternal, "missing call info")
 			}
 			h := info.RequestHeader()
+			if strings.HasPrefix(spec.Procedure, "/"+adapterv1connect.AdapterHostServiceName+"/") {
+				token, ok := auth.AdapterBearer(h)
+				if !ok {
+					return fmt.Errorf("%w: adapter token required", auth.ErrUnauthenticated)
+				}
+				name, err := adapters.AuthenticateAdapterToken(ctx, token)
+				if errors.Is(err, auth.ErrUnauthenticated) {
+					return fmt.Errorf("%w: invalid adapter token", auth.ErrUnauthenticated)
+				}
+				if err != nil {
+					return err
+				}
+				return next(adapterhost.WithAdapter(ctx, name), spec, stream)
+			}
 			ri := requestInfoFrom(ctx)
 			p, err := authn.Authenticate(ctx, auth.Request{Header: h, Peer: ri.peer})
 			if err != nil {

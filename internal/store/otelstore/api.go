@@ -118,3 +118,25 @@ func (s *Store) CreateExternalUser(ctx context.Context, u store.User, provider, 
 		return s.next.CreateExternalUser(ctx, u, provider, subject)
 	})
 }
+
+func (s *Store) CreateAdapterToken(ctx context.Context, t store.AdapterToken) (store.AdapterToken, error) {
+	return run(ctx, s, "CreateAdapterToken", func(ctx context.Context) (store.AdapterToken, error) { return s.next.CreateAdapterToken(ctx, t) })
+}
+
+func (s *Store) GetAdapterTokenByPrefix(ctx context.Context, prefix string) (store.AdapterToken, error) {
+	return run(ctx, s, "GetAdapterTokenByPrefix", func(ctx context.Context) (store.AdapterToken, error) {
+		return s.next.GetAdapterTokenByPrefix(ctx, prefix)
+	})
+}
+
+func (s *Store) ListAdapterTokens(ctx context.Context) ([]store.AdapterToken, error) {
+	return run(ctx, s, "ListAdapterTokens", func(ctx context.Context) ([]store.AdapterToken, error) { return s.next.ListAdapterTokens(ctx) })
+}
+
+func (s *Store) TouchAdapterToken(ctx context.Context, id string, at time.Time) error {
+	return run0(ctx, s, "TouchAdapterToken", func(ctx context.Context) error { return s.next.TouchAdapterToken(ctx, id, at) })
+}
+
+func (s *Store) DeleteAdapterToken(ctx context.Context, id string) error {
+	return run0(ctx, s, "DeleteAdapterToken", func(ctx context.Context) error { return s.next.DeleteAdapterToken(ctx, id) })
+}
