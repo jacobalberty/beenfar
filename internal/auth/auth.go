@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -46,15 +47,25 @@ type Method string
 const (
 	MethodToken   Method = "token"
 	MethodSession Method = "session"
+	MethodBasic   Method = "basic" // Basic auth with a password
+	MethodProxy   Method = "proxy" // identity headers from a trusted proxy
+	MethodOIDC    Method = "oidc"  // a session started by OIDC sign-in
 )
 
 // Principal is an authenticated caller.
 type Principal struct {
 	User   store.User
 	Method Method
+	// Ambient is set when the browser sends the credentials by itself (a
+	// cookie, cached Basic auth, a proxy's own cookie). Such requests need a
+	// same-origin check against cross-site request forgery.
+	Ambient bool
 	// TokenID is set for MethodToken; SessionHash for MethodSession.
 	TokenID     string
 	SessionHash string
+	// SessionProvider is how a session started ("" for password login,
+	// "oidc:<id>"), for signing out upstream.
+	SessionProvider string
 }
 
 // IsAdmin reports whether the principal may perform admin operations.
@@ -82,6 +93,9 @@ type Service struct {
 
 	dummyOnce sync.Once
 	dummy     string // hash compared against when a username is unknown
+
+	userFailures *limiter // failed sign-ins per username
+	ipFailures   *limiter // failed sign-ins per client address
 }
 
 // Option configures a Service.
@@ -97,13 +111,48 @@ func WithSessionTTL(d time.Duration) Option { return func(s *Service) { s.sessio
 // WithClock replaces time.Now.
 func WithClock(now func() time.Time) Option { return func(s *Service) { s.now = now } }
 
+// WithFailureLimits sets how many failed sign-ins a username and a client
+// address may have per window before further attempts are refused. A limit
+// of 0 disables that check.
+func WithFailureLimits(perUser, perIP int, window time.Duration) Option {
+	return func(s *Service) {
+		s.userFailures = newLimiter(perUser, window, s.clock)
+		s.ipFailures = newLimiter(perIP, window, s.clock)
+	}
+}
+
 // New returns a Service backed by st.
 func New(st store.Store, opts ...Option) *Service {
 	s := &Service{store: st, iterations: DefaultIterations, sessionTTL: DefaultSessionTTL, now: time.Now}
+	WithFailureLimits(DefaultMaxFailuresPerUser, DefaultMaxFailuresPerIP, DefaultFailureWindow)(s)
 	for _, o := range opts {
 		o(s)
 	}
 	return s
+}
+
+// clock reads s.now late, so WithClock applies whatever the option order.
+func (s *Service) clock() time.Time { return s.now() }
+
+// checkPassword verifies a username and password for any password-based
+// sign-in (login form, Basic auth), applying the failure limits. peer may be
+// invalid when unknown.
+func (s *Service) checkPassword(ctx context.Context, username, password string, peer netip.Addr) (store.User, error) {
+	userKey, ipKey := "user:"+username, "ip:"+peer.String()
+	if s.userFailures.blocked(userKey) || (peer.IsValid() && s.ipFailures.blocked(ipKey)) {
+		return store.User{}, ErrRateLimited
+	}
+	u, err := s.verifyPassword(ctx, username, password)
+	switch {
+	case errors.Is(err, ErrUnauthenticated):
+		s.userFailures.fail(userKey)
+		if peer.IsValid() {
+			s.ipFailures.fail(ipKey)
+		}
+	case err == nil:
+		s.userFailures.reset(userKey)
+	}
+	return u, err
 }
 
 // CountUsers returns how many users exist.
@@ -112,6 +161,10 @@ func (s *Service) CountUsers(ctx context.Context) (int64, error) { return s.stor
 // SessionTTL returns the browser session lifetime.
 func (s *Service) SessionTTL() time.Duration { return s.sessionTTL }
 
+// hashSecret returns the hex SHA-256 of a random, high-entropy secret (API
+// tokens carry 130 random bits, session cookies 260). A fast hash is right
+// for these: unlike passwords they cannot be guessed, and they are checked
+// on every request. Passwords never come here; they use PBKDF2.
 func hashSecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])
@@ -193,11 +246,14 @@ func (s *Service) SetPassword(ctx context.Context, userID, password string, curr
 		return err
 	}
 	return s.store.WithTx(ctx, func(tx store.Store) error {
+		u, err := tx.GetUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if u.PasswordHash == "" {
+			return fmt.Errorf("%w: %s users sign in through their provider and have no password", store.ErrFailedPrecondition, u.Source)
+		}
 		if current != nil {
-			u, err := tx.GetUser(ctx, userID)
-			if err != nil {
-				return err
-			}
 			ok, err := CheckPassword(u.PasswordHash, *current)
 			if err != nil {
 				return err
@@ -238,26 +294,51 @@ func (s *Service) Bootstrap(ctx context.Context, username, password string) (boo
 
 // --- sessions ---
 
-// Login checks credentials and starts a session. It returns the cookie value,
-// which is shown to the client once and stored only as a hash.
-func (s *Service) Login(ctx context.Context, username, password string) (store.User, string, store.Session, error) {
+// verifyPassword checks a username and password, spending the same time
+// whether or not the user exists so usernames cannot be probed.
+func (s *Service) verifyPassword(ctx context.Context, username, password string) (store.User, error) {
 	u, err := s.store.GetUserByUsername(ctx, username)
 	if errors.Is(err, store.ErrNotFound) {
-		// Spend the same time as a real check so usernames cannot be probed.
 		_, _ = CheckPassword(s.dummyHash(), password)
-		return store.User{}, "", store.Session{}, ErrUnauthenticated
+		return store.User{}, ErrUnauthenticated
 	}
 	if err != nil {
-		return store.User{}, "", store.Session{}, err
+		return store.User{}, err
+	}
+	if u.PasswordHash == "" { // external user: signs in through its provider
+		_, _ = CheckPassword(s.dummyHash(), password)
+		return store.User{}, ErrUnauthenticated
 	}
 	ok, err := CheckPassword(u.PasswordHash, password)
 	if err != nil {
-		return store.User{}, "", store.Session{}, err
+		return store.User{}, err
 	}
 	if !ok {
-		return store.User{}, "", store.Session{}, ErrUnauthenticated
+		return store.User{}, ErrUnauthenticated
+	}
+	return u, nil
+}
+
+// Login checks credentials and starts a session. It returns the cookie value,
+// which is shown to the client once and stored only as a hash. peer is the
+// client address for rate limiting (invalid if unknown).
+func (s *Service) Login(ctx context.Context, username, password string, peer netip.Addr) (store.User, string, store.Session, error) {
+	u, err := s.checkPassword(ctx, username, password, peer)
+	if err != nil {
+		return store.User{}, "", store.Session{}, err
 	}
 
+	cookie, sess, err := s.StartSession(ctx, u.ID, "")
+	if err != nil {
+		return store.User{}, "", store.Session{}, err
+	}
+	return u, cookie, sess, nil
+}
+
+// StartSession creates a browser session for userID and returns the cookie
+// value, which is shown to the client once and stored only as a hash.
+// provider records how the user signed in ("" for password login).
+func (s *Service) StartSession(ctx context.Context, userID, provider string) (string, store.Session, error) {
 	now := s.now()
 	if _, err := s.store.DeleteExpiredSessions(ctx, now); err != nil {
 		slog.WarnContext(ctx, "sweeping expired sessions", slog.Any("error", err))
@@ -265,18 +346,28 @@ func (s *Service) Login(ctx context.Context, username, password string) (store.U
 	cookie := rand.Text() + rand.Text()
 	sess, err := s.store.CreateSession(ctx, store.Session{
 		IDHash:     hashSecret(cookie),
-		UserID:     u.ID,
+		UserID:     userID,
+		Provider:   provider,
 		ExpireTime: now.Add(s.sessionTTL),
 	})
 	if err != nil {
-		return store.User{}, "", store.Session{}, err
+		return "", store.Session{}, err
 	}
-	return u, cookie, sess, nil
+	return cookie, sess, nil
 }
 
-// Logout ends the session identified by a cookie value.
-func (s *Service) Logout(ctx context.Context, cookie string) error {
-	return s.store.DeleteSession(ctx, hashSecret(cookie))
+// Logout ends the session identified by a cookie value and returns how it
+// started (its Provider), so the caller can sign out upstream too.
+func (s *Service) Logout(ctx context.Context, cookie string) (string, error) {
+	h := hashSecret(cookie)
+	sess, err := s.store.GetSession(ctx, h)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return sess.Provider, s.store.DeleteSession(ctx, h)
 }
 
 // AuthenticateSession resolves a session cookie value.
@@ -303,7 +394,11 @@ func (s *Service) AuthenticateSession(ctx context.Context, cookie string) (*Prin
 	if err != nil {
 		return nil, err
 	}
-	return &Principal{User: u, Method: MethodSession, SessionHash: h}, nil
+	method := MethodSession
+	if strings.HasPrefix(sess.Provider, oidcProviderPrefix) {
+		method = MethodOIDC
+	}
+	return &Principal{User: u, Method: method, SessionHash: h, Ambient: true, SessionProvider: sess.Provider}, nil
 }
 
 func (s *Service) dummyHash() string {

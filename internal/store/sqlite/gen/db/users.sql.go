@@ -32,9 +32,10 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, username, password_hash, admin, revision, create_time, update_time)
-VALUES (?1, ?2, ?3, ?4, 1, ?5, ?5)
-RETURNING id, username, password_hash, admin, revision, create_time, update_time
+INSERT INTO users (id, username, password_hash, admin, source, revision, create_time, update_time)
+VALUES (?1, ?2, ?3, ?4, ?5, 1,
+        ?6, ?6)
+RETURNING id, username, password_hash, admin, revision, create_time, update_time, source
 `
 
 type CreateUserParams struct {
@@ -42,6 +43,7 @@ type CreateUserParams struct {
 	Username     string
 	PasswordHash string
 	Admin        bool
+	Source       string
 	Now          int64
 }
 
@@ -51,6 +53,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Username,
 		arg.PasswordHash,
 		arg.Admin,
+		arg.Source,
 		arg.Now,
 	)
 	var i User
@@ -62,8 +65,31 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Source,
 	)
 	return i, err
+}
+
+const createUserIdentity = `-- name: CreateUserIdentity :exec
+INSERT INTO user_identities (provider, subject, user_id, create_time)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type CreateUserIdentityParams struct {
+	Provider string
+	Subject  string
+	UserID   string
+	Now      int64
+}
+
+func (q *Queries) CreateUserIdentity(ctx context.Context, arg CreateUserIdentityParams) error {
+	_, err := q.db.ExecContext(ctx, createUserIdentity,
+		arg.Provider,
+		arg.Subject,
+		arg.UserID,
+		arg.Now,
+	)
+	return err
 }
 
 const deleteUser = `-- name: DeleteUser :execrows
@@ -86,7 +112,7 @@ func (q *Queries) DeleteUser(ctx context.Context, arg DeleteUserParams) (int64, 
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, password_hash, admin, revision, create_time, update_time FROM users WHERE id = ?
+SELECT id, username, password_hash, admin, revision, create_time, update_time, source FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
@@ -100,12 +126,40 @@ func (q *Queries) GetUser(ctx context.Context, id string) (User, error) {
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Source,
+	)
+	return i, err
+}
+
+const getUserByIdentity = `-- name: GetUserByIdentity :one
+SELECT users.id, users.username, users.password_hash, users.admin, users.revision, users.create_time, users.update_time, users.source FROM users
+JOIN user_identities ON user_identities.user_id = users.id
+WHERE user_identities.provider = ?1 AND user_identities.subject = ?2
+`
+
+type GetUserByIdentityParams struct {
+	Provider string
+	Subject  string
+}
+
+func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByIdentity, arg.Provider, arg.Subject)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.PasswordHash,
+		&i.Admin,
+		&i.Revision,
+		&i.CreateTime,
+		&i.UpdateTime,
+		&i.Source,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, admin, revision, create_time, update_time FROM users WHERE username = ?
+SELECT id, username, password_hash, admin, revision, create_time, update_time, source FROM users WHERE username = ?
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -119,12 +173,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Source,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, password_hash, admin, revision, create_time, update_time FROM users ORDER BY username
+SELECT id, username, password_hash, admin, revision, create_time, update_time, source FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -144,6 +199,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.Revision,
 			&i.CreateTime,
 			&i.UpdateTime,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}
@@ -185,7 +241,7 @@ UPDATE users SET
     update_time = ?3
 WHERE id = ?4
   AND (CAST(?5 AS INTEGER) = 0 OR revision = ?5)
-RETURNING id, username, password_hash, admin, revision, create_time, update_time
+RETURNING id, username, password_hash, admin, revision, create_time, update_time, source
 `
 
 type UpdateUserParams struct {
@@ -213,6 +269,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Source,
 	)
 	return i, err
 }

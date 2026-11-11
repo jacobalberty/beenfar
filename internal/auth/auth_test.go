@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"errors"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,13 +95,13 @@ func TestSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := svc.Login(ctx, "bob", "wrong-password"); !errors.Is(err, auth.ErrUnauthenticated) {
+	if _, _, _, err := svc.Login(ctx, "bob", "wrong-password", netip.Addr{}); !errors.Is(err, auth.ErrUnauthenticated) {
 		t.Fatalf("bad password: %v", err)
 	}
-	if _, _, _, err := svc.Login(ctx, "nobody", "password1"); !errors.Is(err, auth.ErrUnauthenticated) {
+	if _, _, _, err := svc.Login(ctx, "nobody", "password1", netip.Addr{}); !errors.Is(err, auth.ErrUnauthenticated) {
 		t.Fatalf("unknown user: %v", err)
 	}
-	_, cookie, sess, err := svc.Login(ctx, "bob", "password1")
+	_, cookie, sess, err := svc.Login(ctx, "bob", "password1", netip.Addr{})
 	if err != nil || !sess.ExpireTime.Equal(now.Add(time.Hour).Truncate(time.Millisecond).UTC()) {
 		t.Fatalf("login = %+v, %v", sess, err)
 	}
@@ -117,7 +118,7 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("session survived password change: %v", err)
 	}
 
-	_, cookie, _, err = svc.Login(ctx, "bob", "password2")
+	_, cookie, _, err = svc.Login(ctx, "bob", "password2", netip.Addr{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,5 +162,53 @@ func TestBootstrapAndLastAdmin(t *testing.T) {
 	wrong := "nope"
 	if err := svc.SetPassword(ctx, admin.ID, "password9", &wrong); !errors.Is(err, auth.ErrPermissionDenied) {
 		t.Fatalf("wrong current password: %v", err)
+	}
+}
+
+func TestExternalUsersHaveNoPassword(t *testing.T) {
+	svc, st := newService(t)
+	ctx := t.Context()
+	u, err := st.CreateExternalUser(ctx, store.User{Username: "erin", Source: store.UserSourceProxy}, "proxy", "erin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pw := range []string{"", "anything-at-all"} {
+		if _, _, _, err := svc.Login(ctx, "erin", pw, netip.Addr{}); !errors.Is(err, auth.ErrUnauthenticated) {
+			t.Errorf("login with %q: %v, want ErrUnauthenticated", pw, err)
+		}
+	}
+	if err := svc.SetPassword(ctx, u.ID, "password1", nil); !errors.Is(err, store.ErrFailedPrecondition) {
+		t.Errorf("set password: %v, want ErrFailedPrecondition", err)
+	}
+}
+
+func TestFailedSignInLimits(t *testing.T) {
+	now := time.Now()
+	svc, _ := newService(t, auth.WithClock(func() time.Time { return now }), auth.WithFailureLimits(3, 5, time.Minute))
+	ctx := t.Context()
+	if _, err := svc.CreateUser(ctx, "frank", "password1", false); err != nil {
+		t.Fatal(err)
+	}
+	peer := netip.MustParseAddr("192.0.2.1")
+	for range 3 {
+		if _, _, _, err := svc.Login(ctx, "frank", "wrong-pass", peer); !errors.Is(err, auth.ErrUnauthenticated) {
+			t.Fatalf("bad password: %v", err)
+		}
+	}
+	// The user is locked even with the right password, from any address.
+	if _, _, _, err := svc.Login(ctx, "frank", "password1", netip.MustParseAddr("192.0.2.9")); !errors.Is(err, auth.ErrRateLimited) {
+		t.Fatalf("locked user: %v", err)
+	}
+	// The address is locked too once it hits its own limit.
+	for _, u := range []string{"ghost1", "ghost2"} {
+		_, _, _, _ = svc.Login(ctx, u, "x-password", peer)
+	}
+	if _, _, _, err := svc.Login(ctx, "someone", "x-password", peer); !errors.Is(err, auth.ErrRateLimited) {
+		t.Fatalf("locked address: %v", err)
+	}
+
+	now = now.Add(time.Minute) // the window ends
+	if _, _, _, err := svc.Login(ctx, "frank", "password1", peer); err != nil {
+		t.Fatalf("after window: %v", err)
 	}
 }

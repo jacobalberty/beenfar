@@ -23,6 +23,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// UserSource says where a user account comes from.
+type UserSource int32
+
+const (
+	UserSource_USER_SOURCE_UNSPECIFIED UserSource = 0
+	// Created in beenfar, signs in with a password.
+	UserSource_USER_SOURCE_LOCAL UserSource = 1
+	// Created on first request from a trusted reverse proxy.
+	UserSource_USER_SOURCE_PROXY UserSource = 2
+	// Created on first OIDC sign-in.
+	UserSource_USER_SOURCE_OIDC UserSource = 3
+)
+
+// Enum value maps for UserSource.
+var (
+	UserSource_name = map[int32]string{
+		0: "USER_SOURCE_UNSPECIFIED",
+		1: "USER_SOURCE_LOCAL",
+		2: "USER_SOURCE_PROXY",
+		3: "USER_SOURCE_OIDC",
+	}
+	UserSource_value = map[string]int32{
+		"USER_SOURCE_UNSPECIFIED": 0,
+		"USER_SOURCE_LOCAL":       1,
+		"USER_SOURCE_PROXY":       2,
+		"USER_SOURCE_OIDC":        3,
+	}
+)
+
+func (x UserSource) Enum() *UserSource {
+	p := new(UserSource)
+	*p = x
+	return p
+}
+
+func (x UserSource) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (UserSource) Descriptor() protoreflect.EnumDescriptor {
+	return file_beenfar_admin_v1_user_proto_enumTypes[0].Descriptor()
+}
+
+func (UserSource) Type() protoreflect.EnumType {
+	return &file_beenfar_admin_v1_user_proto_enumTypes[0]
+}
+
+func (x UserSource) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use UserSource.Descriptor instead.
+func (UserSource) EnumDescriptor() ([]byte, []int) {
+	return file_beenfar_admin_v1_user_proto_rawDescGZIP(), []int{0}
+}
+
 // User is a person who can sign in to the controller.
 type User struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -30,8 +86,12 @@ type User struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Sign-in name, 1-64 bytes. Unique.
 	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	// Admins may manage users, every API token and adapters.
+	// Admins may manage users, every API token and adapters. For external
+	// users whose provider maps groups to admin, this is derived from their
+	// groups at each sign-in and cannot be changed here.
 	Admin bool `protobuf:"varint,3,opt,name=admin,proto3" json:"admin,omitempty"`
+	// Where the account comes from. External users have no password.
+	Source UserSource `protobuf:"varint,4,opt,name=source,proto3,enum=beenfar.admin.v1.UserSource" json:"source,omitempty"`
 	// Opaque version of this resource, for optimistic concurrency.
 	Etag          string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
 	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
@@ -89,6 +149,13 @@ func (x *User) GetAdmin() bool {
 		return x.Admin
 	}
 	return false
+}
+
+func (x *User) GetSource() UserSource {
+	if x != nil {
+		return x.Source
+	}
+	return UserSource_USER_SOURCE_UNSPECIFIED
 }
 
 func (x *User) GetEtag() string {
@@ -657,11 +724,12 @@ var File_beenfar_admin_v1_user_proto protoreflect.FileDescriptor
 
 const file_beenfar_admin_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x1bbeenfar/admin/v1/user.proto\x12\x10beenfar.admin.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf4\x01\n" +
+	"\x1bbeenfar/admin/v1/user.proto\x12\x10beenfar.admin.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb0\x02\n" +
 	"\x04User\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12 \n" +
 	"\busername\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\busername\x12\x14\n" +
-	"\x05admin\x18\x03 \x01(\bR\x05admin\x12\x18\n" +
+	"\x05admin\x18\x03 \x01(\bR\x05admin\x12:\n" +
+	"\x06source\x18\x04 \x01(\x0e2\x1c.beenfar.admin.v1.UserSourceB\x04\xe2A\x01\x03R\x06source\x12\x18\n" +
 	"\x04etag\x18\x14 \x01(\tB\x04\xe2A\x01\x03R\x04etag\x12A\n" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
@@ -691,7 +759,13 @@ const file_beenfar_admin_v1_user_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\x12!\n" +
 	"\bpassword\x18\x02 \x01(\tB\x05\xe2A\x02\x02\x04R\bpassword\x12/\n" +
 	"\x10current_password\x18\x03 \x01(\tB\x04\xe2A\x01\x04R\x0fcurrentPassword\"\x19\n" +
-	"\x17SetUserPasswordResponse2\xfe\x05\n" +
+	"\x17SetUserPasswordResponse*m\n" +
+	"\n" +
+	"UserSource\x12\x1b\n" +
+	"\x17USER_SOURCE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11USER_SOURCE_LOCAL\x10\x01\x12\x15\n" +
+	"\x11USER_SOURCE_PROXY\x10\x02\x12\x14\n" +
+	"\x10USER_SOURCE_OIDC\x10\x032\xfe\x05\n" +
 	"\vUserService\x12w\n" +
 	"\n" +
 	"CreateUser\x12#.beenfar.admin.v1.CreateUserRequest\x1a$.beenfar.admin.v1.CreateUserResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*b\x04user\"\r/api/v1/users\x12s\n" +
@@ -716,49 +790,52 @@ func file_beenfar_admin_v1_user_proto_rawDescGZIP() []byte {
 	return file_beenfar_admin_v1_user_proto_rawDescData
 }
 
+var file_beenfar_admin_v1_user_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_beenfar_admin_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_beenfar_admin_v1_user_proto_goTypes = []any{
-	(*User)(nil),                    // 0: beenfar.admin.v1.User
-	(*CreateUserRequest)(nil),       // 1: beenfar.admin.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),      // 2: beenfar.admin.v1.CreateUserResponse
-	(*GetUserRequest)(nil),          // 3: beenfar.admin.v1.GetUserRequest
-	(*GetUserResponse)(nil),         // 4: beenfar.admin.v1.GetUserResponse
-	(*ListUsersRequest)(nil),        // 5: beenfar.admin.v1.ListUsersRequest
-	(*ListUsersResponse)(nil),       // 6: beenfar.admin.v1.ListUsersResponse
-	(*UpdateUserRequest)(nil),       // 7: beenfar.admin.v1.UpdateUserRequest
-	(*UpdateUserResponse)(nil),      // 8: beenfar.admin.v1.UpdateUserResponse
-	(*DeleteUserRequest)(nil),       // 9: beenfar.admin.v1.DeleteUserRequest
-	(*DeleteUserResponse)(nil),      // 10: beenfar.admin.v1.DeleteUserResponse
-	(*SetUserPasswordRequest)(nil),  // 11: beenfar.admin.v1.SetUserPasswordRequest
-	(*SetUserPasswordResponse)(nil), // 12: beenfar.admin.v1.SetUserPasswordResponse
-	(*timestamppb.Timestamp)(nil),   // 13: google.protobuf.Timestamp
+	(UserSource)(0),                 // 0: beenfar.admin.v1.UserSource
+	(*User)(nil),                    // 1: beenfar.admin.v1.User
+	(*CreateUserRequest)(nil),       // 2: beenfar.admin.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),      // 3: beenfar.admin.v1.CreateUserResponse
+	(*GetUserRequest)(nil),          // 4: beenfar.admin.v1.GetUserRequest
+	(*GetUserResponse)(nil),         // 5: beenfar.admin.v1.GetUserResponse
+	(*ListUsersRequest)(nil),        // 6: beenfar.admin.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),       // 7: beenfar.admin.v1.ListUsersResponse
+	(*UpdateUserRequest)(nil),       // 8: beenfar.admin.v1.UpdateUserRequest
+	(*UpdateUserResponse)(nil),      // 9: beenfar.admin.v1.UpdateUserResponse
+	(*DeleteUserRequest)(nil),       // 10: beenfar.admin.v1.DeleteUserRequest
+	(*DeleteUserResponse)(nil),      // 11: beenfar.admin.v1.DeleteUserResponse
+	(*SetUserPasswordRequest)(nil),  // 12: beenfar.admin.v1.SetUserPasswordRequest
+	(*SetUserPasswordResponse)(nil), // 13: beenfar.admin.v1.SetUserPasswordResponse
+	(*timestamppb.Timestamp)(nil),   // 14: google.protobuf.Timestamp
 }
 var file_beenfar_admin_v1_user_proto_depIdxs = []int32{
-	13, // 0: beenfar.admin.v1.User.create_time:type_name -> google.protobuf.Timestamp
-	13, // 1: beenfar.admin.v1.User.update_time:type_name -> google.protobuf.Timestamp
-	0,  // 2: beenfar.admin.v1.CreateUserRequest.user:type_name -> beenfar.admin.v1.User
-	0,  // 3: beenfar.admin.v1.CreateUserResponse.user:type_name -> beenfar.admin.v1.User
-	0,  // 4: beenfar.admin.v1.GetUserResponse.user:type_name -> beenfar.admin.v1.User
-	0,  // 5: beenfar.admin.v1.ListUsersResponse.users:type_name -> beenfar.admin.v1.User
-	0,  // 6: beenfar.admin.v1.UpdateUserRequest.user:type_name -> beenfar.admin.v1.User
-	0,  // 7: beenfar.admin.v1.UpdateUserResponse.user:type_name -> beenfar.admin.v1.User
-	1,  // 8: beenfar.admin.v1.UserService.CreateUser:input_type -> beenfar.admin.v1.CreateUserRequest
-	3,  // 9: beenfar.admin.v1.UserService.GetUser:input_type -> beenfar.admin.v1.GetUserRequest
-	5,  // 10: beenfar.admin.v1.UserService.ListUsers:input_type -> beenfar.admin.v1.ListUsersRequest
-	7,  // 11: beenfar.admin.v1.UserService.UpdateUser:input_type -> beenfar.admin.v1.UpdateUserRequest
-	9,  // 12: beenfar.admin.v1.UserService.DeleteUser:input_type -> beenfar.admin.v1.DeleteUserRequest
-	11, // 13: beenfar.admin.v1.UserService.SetUserPassword:input_type -> beenfar.admin.v1.SetUserPasswordRequest
-	2,  // 14: beenfar.admin.v1.UserService.CreateUser:output_type -> beenfar.admin.v1.CreateUserResponse
-	4,  // 15: beenfar.admin.v1.UserService.GetUser:output_type -> beenfar.admin.v1.GetUserResponse
-	6,  // 16: beenfar.admin.v1.UserService.ListUsers:output_type -> beenfar.admin.v1.ListUsersResponse
-	8,  // 17: beenfar.admin.v1.UserService.UpdateUser:output_type -> beenfar.admin.v1.UpdateUserResponse
-	10, // 18: beenfar.admin.v1.UserService.DeleteUser:output_type -> beenfar.admin.v1.DeleteUserResponse
-	12, // 19: beenfar.admin.v1.UserService.SetUserPassword:output_type -> beenfar.admin.v1.SetUserPasswordResponse
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0,  // 0: beenfar.admin.v1.User.source:type_name -> beenfar.admin.v1.UserSource
+	14, // 1: beenfar.admin.v1.User.create_time:type_name -> google.protobuf.Timestamp
+	14, // 2: beenfar.admin.v1.User.update_time:type_name -> google.protobuf.Timestamp
+	1,  // 3: beenfar.admin.v1.CreateUserRequest.user:type_name -> beenfar.admin.v1.User
+	1,  // 4: beenfar.admin.v1.CreateUserResponse.user:type_name -> beenfar.admin.v1.User
+	1,  // 5: beenfar.admin.v1.GetUserResponse.user:type_name -> beenfar.admin.v1.User
+	1,  // 6: beenfar.admin.v1.ListUsersResponse.users:type_name -> beenfar.admin.v1.User
+	1,  // 7: beenfar.admin.v1.UpdateUserRequest.user:type_name -> beenfar.admin.v1.User
+	1,  // 8: beenfar.admin.v1.UpdateUserResponse.user:type_name -> beenfar.admin.v1.User
+	2,  // 9: beenfar.admin.v1.UserService.CreateUser:input_type -> beenfar.admin.v1.CreateUserRequest
+	4,  // 10: beenfar.admin.v1.UserService.GetUser:input_type -> beenfar.admin.v1.GetUserRequest
+	6,  // 11: beenfar.admin.v1.UserService.ListUsers:input_type -> beenfar.admin.v1.ListUsersRequest
+	8,  // 12: beenfar.admin.v1.UserService.UpdateUser:input_type -> beenfar.admin.v1.UpdateUserRequest
+	10, // 13: beenfar.admin.v1.UserService.DeleteUser:input_type -> beenfar.admin.v1.DeleteUserRequest
+	12, // 14: beenfar.admin.v1.UserService.SetUserPassword:input_type -> beenfar.admin.v1.SetUserPasswordRequest
+	3,  // 15: beenfar.admin.v1.UserService.CreateUser:output_type -> beenfar.admin.v1.CreateUserResponse
+	5,  // 16: beenfar.admin.v1.UserService.GetUser:output_type -> beenfar.admin.v1.GetUserResponse
+	7,  // 17: beenfar.admin.v1.UserService.ListUsers:output_type -> beenfar.admin.v1.ListUsersResponse
+	9,  // 18: beenfar.admin.v1.UserService.UpdateUser:output_type -> beenfar.admin.v1.UpdateUserResponse
+	11, // 19: beenfar.admin.v1.UserService.DeleteUser:output_type -> beenfar.admin.v1.DeleteUserResponse
+	13, // 20: beenfar.admin.v1.UserService.SetUserPassword:output_type -> beenfar.admin.v1.SetUserPasswordResponse
+	15, // [15:21] is the sub-list for method output_type
+	9,  // [9:15] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_admin_v1_user_proto_init() }
@@ -771,13 +848,14 @@ func file_beenfar_admin_v1_user_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beenfar_admin_v1_user_proto_rawDesc), len(file_beenfar_admin_v1_user_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_beenfar_admin_v1_user_proto_goTypes,
 		DependencyIndexes: file_beenfar_admin_v1_user_proto_depIdxs,
+		EnumInfos:         file_beenfar_admin_v1_user_proto_enumTypes,
 		MessageInfos:      file_beenfar_admin_v1_user_proto_msgTypes,
 	}.Build()
 	File_beenfar_admin_v1_user_proto = out.File

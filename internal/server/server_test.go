@@ -30,7 +30,15 @@ type fixture struct {
 	spans   *tracetest.SpanRecorder
 }
 
-func newFixture(t *testing.T) fixture {
+// fixtureOption adjusts the server options; the auth service is ready.
+type fixtureOption func(*server.Options)
+
+// withAuthenticator replaces the default (tokens and session cookie).
+func withAuthenticator(f func(*auth.Service) auth.Authenticator) fixtureOption {
+	return func(o *server.Options) { o.Authenticator = f(o.Auth) }
+}
+
+func newFixture(t *testing.T, fopts ...fixtureOption) fixture {
 	t.Helper()
 	spans := tracetest.NewSpanRecorder()
 	tel := &telemetry.Telemetry{
@@ -48,7 +56,11 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 	authSvc := auth.New(st, auth.WithIterations(1000)) // fast hashes for tests
-	h, err := server.New(server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, nil)})
+	opts := server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, nil)}
+	for _, f := range fopts {
+		f(&opts)
+	}
+	h, err := server.New(opts)
 	if err != nil {
 		t.Fatal(err)
 	}

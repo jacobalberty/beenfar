@@ -85,6 +85,7 @@ func Session(source db.Session) store.Session {
 	var storeSession store.Session
 	storeSession.IDHash = source.IDHash
 	storeSession.UserID = source.UserID
+	storeSession.Provider = source.Provider
 	storeSession.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeSession.ExpireTime = dbconv.FromMilli(source.ExpireTime)
 	return storeSession
@@ -95,6 +96,7 @@ func User(source db.User) store.User {
 	storeUser.Username = source.Username
 	storeUser.PasswordHash = source.PasswordHash
 	storeUser.Admin = source.Admin
+	storeUser.Source = dbconv.UserSource(source.Source)
 	storeUser.Revision = source.Revision
 	storeUser.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeUser.UpdateTime = dbconv.FromMilli(source.UpdateTime)

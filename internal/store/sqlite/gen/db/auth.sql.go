@@ -51,14 +51,15 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 }
 
 const createSession = `-- name: CreateSession :one
-INSERT INTO sessions (id_hash, user_id, create_time, expire_time)
-VALUES (?1, ?2, ?3, ?4)
-RETURNING id_hash, user_id, create_time, expire_time
+INSERT INTO sessions (id_hash, user_id, provider, create_time, expire_time)
+VALUES (?1, ?2, ?3, ?4, ?5)
+RETURNING id_hash, user_id, create_time, expire_time, provider
 `
 
 type CreateSessionParams struct {
 	IDHash     string
 	UserID     string
+	Provider   string
 	Now        int64
 	ExpireTime int64
 }
@@ -67,6 +68,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	row := q.db.QueryRowContext(ctx, createSession,
 		arg.IDHash,
 		arg.UserID,
+		arg.Provider,
 		arg.Now,
 		arg.ExpireTime,
 	)
@@ -76,6 +78,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.UserID,
 		&i.CreateTime,
 		&i.ExpireTime,
+		&i.Provider,
 	)
 	return i, err
 }
@@ -163,7 +166,7 @@ func (q *Queries) GetAPITokenByPrefix(ctx context.Context, prefix string) (ApiTo
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id_hash, user_id, create_time, expire_time FROM sessions WHERE id_hash = ?
+SELECT id_hash, user_id, create_time, expire_time, provider FROM sessions WHERE id_hash = ?
 `
 
 func (q *Queries) GetSession(ctx context.Context, idHash string) (Session, error) {
@@ -174,6 +177,7 @@ func (q *Queries) GetSession(ctx context.Context, idHash string) (Session, error
 		&i.UserID,
 		&i.CreateTime,
 		&i.ExpireTime,
+		&i.Provider,
 	)
 	return i, err
 }

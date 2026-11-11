@@ -25,6 +25,9 @@ func (s *Store) CreateUser(ctx context.Context, u store.User) (store.User, error
 	if err := validateUsername(u.Username); err != nil {
 		return store.User{}, err
 	}
+	if u.Source != "" && u.Source != store.UserSourceLocal {
+		return store.User{}, fmt.Errorf("%w: use CreateExternalUser for %s users", store.ErrInvalid, u.Source)
+	}
 	if u.PasswordHash == "" {
 		return store.User{}, fmt.Errorf("%w: password hash is required", store.ErrInvalid)
 	}
@@ -33,6 +36,7 @@ func (s *Store) CreateUser(ctx context.Context, u store.User) (store.User, error
 		Username:     u.Username,
 		PasswordHash: u.PasswordHash,
 		Admin:        u.Admin,
+		Source:       string(store.UserSourceLocal),
 		Now:          s.nowMilli(),
 	})
 	if err != nil {
@@ -55,6 +59,48 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (store.U
 		return store.User{}, mapErr(err)
 	}
 	return dbconvgen.User(row), nil
+}
+
+func (s *Store) GetUserByIdentity(ctx context.Context, provider, subject string) (store.User, error) {
+	row, err := s.q.GetUserByIdentity(ctx, db.GetUserByIdentityParams{Provider: provider, Subject: subject})
+	if err != nil {
+		return store.User{}, mapErr(err)
+	}
+	return dbconvgen.User(row), nil
+}
+
+func (s *Store) CreateExternalUser(ctx context.Context, u store.User, provider, subject string) (store.User, error) {
+	if err := validateUsername(u.Username); err != nil {
+		return store.User{}, err
+	}
+	if u.Source == "" || u.Source == store.UserSourceLocal {
+		return store.User{}, fmt.Errorf("%w: external users need a non-local source", store.ErrInvalid)
+	}
+	if provider == "" || subject == "" {
+		return store.User{}, fmt.Errorf("%w: provider and subject are required", store.ErrInvalid)
+	}
+	var out store.User
+	err := s.inTx(ctx, func(txs *Store) error {
+		now := txs.nowMilli()
+		row, err := txs.q.CreateUser(ctx, db.CreateUserParams{
+			ID:       newID(),
+			Username: u.Username,
+			Admin:    u.Admin,
+			Source:   string(u.Source),
+			Now:      now,
+		})
+		if err != nil {
+			return mapErr(err)
+		}
+		if err := txs.q.CreateUserIdentity(ctx, db.CreateUserIdentityParams{
+			Provider: provider, Subject: subject, UserID: row.ID, Now: now,
+		}); err != nil {
+			return mapErr(err)
+		}
+		out = dbconvgen.User(row)
+		return nil
+	})
+	return out, err
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]store.User, error) {
@@ -212,6 +258,7 @@ func (s *Store) CreateSession(ctx context.Context, sess store.Session) (store.Se
 	row, err := s.q.CreateSession(ctx, db.CreateSessionParams{
 		IDHash:     sess.IDHash,
 		UserID:     sess.UserID,
+		Provider:   sess.Provider,
 		ExpireTime: sess.ExpireTime.UnixMilli(),
 		Now:        s.nowMilli(),
 	})

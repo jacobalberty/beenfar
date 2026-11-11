@@ -187,12 +187,24 @@ type NetworkStore interface {
 	DeleteNetwork(ctx context.Context, id string, revision int64) error
 }
 
+// UserSource says where a user account comes from.
+type UserSource string
+
+const (
+	UserSourceLocal UserSource = "local" // created in beenfar; has a password
+	UserSourceProxy UserSource = "proxy" // created from trusted proxy headers
+	UserSourceOIDC  UserSource = "oidc"  // created on first OIDC sign-in
+)
+
 // User is a person who can sign in.
 type User struct {
-	ID           string
-	Username     string
-	PasswordHash string // encoded by internal/auth; never leaves the server
+	ID       string
+	Username string
+	// PasswordHash is encoded by internal/auth and never leaves the server.
+	// It is empty for external users, who cannot sign in with a password.
+	PasswordHash string
 	Admin        bool
+	Source       UserSource // empty means UserSourceLocal on create
 	Revision     int64
 	CreateTime   time.Time
 	UpdateTime   time.Time
@@ -204,6 +216,12 @@ type UserStore interface {
 	CreateUser(ctx context.Context, u User) (User, error)
 	GetUser(ctx context.Context, id string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	// GetUserByIdentity finds the user linked to an external identity.
+	GetUserByIdentity(ctx context.Context, provider, subject string) (User, error)
+	// CreateExternalUser creates a user without a password (u.Source must not
+	// be local) and links it to the external identity (provider, subject). It
+	// returns ErrConflict if the username or the identity is taken.
+	CreateExternalUser(ctx context.Context, u User, provider, subject string) (User, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CountAdmins(ctx context.Context) (int64, error)
@@ -242,8 +260,11 @@ type APITokenStore interface {
 
 // Session is a signed-in browser session. Only a hash of the cookie is stored.
 type Session struct {
-	IDHash     string
-	UserID     string
+	IDHash string
+	UserID string
+	// Provider records how the session started: empty for password login,
+	// "oidc:<provider id>" for OIDC.
+	Provider   string
 	CreateTime time.Time
 	ExpireTime time.Time
 }

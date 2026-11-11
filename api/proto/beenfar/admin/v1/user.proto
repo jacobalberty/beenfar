@@ -67,13 +67,28 @@ message User {
   string id = 1 [(google.api.field_behavior) = IDENTIFIER];
   // Sign-in name, 1-64 bytes. Unique.
   string username = 2 [(google.api.field_behavior) = REQUIRED];
-  // Admins may manage users, every API token and adapters.
+  // Admins may manage users, every API token and adapters. For external
+  // users whose provider maps groups to admin, this is derived from their
+  // groups at each sign-in and cannot be changed here.
   bool admin = 3;
+  // Where the account comes from. External users have no password.
+  UserSource source = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // Opaque version of this resource, for optimistic concurrency.
   string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// UserSource says where a user account comes from.
+enum UserSource {
+  USER_SOURCE_UNSPECIFIED = 0;
+  // Created in beenfar, signs in with a password.
+  USER_SOURCE_LOCAL = 1;
+  // Created on first request from a trusted reverse proxy.
+  USER_SOURCE_PROXY = 2;
+  // Created on first OIDC sign-in.
+  USER_SOURCE_OIDC = 3;
 }
 
 message CreateUserRequest {

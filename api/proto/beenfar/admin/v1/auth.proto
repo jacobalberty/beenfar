@@ -9,6 +9,13 @@ import "google/api/field_behavior.proto";
 // AuthService signs browser users in and out with a session cookie. API
 // clients use bearer tokens from ApiTokenService instead.
 service AuthService {
+  // GetAuthConfig describes the sign-in methods this controller offers, so a
+  // UI can render the right login screen. It needs no credentials.
+  rpc GetAuthConfig(GetAuthConfigRequest) returns (GetAuthConfigResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/auth/config"};
+  }
+
   // Login checks a username and password and starts a session. The response
   // sets an HttpOnly session cookie. Fails with UNAUTHENTICATED on bad
   // credentials.
@@ -20,7 +27,9 @@ service AuthService {
     };
   }
 
-  // Logout ends the current session and clears the cookie.
+  // Logout ends the current session and clears the cookie. When the user
+  // signed in through an external provider, redirect_url is where the UI
+  // should send the browser to sign out there too.
   rpc Logout(LogoutRequest) returns (LogoutResponse) {
     option (google.api.http) = {
       post: "/api/v1/auth/logout"
@@ -52,10 +61,63 @@ message LoginResponse {
 
 message LogoutRequest {}
 
-message LogoutResponse {}
+message LogoutResponse {
+  // Where to send the browser next, e.g. the proxy's sign-out page or the
+  // OIDC provider's end-session endpoint. Empty when there is nothing to do.
+  string redirect_url = 1;
+}
 
 message GetCurrentUserRequest {}
 
 message GetCurrentUserResponse {
   User user = 1;
+  // How the caller authenticated this request.
+  AuthMethod method = 2;
+}
+
+// AuthMethod is how a request was authenticated.
+enum AuthMethod {
+  AUTH_METHOD_UNSPECIFIED = 0;
+  // An API token, as "Authorization: Bearer" or as the Basic auth password.
+  AUTH_METHOD_TOKEN = 1;
+  // A session cookie from password login.
+  AUTH_METHOD_SESSION = 2;
+  // HTTP Basic auth with a username and password.
+  AUTH_METHOD_BASIC = 3;
+  // Identity headers from a trusted reverse proxy.
+  AUTH_METHOD_PROXY = 4;
+  // A session cookie from OIDC login.
+  AUTH_METHOD_OIDC = 5;
+}
+
+message GetAuthConfigRequest {}
+
+message GetAuthConfigResponse {
+  // Whether the username/password form (AuthService.Login) is available.
+  bool password_login_enabled = 1;
+  // OIDC providers to offer as "sign in with" buttons.
+  repeated OidcProvider oidc_providers = 2;
+  // Set when a trusted reverse proxy authenticates users. The UI shows no
+  // login form: an unauthenticated request means the proxy is misconfigured.
+  ProxyAuth proxy = 3;
+  // Whether HTTP Basic auth is accepted (always with API tokens as the
+  // password; with real passwords only when basic_passwords_enabled).
+  bool basic_enabled = 4;
+  bool basic_passwords_enabled = 5;
+}
+
+// OidcProvider is a configured OpenID Connect identity provider.
+message OidcProvider {
+  // Stable provider id used in URLs, e.g. "corp".
+  string id = 1;
+  string display_name = 2;
+  // Relative URL that starts the login flow. Append ?redirect=<path> to
+  // return somewhere other than "/" afterwards.
+  string login_url = 3;
+}
+
+// ProxyAuth describes trusted-proxy authentication.
+message ProxyAuth {
+  // Where to send the browser to sign out at the proxy, if configured.
+  string logout_url = 1;
 }

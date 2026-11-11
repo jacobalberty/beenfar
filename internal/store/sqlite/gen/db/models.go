@@ -48,6 +48,7 @@ type Session struct {
 	UserID     string
 	CreateTime int64
 	ExpireTime int64
+	Provider   string
 }
 
 type User struct {
@@ -58,6 +59,14 @@ type User struct {
 	Revision     int64
 	CreateTime   int64
 	UpdateTime   int64
+	Source       string
+}
+
+type UserIdentity struct {
+	Provider   string
+	Subject    string
+	UserID     string
+	CreateTime int64
 }
 
 type WifiNetwork struct {
