@@ -59,7 +59,7 @@ func newFixture(t *testing.T, fopts ...fixtureOption) fixture {
 		t.Fatal(err)
 	}
 	authSvc := auth.New(st, auth.WithIterations(1000)) // fast hashes for tests
-	reg, err := adapterhost.NewRegistry(adapterhost.Options{Store: st})
+	reg, err := adapterhost.NewRegistry(adapterhost.Options{Store: st, Propagator: tel.TextMapPropagator()})
 	if err != nil {
 		t.Fatal(err)
 	}

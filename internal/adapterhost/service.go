@@ -84,7 +84,7 @@ func (s *Service) Register(ctx context.Context, req *adapterv1.RegisterRequest, 
 	for {
 		select {
 		case cmd := <-sess.Commands():
-			msg := &adapterv1.RegisterResponse{CommandId: cmd.ID}
+			msg := &adapterv1.RegisterResponse{CommandId: cmd.ID, TraceContext: cmd.Trace}
 			dev := wiregen.DeviceToProto(cmd.Device)
 			switch cmd.Kind {
 			case CommandAdopt:

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/jacobalberty/beenfar/api/adapter"
 	"github.com/jacobalberty/beenfar/internal/core"
@@ -36,6 +37,7 @@ type entry struct {
 // Registry tracks the connected adapters. It implements core.AdapterRegistry.
 type Registry struct {
 	store store.Store
+	prop  propagation.TextMapPropagator
 	now   func() time.Time
 
 	wg       sync.WaitGroup
@@ -52,12 +54,16 @@ type Options struct {
 	Store store.Store
 	// Meter, if set, exports the connected-adapters gauge.
 	Meter metric.Meter
+	// Propagator carries the trace of the request behind an Adopt or Forget
+	// to the external adapter that carries it out. Nil sends no trace.
+	Propagator propagation.TextMapPropagator
 }
 
 // NewRegistry returns an empty registry.
 func NewRegistry(opts Options) (*Registry, error) {
 	r := &Registry{
 		store:    opts.Store,
+		prop:     opts.Propagator,
 		now:      time.Now,
 		adapters: map[string]*entry{},
 		handlers: map[string]http.Handler{},
@@ -221,6 +227,8 @@ type Command struct {
 	ID     string
 	Kind   CommandKind
 	Device adapter.Device
+	// Trace is the W3C trace context of the request that caused the command.
+	Trace map[string]string
 }
 
 type pendingCommand struct {
@@ -318,6 +326,12 @@ func (d remoteDriver) Forget(ctx context.Context, dev adapter.Device) error {
 func (d remoteDriver) send(ctx context.Context, kind CommandKind, dev adapter.Device) error {
 	r := d.s.reg
 	id := rand.Text()
+	var trace map[string]string
+	if r.prop != nil {
+		carrier := propagation.MapCarrier{}
+		r.prop.Inject(ctx, carrier)
+		trace = carrier
+	}
 	p := &pendingCommand{adapter: d.s.name, done: make(chan error, 1)}
 	r.mu.Lock()
 	r.pending[id] = p
@@ -329,7 +343,7 @@ func (d remoteDriver) send(ctx context.Context, kind CommandKind, dev adapter.De
 	}()
 
 	select {
-	case d.s.commands <- Command{ID: id, Kind: kind, Device: dev}:
+	case d.s.commands <- Command{ID: id, Kind: kind, Device: dev, Trace: trace}:
 	case <-d.s.closed:
 		return fmt.Errorf("%w: adapter %q disconnected", store.ErrFailedPrecondition, d.s.name)
 	case <-ctx.Done():

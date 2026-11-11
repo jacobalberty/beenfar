@@ -112,7 +112,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("auth configuration: %w", err)
 	}
-	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter()})
+	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter(), Propagator: tel.TextMapPropagator()})
 	if err != nil {
 		return err
 	}
