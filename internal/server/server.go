@@ -36,7 +36,10 @@ type Options struct {
 	Store     store.Store
 	Telemetry *telemetry.Telemetry
 	Auth      *auth.Service
-	Core      *core.Services
+	// Authenticator decides who is calling. Nil means API tokens and the
+	// session cookie (Auth.BearerToken, Auth.SessionCookie).
+	Authenticator auth.Authenticator
+	Core          *core.Services
 }
 
 // New returns the root handler.
@@ -50,9 +53,14 @@ func New(opts Options) (http.Handler, error) {
 		return nil, fmt.Errorf("otelconnect: %w", err)
 	}
 
+	authn := opts.Authenticator
+	if authn == nil {
+		authn = auth.Chain{opts.Auth.BearerToken(), opts.Auth.SessionCookie()}
+	}
+
 	// Outermost first: telemetry sees the final status code, errors are mapped
 	// before that, and auth runs before any payload is decoded.
-	rpc := connect.NewServer(otelInterceptor, errorInterceptor, recoverInterceptor, authInterceptor(opts.Auth))
+	rpc := connect.NewServer(otelInterceptor, errorInterceptor, recoverInterceptor, authInterceptor(authn))
 	configv1connect.RegisterWifiNetworkServiceHandler(rpc, &wifiHandler{svc: opts.Core.Wifi})
 	configv1connect.RegisterNetworkServiceHandler(rpc, &networkHandler{svc: opts.Core.Networks})
 	configv1connect.RegisterDeviceServiceHandler(rpc, &deviceHandler{svc: opts.Core.Devices})

@@ -52,6 +52,10 @@ const (
 type Principal struct {
 	User   store.User
 	Method Method
+	// Ambient is set when the browser sends the credentials by itself (a
+	// cookie, cached Basic auth, a proxy's own cookie). Such requests need a
+	// same-origin check against cross-site request forgery.
+	Ambient bool
 	// TokenID is set for MethodToken; SessionHash for MethodSession.
 	TokenID     string
 	SessionHash string
@@ -303,7 +307,7 @@ func (s *Service) AuthenticateSession(ctx context.Context, cookie string) (*Prin
 	if err != nil {
 		return nil, err
 	}
-	return &Principal{User: u, Method: MethodSession, SessionHash: h}, nil
+	return &Principal{User: u, Method: MethodSession, SessionHash: h, Ambient: true}, nil
 }
 
 func (s *Service) dummyHash() string {

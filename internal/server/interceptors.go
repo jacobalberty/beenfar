@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"runtime/debug"
 	"strings"
@@ -94,9 +95,8 @@ var adminProcedures = map[string]bool{
 }
 
 // authInterceptor authenticates every RPC before its payload is read and puts
-// the principal into the context. Credentials are an "Authorization: Bearer"
-// API token or, failing that, the session cookie.
-func authInterceptor(svc *auth.Service) connect.ServerInterceptor {
+// the principal into the context.
+func authInterceptor(authn auth.Authenticator) connect.ServerInterceptor {
 	return func(next connect.ServerFunc) connect.ServerFunc {
 		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
 			if publicProcedures[spec.Procedure] {
@@ -106,9 +106,16 @@ func authInterceptor(svc *auth.Service) connect.ServerInterceptor {
 			if !ok {
 				return connect.NewError(connect.CodeInternal, "missing call info")
 			}
-			p, err := authenticate(ctx, svc, info.RequestHeader())
+			h := info.RequestHeader()
+			ri := requestInfoFrom(ctx)
+			p, err := authn.Authenticate(ctx, auth.Request{Header: h, Peer: ri.peer})
 			if err != nil {
 				return err
+			}
+			// Ambient credentials ride along on cross-site requests; refuse
+			// them unless the request comes from our own origin.
+			if p.Ambient && !sameOrigin(h.Get("Origin"), ri.host) {
+				return connect.NewError(connect.CodePermissionDenied, "cross-origin request with browser credentials")
 			}
 			if adminProcedures[spec.Procedure] && !p.IsAdmin() {
 				return connect.NewError(connect.CodePermissionDenied, "admin role required")
@@ -124,52 +131,14 @@ func authInterceptor(svc *auth.Service) connect.ServerInterceptor {
 	}
 }
 
-func authenticate(ctx context.Context, svc *auth.Service, h *connect.Header) (*auth.Principal, error) {
-	if authz := h.Get("Authorization"); authz != "" {
-		scheme, token, ok := strings.Cut(authz, " ")
-		if !ok || !strings.EqualFold(scheme, "Bearer") {
-			return nil, connect.NewError(connect.CodeUnauthenticated, "unsupported authorization scheme; use Bearer")
-		}
-		p, err := svc.AuthenticateToken(ctx, strings.TrimSpace(token))
-		if errors.Is(err, auth.ErrUnauthenticated) {
-			return nil, connect.NewError(connect.CodeUnauthenticated, "invalid or expired token")
-		}
-		return p, err
+// sameOrigin reports whether an Origin header (absent for same-origin GETs
+// and non-browser clients) names host.
+func sameOrigin(origin, host string) bool {
+	if origin == "" {
+		return true
 	}
-
-	cookie := sessionCookie(h)
-	if cookie == "" {
-		return nil, connect.NewError(connect.CodeUnauthenticated, "credentials required")
-	}
-	// Cookies ride along on cross-site requests; refuse them unless the
-	// request comes from our own origin (SameSite=Strict is the first line).
-	if origin := h.Get("Origin"); origin != "" {
-		ri := requestInfoFrom(ctx)
-		u, err := url.Parse(origin)
-		if err != nil || ri.host == "" || !strings.EqualFold(u.Host, ri.host) {
-			return nil, connect.NewError(connect.CodePermissionDenied, "cross-origin request with session cookie")
-		}
-	}
-	p, err := svc.AuthenticateSession(ctx, cookie)
-	if errors.Is(err, auth.ErrUnauthenticated) {
-		return nil, connect.NewError(connect.CodeUnauthenticated, "session expired; sign in again")
-	}
-	return p, err
-}
-
-func sessionCookie(h *connect.Header) string {
-	for _, line := range h.Values("Cookie") {
-		cookies, err := http.ParseCookie(line)
-		if err != nil {
-			continue
-		}
-		for _, c := range cookies {
-			if c.Name == SessionCookieName {
-				return c.Value
-			}
-		}
-	}
-	return ""
+	u, err := url.Parse(origin)
+	return err == nil && host != "" && strings.EqualFold(u.Host, host)
 }
 
 // requestInfo carries HTTP details the Connect call info does not expose
@@ -177,13 +146,16 @@ func sessionCookie(h *connect.Header) string {
 type requestInfo struct {
 	host   string
 	secure bool
+	peer   netip.Addr // TCP peer; for trusted-proxy checks
 }
 
 type requestInfoKey struct{}
 
 func withRequestInfo(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		peer, _ := netip.ParseAddrPort(r.RemoteAddr)
 		ri := requestInfo{
+			peer:   peer.Addr().Unmap(),
 			host:   r.Host,
 			secure: r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"),
 		}

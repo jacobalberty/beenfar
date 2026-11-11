@@ -17,7 +17,7 @@ import (
 )
 
 // SessionCookieName is the browser session cookie.
-const SessionCookieName = "beenfar_session"
+const SessionCookieName = auth.SessionCookieName
 
 // principal returns the caller; the auth interceptor guarantees one on every
 // non-public procedure.
@@ -201,7 +201,7 @@ func (h *authHandler) Login(ctx context.Context, req *adminv1.LoginRequest) (*ad
 
 func (h *authHandler) Logout(ctx context.Context, _ *adminv1.LogoutRequest) (*adminv1.LogoutResponse, error) {
 	if info, ok := connect.CallInfoForServerContext(ctx); ok {
-		if c := sessionCookie(info.RequestHeader()); c != "" {
+		if c := auth.SessionCookieValue(info.RequestHeader()); c != "" {
 			if err := h.auth.Logout(ctx, c); err != nil {
 				return nil, err
 			}
