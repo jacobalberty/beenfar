@@ -235,11 +235,11 @@ func TestOIDCLogin(t *testing.T) {
 		t.Fatalf("second principal = %+v, %v", p2, err)
 	}
 
-	if u := h.oidc.LogoutURL(ctx, "oidc:corp", httptest.NewRequest(http.MethodGet, "/", nil)); u !=
+	if u := h.oidc.LogoutURL(ctx, "oidc:corp", "http://ignored"); u !=
 		h.issuer.srv.URL+"/logout?client_id=beenfar-test&post_logout_redirect_uri=https%3A%2F%2Fbeenfar.test%2F" {
 		t.Errorf("logout url = %q", u)
 	}
-	if u := h.oidc.LogoutURL(ctx, "", httptest.NewRequest(http.MethodGet, "/", nil)); u != "" {
+	if u := h.oidc.LogoutURL(ctx, "", "http://ignored"); u != "" {
 		t.Errorf("password session logout url = %q", u)
 	}
 }

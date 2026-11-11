@@ -179,10 +179,30 @@ func (h *userHandler) SetUserPassword(ctx context.Context, req *adminv1.SetUserP
 
 type authHandler struct {
 	adminv1connect.UnimplementedAuthServiceHandler
-	auth *auth.Service
+	auth    *auth.Service
+	methods AuthMethods
+}
+
+func (h *authHandler) GetAuthConfig(context.Context, *adminv1.GetAuthConfigRequest) (*adminv1.GetAuthConfigResponse, error) {
+	m := h.methods
+	resp := &adminv1.GetAuthConfigResponse{
+		PasswordLoginEnabled:  !m.DisablePasswordLogin,
+		BasicEnabled:          m.Basic,
+		BasicPasswordsEnabled: m.Basic && m.BasicPasswords,
+	}
+	for _, p := range m.OIDC.Providers() {
+		resp.OidcProviders = append(resp.OidcProviders, &adminv1.OidcProvider{Id: p.ID, DisplayName: p.DisplayName, LoginUrl: p.LoginURL})
+	}
+	if m.Proxy {
+		resp.Proxy = &adminv1.ProxyAuth{LogoutUrl: m.ProxyLogoutURL}
+	}
+	return resp, nil
 }
 
 func (h *authHandler) Login(ctx context.Context, req *adminv1.LoginRequest) (*adminv1.LoginResponse, error) {
+	if h.methods.DisablePasswordLogin {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, "password login is disabled; use your identity provider")
+	}
 	u, cookie, sess, err := h.auth.Login(ctx, req.GetUsername(), req.GetPassword(), requestInfoFrom(ctx).peer)
 	if err != nil {
 		if code, ok := codeOf(err); ok && code == connect.CodeUnauthenticated {
@@ -194,16 +214,35 @@ func (h *authHandler) Login(ctx context.Context, req *adminv1.LoginRequest) (*ad
 	return &adminv1.LoginResponse{User: apiconvgen.UserToProto(u)}, nil
 }
 
+// Logout ends the beenfar session, if any, and says where to sign out
+// upstream: the OIDC provider for an OIDC session, or the proxy when the
+// caller has no session (proxy users never get one).
 func (h *authHandler) Logout(ctx context.Context, _ *adminv1.LogoutRequest) (*adminv1.LogoutResponse, error) {
+	resp := &adminv1.LogoutResponse{}
+	cookie := ""
 	if info, ok := connect.CallInfoForServerContext(ctx); ok {
-		if c := auth.SessionCookieValue(info.RequestHeader()); c != "" {
-			if err := h.auth.Logout(ctx, c); err != nil {
-				return nil, err
-			}
+		cookie = auth.SessionCookieValue(info.RequestHeader())
+	}
+	if cookie != "" {
+		provider, err := h.auth.Logout(ctx, cookie)
+		if err != nil {
+			return nil, err
 		}
+		ri := requestInfoFrom(ctx)
+		resp.RedirectUrl = h.methods.OIDC.LogoutURL(ctx, provider, ri.baseURL())
+	} else if h.methods.Proxy {
+		resp.RedirectUrl = h.methods.ProxyLogoutURL
 	}
 	setCookie(ctx, "", time.Time{}) // clears it
-	return &adminv1.LogoutResponse{}, nil
+	return resp, nil
+}
+
+var authMethodToProto = map[auth.Method]adminv1.AuthMethod{
+	auth.MethodToken:   adminv1.AuthMethod_AUTH_METHOD_TOKEN,
+	auth.MethodSession: adminv1.AuthMethod_AUTH_METHOD_SESSION,
+	auth.MethodBasic:   adminv1.AuthMethod_AUTH_METHOD_BASIC,
+	auth.MethodProxy:   adminv1.AuthMethod_AUTH_METHOD_PROXY,
+	auth.MethodOIDC:    adminv1.AuthMethod_AUTH_METHOD_OIDC,
 }
 
 func (h *authHandler) GetCurrentUser(ctx context.Context, _ *adminv1.GetCurrentUserRequest) (*adminv1.GetCurrentUserResponse, error) {
@@ -211,7 +250,7 @@ func (h *authHandler) GetCurrentUser(ctx context.Context, _ *adminv1.GetCurrentU
 	if err != nil {
 		return nil, err
 	}
-	return &adminv1.GetCurrentUserResponse{User: apiconvgen.UserToProto(p.User)}, nil
+	return &adminv1.GetCurrentUserResponse{User: apiconvgen.UserToProto(p.User), Method: authMethodToProto[p.Method]}, nil
 }
 
 // setCookie sets (or, with an empty value, clears) the session cookie on

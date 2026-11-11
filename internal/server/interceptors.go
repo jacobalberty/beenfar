@@ -82,8 +82,9 @@ func recoverInterceptor(next connect.ServerFunc) connect.ServerFunc {
 
 // Procedures callable without credentials.
 var publicProcedures = map[string]bool{
-	adminv1connect.AuthServiceLoginProcedure:  true,
-	adminv1connect.AuthServiceLogoutProcedure: true,
+	adminv1connect.AuthServiceLoginProcedure:         true,
+	adminv1connect.AuthServiceLogoutProcedure:        true,
+	adminv1connect.AuthServiceGetAuthConfigProcedure: true,
 }
 
 // Procedures only admins may call. Handlers enforce finer rules (such as
@@ -163,6 +164,14 @@ func withRequestInfo(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestInfoKey{}, ri)))
 	})
+}
+
+// baseURL is the scheme and host the client used.
+func (ri requestInfo) baseURL() string {
+	if ri.secure {
+		return "https://" + ri.host
+	}
+	return "http://" + ri.host
 }
 
 func requestInfoFrom(ctx context.Context) requestInfo {

@@ -39,7 +39,22 @@ type Options struct {
 	// Authenticator decides who is calling. Nil means API tokens and the
 	// session cookie (Auth.BearerToken, Auth.SessionCookie).
 	Authenticator auth.Authenticator
-	Core          *core.Services
+	// AuthMethods describes the configured sign-in methods for
+	// GetAuthConfig, Login and Logout, and mounts the OIDC routes.
+	AuthMethods AuthMethods
+	Core        *core.Services
+}
+
+// AuthMethods are the sign-in methods beyond API tokens and password login.
+// The authenticators themselves are in Options.Authenticator; this is what
+// the API reports and the HTTP routes they need.
+type AuthMethods struct {
+	DisablePasswordLogin bool
+	Basic                bool
+	BasicPasswords       bool
+	Proxy                bool
+	ProxyLogoutURL       string
+	OIDC                 *auth.OIDC // nil when not configured
 }
 
 // New returns the root handler.
@@ -66,7 +81,7 @@ func New(opts Options) (http.Handler, error) {
 	configv1connect.RegisterDeviceServiceHandler(rpc, &deviceHandler{svc: opts.Core.Devices})
 	adminv1connect.RegisterApiTokenServiceHandler(rpc, &apiTokenHandler{auth: opts.Auth})
 	adminv1connect.RegisterUserServiceHandler(rpc, &userHandler{auth: opts.Auth, store: opts.Store})
-	adminv1connect.RegisterAuthServiceHandler(rpc, &authHandler{auth: opts.Auth})
+	adminv1connect.RegisterAuthServiceHandler(rpc, &authHandler{auth: opts.Auth, methods: opts.AuthMethods})
 	adminv1connect.RegisterAdapterServiceHandler(rpc, &adapterHandler{registry: opts.Core.Adapters})
 
 	mux := http.NewServeMux()
@@ -78,6 +93,10 @@ func New(opts Options) (http.Handler, error) {
 		return nil, fmt.Errorf("vanguard: %w", err)
 	}
 	mux.Handle("/api/", rest)
+
+	if opts.AuthMethods.OIDC != nil {
+		mux.Handle("/auth/oidc/", opts.AuthMethods.OIDC.Handler())
+	}
 
 	mux.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

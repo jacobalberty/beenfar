@@ -262,8 +262,10 @@ func (o *OIDC) callback(w http.ResponseWriter, r *http.Request) {
 }
 
 // LogoutURL returns the provider's end-session URL for a session started by
-// OIDC sign-in, or "" when there is none.
-func (o *OIDC) LogoutURL(ctx context.Context, sessionProvider string, r *http.Request) string {
+// OIDC sign-in, or "" when there is none. requestBase is the scheme and host
+// the browser used (e.g. "https://beenfar.example.com"); the configured
+// public URL takes precedence.
+func (o *OIDC) LogoutURL(ctx context.Context, sessionProvider, requestBase string) string {
 	if o == nil {
 		return ""
 	}
@@ -288,7 +290,11 @@ func (o *OIDC) LogoutURL(ctx context.Context, sessionProvider string, r *http.Re
 	}
 	v := u.Query()
 	v.Set("client_id", p.cfg.ClientID)
-	v.Set("post_logout_redirect_uri", o.baseURL(r)+"/")
+	base := o.publicURL
+	if base == "" {
+		base = requestBase
+	}
+	v.Set("post_logout_redirect_uri", base+"/")
 	u.RawQuery = v.Encode()
 	return u.String()
 }

@@ -41,9 +41,9 @@ type apiFixture struct {
 	adminToken string
 }
 
-func newAPIFixture(t *testing.T, authn ...func(*auth.Service) auth.Authenticator) apiFixture {
+func newAPIFixture(t *testing.T, fopts ...fixtureOption) apiFixture {
 	t.Helper()
-	f := newFixture(t, authn...)
+	f := newFixture(t, fopts...)
 	srv := httptest.NewServer(f.handler)
 	t.Cleanup(srv.Close)
 	u, err := f.auth.CreateUser(t.Context(), "admin", "correct horse", true)
@@ -621,9 +621,9 @@ func TestRPCTracing(t *testing.T) {
 }
 
 func TestBasicAuthOverHTTP(t *testing.T) {
-	f := newAPIFixture(t, func(a *auth.Service) auth.Authenticator {
+	f := newAPIFixture(t, withAuthenticator(func(a *auth.Service) auth.Authenticator {
 		return auth.Chain{a.BearerToken(), a.Basic(auth.BasicOptions{Passwords: true}), a.SessionCookie()}
-	})
+	}))
 	req := func(user, pass string, header ...string) int {
 		h := append([]string{"Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))}, header...)
 		code, _, _ := f.rest(t, http.MethodGet, "/api/v1/auth/me", "", "", h...)
@@ -645,7 +645,7 @@ func TestBasicAuthOverHTTP(t *testing.T) {
 }
 
 func TestProxyAuthOverHTTP(t *testing.T) {
-	f := newAPIFixture(t, func(a *auth.Service) auth.Authenticator {
+	f := newAPIFixture(t, withAuthenticator(func(a *auth.Service) auth.Authenticator {
 		proxy, err := a.Proxy(auth.ProxyOptions{
 			TrustedPeers: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 			UserHeader:   "X-Forwarded-User",
@@ -654,7 +654,7 @@ func TestProxyAuthOverHTTP(t *testing.T) {
 			t.Fatal(err)
 		}
 		return auth.Chain{a.BearerToken(), proxy, a.SessionCookie()}
-	})
+	}))
 	code, body, _ := f.rest(t, http.MethodGet, "/api/v1/auth/me", "", "", "X-Forwarded-User", "jill")
 	if code != http.StatusOK || !strings.Contains(string(body), `"jill"`) {
 		t.Fatalf("proxy user = %d %s", code, body)
@@ -662,5 +662,66 @@ func TestProxyAuthOverHTTP(t *testing.T) {
 	code, _, _ = f.rest(t, http.MethodGet, "/api/v1/auth/me", "", "", "X-Forwarded-User", "jill", "Origin", "https://evil.example")
 	if code != http.StatusForbidden {
 		t.Errorf("cross-origin proxy request = %d, want 403", code)
+	}
+}
+
+func TestAuthConfigAndMethods(t *testing.T) {
+	f := newAPIFixture(t)
+	authClient := adminv1connect.NewAuthServiceClient(f.client(""))
+	cfg, err := authClient.GetAuthConfig(t.Context(), &adminv1.GetAuthConfigRequest{})
+	if err != nil {
+		t.Fatal(err) // public: no credentials needed
+	}
+	if !cfg.GetPasswordLoginEnabled() || cfg.GetBasicEnabled() || cfg.GetProxy() != nil || len(cfg.GetOidcProviders()) != 0 {
+		t.Errorf("default config = %v", cfg)
+	}
+	me, err := adminv1connect.NewAuthServiceClient(f.client(f.adminToken)).GetCurrentUser(t.Context(), &adminv1.GetCurrentUserRequest{})
+	if err != nil || me.GetMethod() != adminv1.AuthMethod_AUTH_METHOD_TOKEN || me.GetUser().GetSource() != adminv1.UserSource_USER_SOURCE_LOCAL {
+		t.Errorf("me = %v, %v", me, err)
+	}
+	// Logout without a session and without a proxy has nowhere to go.
+	out, err := authClient.Logout(t.Context(), &adminv1.LogoutRequest{})
+	if err != nil || out.GetRedirectUrl() != "" {
+		t.Errorf("logout = %v, %v", out, err)
+	}
+	if code, _, _ := f.rest(t, http.MethodGet, "/auth/oidc/corp/login", "", ""); code != http.StatusNotFound {
+		t.Errorf("OIDC routes mounted without OIDC: %d", code)
+	}
+}
+
+func TestAuthConfigExternal(t *testing.T) {
+	f := newAPIFixture(t, func(o *server.Options) {
+		oidc, err := o.Auth.OIDC([]auth.OIDCProvider{{ID: "corp", DisplayName: "Corp", Issuer: "http://127.0.0.1:1", ClientID: "c"}}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		o.AuthMethods = server.AuthMethods{
+			DisablePasswordLogin: true,
+			Basic:                true,
+			Proxy:                true,
+			ProxyLogoutURL:       "/oauth2/sign_out",
+			OIDC:                 oidc,
+		}
+	})
+	authClient := adminv1connect.NewAuthServiceClient(f.client(""))
+	cfg, err := authClient.GetAuthConfig(t.Context(), &adminv1.GetAuthConfigRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GetPasswordLoginEnabled() || !cfg.GetBasicEnabled() || cfg.GetBasicPasswordsEnabled() ||
+		cfg.GetProxy().GetLogoutUrl() != "/oauth2/sign_out" || len(cfg.GetOidcProviders()) != 1 ||
+		cfg.GetOidcProviders()[0].GetLoginUrl() != "/auth/oidc/corp/login" {
+		t.Errorf("config = %v", cfg)
+	}
+	_, err = authClient.Login(t.Context(), &adminv1.LoginRequest{Username: "admin", Password: "correct horse"})
+	wantCode(t, err, connect.CodeFailedPrecondition)
+
+	out, err := authClient.Logout(t.Context(), &adminv1.LogoutRequest{})
+	if err != nil || out.GetRedirectUrl() != "/oauth2/sign_out" {
+		t.Errorf("proxy logout = %v, %v", out, err)
+	}
+	// The OIDC routes are mounted; the unreachable issuer gives 502.
+	if code, _, _ := f.rest(t, http.MethodGet, "/auth/oidc/corp/login", "", ""); code != http.StatusBadGateway {
+		t.Errorf("OIDC login with dead issuer = %d", code)
 	}
 }

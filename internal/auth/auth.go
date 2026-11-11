@@ -356,9 +356,18 @@ func (s *Service) StartSession(ctx context.Context, userID, provider string) (st
 	return cookie, sess, nil
 }
 
-// Logout ends the session identified by a cookie value.
-func (s *Service) Logout(ctx context.Context, cookie string) error {
-	return s.store.DeleteSession(ctx, hashSecret(cookie))
+// Logout ends the session identified by a cookie value and returns how it
+// started (its Provider), so the caller can sign out upstream too.
+func (s *Service) Logout(ctx context.Context, cookie string) (string, error) {
+	h := hashSecret(cookie)
+	sess, err := s.store.GetSession(ctx, h)
+	if errors.Is(err, store.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return sess.Provider, s.store.DeleteSession(ctx, h)
 }
 
 // AuthenticateSession resolves a session cookie value.
