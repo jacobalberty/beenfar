@@ -2,7 +2,7 @@ package controller
 
 import (
 	"crypto/rand"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -41,7 +41,7 @@ func (h *UnifiHandler) Init(router *chi.Mux, configData *model.ConfigData, devic
 //   200: informResponse
 //   404: description:Returned to equipment that has not been adopted yet.
 func (h *UnifiHandler) postInformHandler(w http.ResponseWriter, r *http.Request) {
-	bodyBuffer, _ := ioutil.ReadAll(r.Body)
+	bodyBuffer, _ := io.ReadAll(r.Body)
 
 	ipd, err := unifi.NewInformBuilder(bodyBuffer)
 	if err != nil {

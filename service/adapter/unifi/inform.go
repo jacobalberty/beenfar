@@ -8,7 +8,7 @@ var (
 	// md5sum of "ubnt"
 	MASTER_KEY = []byte{0xba, 0x86, 0xf2, 0xbb, 0xe1, 0x07, 0xc7, 0xc5, 0x7e, 0xb5, 0xf2, 0x69, 0x07, 0x75, 0xc7, 0x12}
 
-	ErrDataLength = fmt.Errorf("Data length is larger than packet size")
+	ErrDataLength = fmt.Errorf("data length is larger than packet size")
 )
 
 type InformPD struct {
