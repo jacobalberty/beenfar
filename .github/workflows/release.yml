@@ -107,7 +107,9 @@ jobs:
         uses: orhun/git-cliff-action@v4
         with:
           # Built-in config groups conventional commits; works with no prior tag.
-          args: --current --strip header
+          # Only root release tags count: api/v* tags belong to the api module
+          # (api-release.yml).
+          args: --current --tag-pattern "^v[0-9]" --strip header
         env:
           OUTPUT: RELEASE_NOTES.md
 

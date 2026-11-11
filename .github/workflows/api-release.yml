@@ -1,0 +1,93 @@
+name: API module release
+
+# Releases the api module (github.com/jacobalberty/beenfar/api, which the
+# Terraform provider and external adapters import) as api/vX.Y.Z tags, the
+# form Go needs for a module in a subdirectory.
+#
+# Every push to main that touches api/ runs CI and then tags a release when
+# the conventional commits that touched api/ since the last api/v* tag call
+# for one; .github/scripts/api-next-version.sh has the rules (feat = minor,
+# fix/perf = patch, breaking = minor while 0.x). Release notes come from
+# git-cliff, limited to api/.
+#
+# Run it by hand (workflow dispatch) with a version to cut a release the
+# script will not, e.g. api/v1.0.0.
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'api/**' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (api/vX.Y.Z). Leave empty to compute it.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-release
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/go.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT: ${{ inputs.version }}
+        run: |
+          v="$INPUT"
+          if [ -z "$v" ]; then
+            v=$(.github/scripts/api-next-version.sh)
+          fi
+          if [ -z "$v" ]; then
+            echo "No feat, fix, perf or breaking commits under api/ since the last api release; nothing to release." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! [[ "$v" =~ ^api/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$v' is not a valid api/vX.Y.Z version"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$v" >/dev/null; then
+            echo "::error::tag $v already exists"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Releasing $v" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate release notes
+        if: steps.version.outputs.version != ''
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: .github/cliff-api.toml
+          args: --unreleased --include-path "api/**" --tag ${{ steps.version.outputs.version }} --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+
+      - name: Tag and publish
+        if: steps.version.outputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+          prerelease=()
+          [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$VERSION" --title "$VERSION" --notes-file RELEASE_NOTES.md --verify-tag --latest=false "${prerelease[@]}"

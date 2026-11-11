@@ -29,6 +29,18 @@ beenfard admin token -username admin -name terraform
 or through the API (`ApiTokenService.CreateApiToken`). Send it as
 `Authorization: Bearer <token>`.
 
+## API module
+
+The protobuf API and its generated Go clients, together with the adapter
+SDK, are the module `github.com/jacobalberty/beenfar/api` in `api/`, which
+the Terraform provider and external adapters import. It is released on its
+own, as `api/vX.Y.Z` tags: every push to `main` that touches `api/` runs CI
+and tags a release when the commits that touched `api/` since the last one
+call for it (`feat` minor, `fix`/`perf` patch, breaking changes minor while
+0.x; see `.github/scripts/api-next-version.sh`). Commits that touch `api/`
+must therefore follow [Conventional Commits](https://www.conventionalcommits.org/),
+which a pull request check enforces.
+
 ## Authentication
 
 API tokens (`Authorization: Bearer`) and the password login form are always
