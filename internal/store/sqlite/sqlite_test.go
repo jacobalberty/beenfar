@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jacobalberty/beenfar/internal/store"
 	"github.com/jacobalberty/beenfar/internal/store/sqlite"
@@ -313,4 +314,61 @@ func TestDeviceSecrets(t *testing.T) {
 	}
 	_, err = s.GetDeviceSecret(ctx, d.ID, "pending")
 	wantErr(t, err, store.ErrNotFound)
+}
+
+func TestReadoption(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:40", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdoptDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	// An adopted device is not adopted again unless it is awaiting that.
+	_, err = s.AdoptDevice(ctx, d.ID)
+	wantErr(t, err, store.ErrFailedPrecondition)
+
+	got, err := s.RecordDeviceState(ctx, d.ID, store.DeviceReport{Readoption: store.ReadoptionAwaiting})
+	if err != nil || got.Readoption != store.ReadoptionAwaiting || got.State != store.DeviceStateAdopted {
+		t.Fatalf("awaiting = %+v, %v", got, err)
+	}
+	// Accepting moves it on and leaves it adopted.
+	got, err = s.AdoptDevice(ctx, d.ID)
+	if err != nil || got.Readoption != store.ReadoptionInProgress || got.State != store.DeviceStateAdopted {
+		t.Fatalf("accepted = %+v, %v", got, err)
+	}
+	// Accepting twice is refused: it is in progress, not awaiting.
+	_, err = s.AdoptDevice(ctx, d.ID)
+	wantErr(t, err, store.ErrFailedPrecondition)
+
+	got, err = s.RecordDeviceState(ctx, d.ID, store.DeviceReport{})
+	if err != nil || got.Readoption != store.ReadoptionNone {
+		t.Fatalf("readoption did not clear: %+v, %v", got, err)
+	}
+}
+
+func TestLockedReportsDoNotCountAsContact(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:41", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := d.LastSeen
+	time.Sleep(5 * time.Millisecond)
+	// A locked report is unauthenticated: it flags the device but does not
+	// count as hearing from it.
+	locked, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:41", Adapter: "unifi", Locked: true})
+	if err != nil || !locked.Locked || !locked.LastSeen.Equal(seen) {
+		t.Fatalf("locked report: %+v (last seen was %v), %v", locked, seen, err)
+	}
+	time.Sleep(5 * time.Millisecond)
+	again, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:41", Adapter: "unifi"})
+	if err != nil || !again.LastSeen.After(seen) || again.Locked {
+		t.Fatalf("ordinary report: %+v, %v", again, err)
+	}
 }

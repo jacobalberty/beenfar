@@ -824,6 +824,12 @@
             "description": "The device was seen but its adapter holds no credentials for it, so it\n cannot be adopted yet (for UniFi: it is still managed by another\n controller). Import its credentials, or reset it, and it stops being\n locked the next time it is seen.",
             "readOnly": true
           },
+          "readoption": {
+            "title": "readoption",
+            "description": "Set while an adopted device that was reset is being adopted again.",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.config.v1.ReadoptionState"
+          },
           "createTime": {
             "title": "create_time",
             "readOnly": true,
@@ -1101,6 +1107,16 @@
         ],
         "additionalProperties": false,
         "description": "Network is a VLAN and its IPv4 subnet."
+      },
+      "beenfar.config.v1.ReadoptionState": {
+        "type": "string",
+        "title": "ReadoptionState",
+        "enum": [
+          "READOPTION_STATE_UNSPECIFIED",
+          "READOPTION_STATE_AWAITING_ACCEPTANCE",
+          "READOPTION_STATE_IN_PROGRESS"
+        ],
+        "description": "ReadoptionState says where an adopted device that came back without its\n key stands. It is the same managed device throughout, not a new one."
       },
       "beenfar.config.v1.UpdateNetworkRequest": {
         "type": "object",
@@ -1785,7 +1801,7 @@
           "DeviceService"
         ],
         "summary": "AdoptDevice",
-        "description": "AdoptDevice brings a pending device under management. It fails with\n NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it\n is already adopted.",
+        "description": "AdoptDevice brings a pending device under management, or accepts the\n re-adoption of an adopted device whose readoption is AWAITING_ACCEPTANCE.\n It fails with NOT_FOUND if no such device has been seen and\n FAILED_PRECONDITION if it is already adopted and not awaiting.",
         "operationId": "beenfar.config.v1.DeviceService.AdoptDevice",
         "requestBody": {
           "content": {

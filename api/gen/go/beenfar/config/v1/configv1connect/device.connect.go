@@ -87,9 +87,10 @@ type DeviceServiceClient interface {
 	ListDevices(context.Context, *v1.ListDevicesRequest) (*v1.ListDevicesResponse, error)
 	// ListPendingDevices returns devices that have been seen but not adopted.
 	ListPendingDevices(context.Context, *v1.ListPendingDevicesRequest) (*v1.ListPendingDevicesResponse, error)
-	// AdoptDevice brings a pending device under management. It fails with
-	// NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it
-	// is already adopted.
+	// AdoptDevice brings a pending device under management, or accepts the
+	// re-adoption of an adopted device whose readoption is AWAITING_ACCEPTANCE.
+	// It fails with NOT_FOUND if no such device has been seen and
+	// FAILED_PRECONDITION if it is already adopted and not awaiting.
 	AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error)
 	// ForgetDevice removes a device, adopted or pending. A forgotten device that
 	// is still on the network shows up again as pending.
@@ -110,9 +111,10 @@ type DeviceServiceHandler interface {
 	ListDevices(context.Context, *v1.ListDevicesRequest) (*v1.ListDevicesResponse, error)
 	// ListPendingDevices returns devices that have been seen but not adopted.
 	ListPendingDevices(context.Context, *v1.ListPendingDevicesRequest) (*v1.ListPendingDevicesResponse, error)
-	// AdoptDevice brings a pending device under management. It fails with
-	// NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it
-	// is already adopted.
+	// AdoptDevice brings a pending device under management, or accepts the
+	// re-adoption of an adopted device whose readoption is AWAITING_ACCEPTANCE.
+	// It fails with NOT_FOUND if no such device has been seen and
+	// FAILED_PRECONDITION if it is already adopted and not awaiting.
 	AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error)
 	// ForgetDevice removes a device, adopted or pending. A forgotten device that
 	// is still on the network shows up again as pending.

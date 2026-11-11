@@ -61,6 +61,21 @@ const (
 	DeviceStateAdopted DeviceState = "adopted"
 )
 
+// Readoption says where an adopted device that came back without its key (it
+// was factory reset) stands. It stays the same adopted device throughout.
+type Readoption string
+
+const (
+	// ReadoptionNone: nothing to do.
+	ReadoptionNone Readoption = ""
+	// ReadoptionAwaiting: the device was reset and nobody has accepted
+	// re-adopting it yet. Its adapter sends it nothing until then.
+	ReadoptionAwaiting Readoption = "awaiting"
+	// ReadoptionInProgress: re-adoption was accepted and the device is
+	// being given a new key.
+	ReadoptionInProgress Readoption = "in_progress"
+)
+
 // Device is a piece of network gear known to the controller.
 type Device struct {
 	ID       string
@@ -74,7 +89,9 @@ type Device struct {
 	ConfigRevision int64
 	// Locked means the adapter has seen the device but holds no credentials
 	// for it, so it cannot manage it yet.
-	Locked     bool
+	Locked bool
+	// Readoption is set while an adopted device is being adopted again.
+	Readoption Readoption
 	LastSeen   time.Time
 	CreateTime time.Time
 	UpdateTime time.Time
@@ -97,6 +114,7 @@ type DeviceReport struct {
 	IP             string
 	Firmware       string
 	ConfigRevision int64
+	Readoption     Readoption
 }
 
 // DeviceFilter narrows ListDevices. Zero values match everything.
@@ -112,7 +130,9 @@ type DeviceStore interface {
 	GetDevice(ctx context.Context, id string) (Device, error)
 	GetDeviceByMAC(ctx context.Context, mac string) (Device, error)
 	ListDevices(ctx context.Context, f DeviceFilter) ([]Device, error)
-	// AdoptDevice moves a pending device to adopted. It returns
+	// AdoptDevice moves a pending device to adopted, or accepts the
+	// re-adoption of an adopted device whose readoption is awaiting (it
+	// becomes in progress). It returns
 	// ErrFailedPrecondition if the device is already adopted.
 	AdoptDevice(ctx context.Context, id string) (Device, error)
 	// DeleteDevice forgets a device in any state, along with its secrets.

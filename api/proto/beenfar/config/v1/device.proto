@@ -31,9 +31,10 @@ service DeviceService {
     option (google.api.http) = {get: "/api/v1/pending-devices"};
   }
 
-  // AdoptDevice brings a pending device under management. It fails with
-  // NOT_FOUND if no such device has been seen and FAILED_PRECONDITION if it
-  // is already adopted.
+  // AdoptDevice brings a pending device under management, or accepts the
+  // re-adoption of an adopted device whose readoption is AWAITING_ACCEPTANCE.
+  // It fails with NOT_FOUND if no such device has been seen and
+  // FAILED_PRECONDITION if it is already adopted and not awaiting.
   rpc AdoptDevice(AdoptDeviceRequest) returns (AdoptDeviceResponse) {
     option (google.api.http) = {
       post: "/api/v1/devices:adopt"
@@ -57,6 +58,20 @@ enum DeviceState {
   DEVICE_STATE_ADOPTED = 2;
 }
 
+// ReadoptionState says where an adopted device that came back without its
+// key stands. It is the same managed device throughout, not a new one.
+enum ReadoptionState {
+  // Nothing to do.
+  READOPTION_STATE_UNSPECIFIED = 0;
+  // The device was reset (typically a factory reset) and is waiting for
+  // someone to accept re-adopting it with AdoptDevice. Nothing is sent to it
+  // until then.
+  READOPTION_STATE_AWAITING_ACCEPTANCE = 1;
+  // Re-adoption was accepted and the device is being given a new key. The
+  // state clears once it is running on it.
+  READOPTION_STATE_IN_PROGRESS = 2;
+}
+
 // Device is a piece of network gear known to the controller.
 message Device {
   // Server-assigned, immutable identifier.
@@ -75,6 +90,8 @@ message Device {
   // controller). Import its credentials, or reset it, and it stops being
   // locked the next time it is seen.
   bool locked = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Set while an adopted device that was reset is being adopted again.
+  ReadoptionState readoption = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];

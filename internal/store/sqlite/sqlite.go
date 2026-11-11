@@ -265,6 +265,7 @@ func (s *Store) RecordDeviceState(ctx context.Context, id string, r store.Device
 		Ip:             r.IP,
 		Firmware:       r.Firmware,
 		ConfigRevision: r.ConfigRevision,
+		Readoption:     string(r.Readoption),
 		Now:            s.nowMilli(),
 	})
 	if err != nil {

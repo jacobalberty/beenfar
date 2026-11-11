@@ -37,7 +37,7 @@ import (
 // goverter:ignoreUnexported
 // goverter:useZeroValueOnPointerInconsistency
 // goverter:extend Timestamp WifiSecurityToProto WifiSecurityFromProto WifiBandToProto WifiBandFromProto
-// goverter:extend DeviceStateToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
+// goverter:extend DeviceStateToProto ReadoptionToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
 type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
@@ -119,6 +119,11 @@ var deviceState = biMap[configv1.DeviceState, store.DeviceState]{
 	configv1.DeviceState_DEVICE_STATE_ADOPTED: store.DeviceStateAdopted,
 }
 
+var readoption = biMap[configv1.ReadoptionState, store.Readoption]{
+	configv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE: store.ReadoptionAwaiting,
+	configv1.ReadoptionState_READOPTION_STATE_IN_PROGRESS:         store.ReadoptionInProgress,
+}
+
 var adapterKind = biMap[adminv1.AdapterKind, core.AdapterKind]{
 	adminv1.AdapterKind_ADAPTER_KIND_BUILTIN:  core.AdapterBuiltin,
 	adminv1.AdapterKind_ADAPTER_KIND_EXTERNAL: core.AdapterExternal,
@@ -175,6 +180,8 @@ func DeviceStateToProto(s store.DeviceState) configv1.DeviceState { return devic
 func DeviceStateFromProto(s configv1.DeviceState) (store.DeviceState, error) {
 	return deviceState.fromProto(s, "state")
 }
+
+func ReadoptionToProto(r store.Readoption) configv1.ReadoptionState { return readoption.toProto(r) }
 
 func AdapterKindToProto(k core.AdapterKind) adminv1.AdapterKind { return adapterKind.toProto(k) }
 
