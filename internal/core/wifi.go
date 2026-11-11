@@ -40,6 +40,7 @@ var wifiFields = fieldSetters[store.WifiNetwork]{
 	"ap_groups":          func(d *store.WifiNetwork, s store.WifiNetwork) { d.APGroups = s.APGroups },
 	"default_user_group": func(d *store.WifiNetwork, s store.WifiNetwork) { d.DefaultUserGroup = s.DefaultUserGroup },
 	"radius_profile":     func(d *store.WifiNetwork, s store.WifiNetwork) { d.RadiusProfile = s.RadiusProfile },
+	"radius_server_id":   func(d *store.WifiNetwork, s store.WifiNetwork) { d.RadiusServerID = s.RadiusServerID },
 }
 
 // Update replaces the fields named by paths (API field names), or every

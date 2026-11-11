@@ -42,7 +42,7 @@ type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
 	// goverter:map Etag Revision | ParseEtag
-	// goverter:ignore CreateTime UpdateTime
+	// goverter:ignore CreateTime UpdateTime RadiusServerID
 	WifiFromProto(*configv1.WifiNetwork) (store.WifiNetwork, error)
 
 	// goverter:map Revision Etag | Etag

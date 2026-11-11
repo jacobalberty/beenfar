@@ -201,3 +201,63 @@ func TestAdapterTokens(t *testing.T) {
 	_, err = s.GetAdapterTokenByPrefix(ctx, "abc")
 	wantErr(t, err, store.ErrNotFound)
 }
+
+func TestRadiusServers(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	_, err := s.CreateRadiusServer(ctx, store.RadiusServer{Name: "nosecret", Address: "10.0.0.2", AuthPort: 1812})
+	wantErr(t, err, store.ErrInvalid)
+
+	r, err := s.CreateRadiusServer(ctx, store.RadiusServer{
+		Name: "corp", Address: "10.0.0.2", AuthPort: 1812, AccountingPort: 1813, SharedSecret: "s3cret",
+	})
+	if err != nil || r.ID == "" || r.Revision != 1 || r.SecretVersion != 1 || r.SharedSecret != "s3cret" {
+		t.Fatalf("create = %+v, %v", r, err)
+	}
+	_, err = s.CreateRadiusServer(ctx, store.RadiusServer{Name: "corp", Address: "10.0.0.3", AuthPort: 1812, SharedSecret: "x"})
+	wantErr(t, err, store.ErrConflict)
+
+	// Changing other fields keeps the secret version; changing the secret
+	// moves it.
+	r.AuthPort = 11812
+	r, err = s.UpdateRadiusServer(ctx, r)
+	if err != nil || r.Revision != 2 || r.SecretVersion != 1 || r.AuthPort != 11812 {
+		t.Fatalf("update = %+v, %v", r, err)
+	}
+	r.SharedSecret = "n3w"
+	r, err = s.UpdateRadiusServer(ctx, r)
+	if err != nil || r.Revision != 3 || r.SecretVersion != 2 {
+		t.Fatalf("update secret = %+v, %v", r, err)
+	}
+	stale := r
+	stale.Revision = 1
+	_, err = s.UpdateRadiusServer(ctx, stale)
+	wantErr(t, err, store.ErrStale)
+
+	// Wireless networks may only refer to existing servers, and a server in
+	// use cannot be deleted.
+	enterprise := store.WifiNetwork{SSID: "corp", Security: store.WifiSecurityWPAEnterprise, Band: store.WifiBandBoth}
+	enterprise.RadiusServerID = "missing"
+	_, err = s.CreateWifiNetwork(ctx, enterprise)
+	wantErr(t, err, store.ErrInvalid)
+	enterprise.RadiusServerID = r.ID
+	w, err := s.CreateWifiNetwork(ctx, enterprise)
+	if err != nil || w.RadiusServerID != r.ID {
+		t.Fatalf("wifi = %+v, %v", w, err)
+	}
+	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 0), store.ErrFailedPrecondition)
+
+	w.RadiusServerID = ""
+	if _, err := s.UpdateWifiNetwork(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 1), store.ErrStale)
+	if err := s.DeleteRadiusServer(ctx, r.ID, r.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 0), store.ErrNotFound)
+	if list, err := s.ListRadiusServers(ctx); err != nil || len(list) != 0 {
+		t.Fatalf("list = %+v, %v", list, err)
+	}
+}

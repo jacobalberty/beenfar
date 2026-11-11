@@ -12,13 +12,13 @@ import (
 const createWifiNetwork = `-- name: CreateWifiNetwork :one
 INSERT INTO wifi_networks (
     id, ssid, security, security_key, band, network_id, guest, hidden,
-    default_user_group, radius_profile, revision, create_time, update_time
+    default_user_group, radius_profile, radius_server_id, revision, create_time, update_time
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5,
     ?6, ?7, ?8, ?9,
-    ?10, 1, ?11, ?11
+    ?10, ?11, 1, ?12, ?12
 )
-RETURNING id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time
+RETURNING id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time, radius_server_id
 `
 
 type CreateWifiNetworkParams struct {
@@ -32,6 +32,7 @@ type CreateWifiNetworkParams struct {
 	Hidden           bool
 	DefaultUserGroup string
 	RadiusProfile    string
+	RadiusServerID   string
 	Now              int64
 }
 
@@ -47,6 +48,7 @@ func (q *Queries) CreateWifiNetwork(ctx context.Context, arg CreateWifiNetworkPa
 		arg.Hidden,
 		arg.DefaultUserGroup,
 		arg.RadiusProfile,
+		arg.RadiusServerID,
 		arg.Now,
 	)
 	var i WifiNetwork
@@ -64,6 +66,7 @@ func (q *Queries) CreateWifiNetwork(ctx context.Context, arg CreateWifiNetworkPa
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.RadiusServerID,
 	)
 	return i, err
 }
@@ -97,7 +100,7 @@ func (q *Queries) DeleteWifiNetwork(ctx context.Context, arg DeleteWifiNetworkPa
 }
 
 const getWifiNetwork = `-- name: GetWifiNetwork :one
-SELECT id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time FROM wifi_networks WHERE id = ?
+SELECT id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time, radius_server_id FROM wifi_networks WHERE id = ?
 `
 
 func (q *Queries) GetWifiNetwork(ctx context.Context, id string) (WifiNetwork, error) {
@@ -117,6 +120,7 @@ func (q *Queries) GetWifiNetwork(ctx context.Context, id string) (WifiNetwork, e
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.RadiusServerID,
 	)
 	return i, err
 }
@@ -190,7 +194,7 @@ func (q *Queries) ListAllAPGroups(ctx context.Context) ([]WifiNetworkApGroup, er
 }
 
 const listWifiNetworks = `-- name: ListWifiNetworks :many
-SELECT id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time FROM wifi_networks ORDER BY ssid
+SELECT id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time, radius_server_id FROM wifi_networks ORDER BY ssid
 `
 
 func (q *Queries) ListWifiNetworks(ctx context.Context) ([]WifiNetwork, error) {
@@ -216,6 +220,7 @@ func (q *Queries) ListWifiNetworks(ctx context.Context) ([]WifiNetwork, error) {
 			&i.Revision,
 			&i.CreateTime,
 			&i.UpdateTime,
+			&i.RadiusServerID,
 		); err != nil {
 			return nil, err
 		}
@@ -241,11 +246,12 @@ UPDATE wifi_networks SET
     hidden             = ?7,
     default_user_group = ?8,
     radius_profile     = ?9,
+    radius_server_id   = ?10,
     revision           = revision + 1,
-    update_time        = ?10
-WHERE id = ?11
-  AND (CAST(?12 AS INTEGER) = 0 OR revision = ?12)
-RETURNING id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time
+    update_time        = ?11
+WHERE id = ?12
+  AND (CAST(?13 AS INTEGER) = 0 OR revision = ?13)
+RETURNING id, ssid, security, security_key, band, network_id, guest, hidden, default_user_group, radius_profile, revision, create_time, update_time, radius_server_id
 `
 
 type UpdateWifiNetworkParams struct {
@@ -258,6 +264,7 @@ type UpdateWifiNetworkParams struct {
 	Hidden           bool
 	DefaultUserGroup string
 	RadiusProfile    string
+	RadiusServerID   string
 	Now              int64
 	ID               string
 	ExpectedRevision int64
@@ -274,6 +281,7 @@ func (q *Queries) UpdateWifiNetwork(ctx context.Context, arg UpdateWifiNetworkPa
 		arg.Hidden,
 		arg.DefaultUserGroup,
 		arg.RadiusProfile,
+		arg.RadiusServerID,
 		arg.Now,
 		arg.ID,
 		arg.ExpectedRevision,
@@ -293,6 +301,7 @@ func (q *Queries) UpdateWifiNetwork(ctx context.Context, arg UpdateWifiNetworkPa
 		&i.Revision,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.RadiusServerID,
 	)
 	return i, err
 }

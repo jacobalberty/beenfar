@@ -34,6 +34,9 @@ type Converter interface {
 	WifiNetwork(db.WifiNetwork) store.WifiNetwork
 
 	Network(db.Network) store.Network
+
+	RadiusServer(db.RadiusServer) store.RadiusServer
+	RadiusServers([]db.RadiusServer) []store.RadiusServer
 	Networks([]db.Network) []store.Network
 
 	User(db.User) store.User

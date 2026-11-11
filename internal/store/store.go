@@ -35,6 +35,7 @@ type Store interface {
 	DeviceStore
 	WifiNetworkStore
 	NetworkStore
+	RadiusServerStore
 	UserStore
 	APITokenStore
 	AdapterTokenStore
@@ -180,7 +181,12 @@ type WifiNetwork struct {
 	Hidden           bool
 	APGroups         []string
 	DefaultUserGroup string
-	RadiusProfile    string
+	// RadiusProfile is a free-text RADIUS profile name, kept for existing
+	// clients; RadiusServerID supersedes it.
+	RadiusProfile string
+	// RadiusServerID is the RadiusServer that a WPA-enterprise network
+	// authenticates against; empty means none.
+	RadiusServerID string
 	// Revision increases on every update and backs the API's etag.
 	Revision   int64
 	CreateTime time.Time
@@ -189,8 +195,8 @@ type WifiNetwork struct {
 
 type WifiNetworkStore interface {
 	// CreateWifiNetwork assigns ID, Revision and timestamps. It returns
-	// ErrConflict if the SSID is already used, and ErrInvalid if NetworkID is
-	// set but names no network.
+	// ErrConflict if the SSID is already used, and ErrInvalid if NetworkID or
+	// RadiusServerID is set but names no record.
 	CreateWifiNetwork(ctx context.Context, w WifiNetwork) (WifiNetwork, error)
 	GetWifiNetwork(ctx context.Context, id string) (WifiNetwork, error)
 	ListWifiNetworks(ctx context.Context) ([]WifiNetwork, error)
@@ -231,6 +237,43 @@ type NetworkStore interface {
 	// DeleteWifiNetwork. It returns ErrFailedPrecondition while a wireless
 	// network refers to it.
 	DeleteNetwork(ctx context.Context, id string, revision int64) error
+}
+
+// RadiusServer is a RADIUS server for WPA-enterprise authentication and,
+// optionally, accounting.
+type RadiusServer struct {
+	ID      string
+	Name    string
+	Address string // IP address
+	// AuthPort is the authentication port, usually 1812.
+	AuthPort int
+	// AccountingPort is the accounting port, usually 1813; 0 means no
+	// accounting.
+	AccountingPort int
+	SharedSecret   string
+	// SecretVersion starts at 1 and increases whenever SharedSecret
+	// changes, so the secret's history can be tracked without reading it.
+	SecretVersion int64
+	// Revision increases on every update and backs the API's etag.
+	Revision   int64
+	CreateTime time.Time
+	UpdateTime time.Time
+}
+
+type RadiusServerStore interface {
+	// CreateRadiusServer assigns ID, SecretVersion, Revision and timestamps.
+	// It returns ErrConflict if the name is already used.
+	CreateRadiusServer(ctx context.Context, r RadiusServer) (RadiusServer, error)
+	GetRadiusServer(ctx context.Context, id string) (RadiusServer, error)
+	ListRadiusServers(ctx context.Context) ([]RadiusServer, error)
+	// UpdateRadiusServer replaces every mutable field, with the same revision
+	// semantics as UpdateWifiNetwork. SecretVersion increases if the shared
+	// secret changed.
+	UpdateRadiusServer(ctx context.Context, r RadiusServer) (RadiusServer, error)
+	// DeleteRadiusServer deletes by ID, with the same revision semantics as
+	// DeleteWifiNetwork. It returns ErrFailedPrecondition while a wireless
+	// network refers to it.
+	DeleteRadiusServer(ctx context.Context, id string, revision int64) error
 }
 
 // UserSource says where a user account comes from.
