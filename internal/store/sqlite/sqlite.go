@@ -186,6 +186,7 @@ func (s *Store) ReportDevice(ctx context.Context, d store.DiscoveredDevice) (sto
 		Model:    d.Model,
 		Ip:       d.IP,
 		Firmware: d.Firmware,
+		Locked:   d.Locked,
 		Now:      s.nowMilli(),
 	})
 	if err != nil {
@@ -255,6 +256,48 @@ func (s *Store) DeleteDevice(ctx context.Context, id string) error {
 		return store.ErrNotFound
 	}
 	return nil
+}
+
+func (s *Store) RecordDeviceState(ctx context.Context, id string, r store.DeviceReport) (store.Device, error) {
+	row, err := s.q.RecordDeviceState(ctx, db.RecordDeviceStateParams{
+		ID:             id,
+		Model:          r.Model,
+		Ip:             r.IP,
+		Firmware:       r.Firmware,
+		ConfigRevision: r.ConfigRevision,
+		Now:            s.nowMilli(),
+	})
+	if err != nil {
+		return store.Device{}, mapErr(err)
+	}
+	return dbconvgen.Device(row), nil
+}
+
+func (s *Store) GetDeviceSecret(ctx context.Context, deviceID, name string) ([]byte, error) {
+	secret, err := s.q.GetDeviceSecret(ctx, db.GetDeviceSecretParams{DeviceID: deviceID, Name: name})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return secret, nil
+}
+
+func (s *Store) SetDeviceSecret(ctx context.Context, deviceID, name string, secret []byte) error {
+	if name == "" || len(secret) == 0 {
+		return fmt.Errorf("%w: secret name and value are required", store.ErrInvalid)
+	}
+	return s.inTx(ctx, func(txs *Store) error {
+		// The foreign key would report a missing device as invalid input.
+		if _, err := txs.q.GetDevice(ctx, deviceID); err != nil {
+			return mapErr(err)
+		}
+		return mapErr(txs.q.SetDeviceSecret(ctx, db.SetDeviceSecretParams{
+			DeviceID: deviceID, Name: name, Secret: secret, Now: txs.nowMilli(),
+		}))
+	})
+}
+
+func (s *Store) DeleteDeviceSecret(ctx context.Context, deviceID, name string) error {
+	return mapErr(s.q.DeleteDeviceSecret(ctx, db.DeleteDeviceSecretParams{DeviceID: deviceID, Name: name}))
 }
 
 // --- wifi networks ---

@@ -27,6 +27,14 @@ type Device struct {
 	LastSeen       int64
 	CreateTime     int64
 	UpdateTime     int64
+	Locked         bool
+}
+
+type DeviceSecret struct {
+	DeviceID   string
+	Name       string
+	Secret     []byte
+	UpdateTime int64
 }
 
 type Network struct {

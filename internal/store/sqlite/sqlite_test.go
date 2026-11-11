@@ -240,3 +240,77 @@ func TestConcurrentReports(t *testing.T) {
 		t.Fatalf("got %d devices, want 1", len(list))
 	}
 }
+
+func TestDeviceLockedAndState(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi", Locked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.Locked {
+		t.Fatalf("device not locked: %+v", d)
+	}
+	// Reporting it again unlocked clears the flag.
+	d, err = s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi", Model: "U6-Lite"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Locked || d.Model != "U6-Lite" {
+		t.Fatalf("unexpected device %+v", d)
+	}
+
+	got, err := s.RecordDeviceState(ctx, d.ID, store.DeviceReport{IP: "10.0.0.9", ConfigRevision: 42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.IP != "10.0.0.9" || got.ConfigRevision != 42 || got.Model != "U6-Lite" {
+		t.Fatalf("unexpected state %+v", got)
+	}
+	_, err = s.RecordDeviceState(ctx, "nope", store.DeviceReport{})
+	wantErr(t, err, store.ErrNotFound)
+}
+
+func TestDeviceSecrets(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:20", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetDeviceSecret(ctx, d.ID, "current")
+	wantErr(t, err, store.ErrNotFound)
+
+	if err := s.SetDeviceSecret(ctx, d.ID, "current", []byte("one")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetDeviceSecret(ctx, d.ID, "current", []byte("two")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetDeviceSecret(ctx, d.ID, "current")
+	if err != nil || string(got) != "two" {
+		t.Fatalf("got %q, %v; want two", got, err)
+	}
+
+	wantErr(t, s.SetDeviceSecret(ctx, "nope", "current", []byte("x")), store.ErrNotFound)
+	wantErr(t, s.SetDeviceSecret(ctx, d.ID, "current", nil), store.ErrInvalid)
+
+	if err := s.DeleteDeviceSecret(ctx, d.ID, "current"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteDeviceSecret(ctx, d.ID, "current"); err != nil {
+		t.Fatalf("deleting a missing secret: %v", err)
+	}
+
+	// Forgetting the device removes its secrets.
+	if err := s.SetDeviceSecret(ctx, d.ID, "pending", []byte("p")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetDeviceSecret(ctx, d.ID, "pending")
+	wantErr(t, err, store.ErrNotFound)
+}

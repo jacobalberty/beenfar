@@ -71,9 +71,12 @@ type Device struct {
 	Firmware string
 	// ConfigRevision is the revision of the configuration last pushed to the device.
 	ConfigRevision int64
-	LastSeen       time.Time
-	CreateTime     time.Time
-	UpdateTime     time.Time
+	// Locked means the adapter has seen the device but holds no credentials
+	// for it, so it cannot manage it yet.
+	Locked     bool
+	LastSeen   time.Time
+	CreateTime time.Time
+	UpdateTime time.Time
 }
 
 // DiscoveredDevice is what an adapter reports when it sees a device.
@@ -83,6 +86,16 @@ type DiscoveredDevice struct {
 	Model    string
 	IP       string
 	Firmware string
+	Locked   bool
+}
+
+// DeviceReport is what an adapter learned from a device it manages. Blank
+// strings keep the values already known.
+type DeviceReport struct {
+	Model          string
+	IP             string
+	Firmware       string
+	ConfigRevision int64
 }
 
 // DeviceFilter narrows ListDevices. Zero values match everything.
@@ -101,8 +114,20 @@ type DeviceStore interface {
 	// AdoptDevice moves a pending device to adopted. It returns
 	// ErrFailedPrecondition if the device is already adopted.
 	AdoptDevice(ctx context.Context, id string) (Device, error)
-	// DeleteDevice forgets a device in any state.
+	// DeleteDevice forgets a device in any state, along with its secrets.
 	DeleteDevice(ctx context.Context, id string) error
+	// RecordDeviceState stores what the device reported about itself and
+	// marks it seen and unlocked.
+	RecordDeviceState(ctx context.Context, id string, r DeviceReport) (Device, error)
+	// GetDeviceSecret returns an adapter secret of the device, or
+	// ErrNotFound.
+	GetDeviceSecret(ctx context.Context, deviceID, name string) ([]byte, error)
+	// SetDeviceSecret stores a non-empty secret, replacing any with the
+	// same name. It returns ErrNotFound for an unknown device.
+	SetDeviceSecret(ctx context.Context, deviceID, name string, secret []byte) error
+	// DeleteDeviceSecret removes a secret. Removing one that does not exist
+	// is not an error.
+	DeleteDeviceSecret(ctx context.Context, deviceID, name string) error
 }
 
 type WifiSecurity string

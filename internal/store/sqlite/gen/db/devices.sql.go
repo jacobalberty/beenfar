@@ -12,7 +12,7 @@ import (
 const adoptDevice = `-- name: AdoptDevice :one
 UPDATE devices SET state = 'adopted', update_time = ?1
 WHERE id = ?2 AND state = 'pending'
-RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked
 `
 
 type AdoptDeviceParams struct {
@@ -35,6 +35,7 @@ func (q *Queries) AdoptDevice(ctx context.Context, arg AdoptDeviceParams) (Devic
 		&i.LastSeen,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Locked,
 	)
 	return i, err
 }
@@ -51,8 +52,22 @@ func (q *Queries) DeleteDevice(ctx context.Context, id string) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteDeviceSecret = `-- name: DeleteDeviceSecret :exec
+DELETE FROM device_secrets WHERE device_id = ? AND name = ?
+`
+
+type DeleteDeviceSecretParams struct {
+	DeviceID string
+	Name     string
+}
+
+func (q *Queries) DeleteDeviceSecret(ctx context.Context, arg DeleteDeviceSecretParams) error {
+	_, err := q.db.ExecContext(ctx, deleteDeviceSecret, arg.DeviceID, arg.Name)
+	return err
+}
+
 const getDevice = `-- name: GetDevice :one
-SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time FROM devices WHERE id = ?
+SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked FROM devices WHERE id = ?
 `
 
 func (q *Queries) GetDevice(ctx context.Context, id string) (Device, error) {
@@ -70,12 +85,13 @@ func (q *Queries) GetDevice(ctx context.Context, id string) (Device, error) {
 		&i.LastSeen,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Locked,
 	)
 	return i, err
 }
 
 const getDeviceByMAC = `-- name: GetDeviceByMAC :one
-SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time FROM devices WHERE mac = ?
+SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked FROM devices WHERE mac = ?
 `
 
 func (q *Queries) GetDeviceByMAC(ctx context.Context, mac string) (Device, error) {
@@ -93,12 +109,29 @@ func (q *Queries) GetDeviceByMAC(ctx context.Context, mac string) (Device, error
 		&i.LastSeen,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Locked,
 	)
 	return i, err
 }
 
+const getDeviceSecret = `-- name: GetDeviceSecret :one
+SELECT secret FROM device_secrets WHERE device_id = ? AND name = ?
+`
+
+type GetDeviceSecretParams struct {
+	DeviceID string
+	Name     string
+}
+
+func (q *Queries) GetDeviceSecret(ctx context.Context, arg GetDeviceSecretParams) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getDeviceSecret, arg.DeviceID, arg.Name)
+	var secret []byte
+	err := row.Scan(&secret)
+	return secret, err
+}
+
 const listDevices = `-- name: ListDevices :many
-SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time FROM devices
+SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked FROM devices
 WHERE (CAST(?1 AS TEXT) = '' OR state = ?1)
   AND (CAST(?2 AS TEXT) = '' OR adapter = ?2)
 ORDER BY mac
@@ -130,6 +163,7 @@ func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]Dev
 			&i.LastSeen,
 			&i.CreateTime,
 			&i.UpdateTime,
+			&i.Locked,
 		); err != nil {
 			return nil, err
 		}
@@ -144,18 +178,70 @@ func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]Dev
 	return items, nil
 }
 
+const recordDeviceState = `-- name: RecordDeviceState :one
+UPDATE devices SET
+    model           = CASE WHEN ?1 = '' THEN model ELSE ?1 END,
+    ip              = CASE WHEN ?2 = '' THEN ip ELSE ?2 END,
+    firmware        = CASE WHEN ?3 = '' THEN firmware ELSE ?3 END,
+    config_revision = ?4,
+    locked          = FALSE,
+    last_seen       = ?5,
+    update_time     = ?5
+WHERE id = ?6
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked
+`
+
+type RecordDeviceStateParams struct {
+	Model          interface{}
+	Ip             interface{}
+	Firmware       interface{}
+	ConfigRevision int64
+	Now            int64
+	ID             string
+}
+
+// What an adapter learned from the device itself. Blank details keep the
+// values already known; the device is evidently reachable, so it is unlocked.
+func (q *Queries) RecordDeviceState(ctx context.Context, arg RecordDeviceStateParams) (Device, error) {
+	row := q.db.QueryRowContext(ctx, recordDeviceState,
+		arg.Model,
+		arg.Ip,
+		arg.Firmware,
+		arg.ConfigRevision,
+		arg.Now,
+		arg.ID,
+	)
+	var i Device
+	err := row.Scan(
+		&i.ID,
+		&i.Mac,
+		&i.Adapter,
+		&i.State,
+		&i.Model,
+		&i.Ip,
+		&i.Firmware,
+		&i.ConfigRevision,
+		&i.LastSeen,
+		&i.CreateTime,
+		&i.UpdateTime,
+		&i.Locked,
+	)
+	return i, err
+}
+
 const reportDevice = `-- name: ReportDevice :one
-INSERT INTO devices (id, mac, adapter, state, model, ip, firmware, last_seen, create_time, update_time)
+INSERT INTO devices (id, mac, adapter, state, model, ip, firmware, locked, last_seen, create_time, update_time)
 VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6,
-        ?7, ?7, ?7)
+        ?7, ?8, ?8, ?8)
 ON CONFLICT (mac) DO UPDATE SET
     adapter     = excluded.adapter,
     model       = CASE WHEN excluded.model = '' THEN devices.model ELSE excluded.model END,
     ip          = CASE WHEN excluded.ip = '' THEN devices.ip ELSE excluded.ip END,
     firmware    = CASE WHEN excluded.firmware = '' THEN devices.firmware ELSE excluded.firmware END,
+    locked      = excluded.locked,
     last_seen   = excluded.last_seen,
     update_time = excluded.update_time
-RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked
 `
 
 type ReportDeviceParams struct {
@@ -165,6 +251,7 @@ type ReportDeviceParams struct {
 	Model    string
 	Ip       string
 	Firmware string
+	Locked   bool
 	Now      int64
 }
 
@@ -177,6 +264,7 @@ func (q *Queries) ReportDevice(ctx context.Context, arg ReportDeviceParams) (Dev
 		arg.Model,
 		arg.Ip,
 		arg.Firmware,
+		arg.Locked,
 		arg.Now,
 	)
 	var i Device
@@ -192,6 +280,30 @@ func (q *Queries) ReportDevice(ctx context.Context, arg ReportDeviceParams) (Dev
 		&i.LastSeen,
 		&i.CreateTime,
 		&i.UpdateTime,
+		&i.Locked,
 	)
 	return i, err
+}
+
+const setDeviceSecret = `-- name: SetDeviceSecret :exec
+INSERT INTO device_secrets (device_id, name, secret, update_time)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (device_id, name) DO UPDATE SET secret = excluded.secret, update_time = excluded.update_time
+`
+
+type SetDeviceSecretParams struct {
+	DeviceID string
+	Name     string
+	Secret   []byte
+	Now      int64
+}
+
+func (q *Queries) SetDeviceSecret(ctx context.Context, arg SetDeviceSecretParams) error {
+	_, err := q.db.ExecContext(ctx, setDeviceSecret,
+		arg.DeviceID,
+		arg.Name,
+		arg.Secret,
+		arg.Now,
+	)
+	return err
 }

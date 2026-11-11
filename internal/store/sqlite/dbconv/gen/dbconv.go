@@ -41,6 +41,7 @@ func Device(source db.Device) store.Device {
 	storeDevice.IP = source.Ip
 	storeDevice.Firmware = source.Firmware
 	storeDevice.ConfigRevision = source.ConfigRevision
+	storeDevice.Locked = source.Locked
 	storeDevice.LastSeen = dbconv.FromMilli(source.LastSeen)
 	storeDevice.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeDevice.UpdateTime = dbconv.FromMilli(source.UpdateTime)
