@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	"github.com/jacobalberty/beenfar/api/adapter"
+	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/server"
@@ -56,7 +59,15 @@ func newFixture(t *testing.T, fopts ...fixtureOption) fixture {
 		t.Fatal(err)
 	}
 	authSvc := auth.New(st, auth.WithIterations(1000)) // fast hashes for tests
-	opts := server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, nil)}
+	reg, err := adapterhost.NewRegistry(adapterhost.Options{Store: st})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reg.AddBuiltin(stubAdapter{}); err != nil {
+		t.Fatal(err)
+	}
+	reg.Start(t.Context())
+	opts := server.Options{Store: st, Telemetry: tel, Auth: authSvc, Core: core.New(st, reg)}
 	for _, f := range fopts {
 		f(&opts)
 	}
@@ -185,3 +196,16 @@ func TestHealthz(t *testing.T) {
 		t.Errorf("old jsonapi route still served: %d", rec.Code)
 	}
 }
+
+// stubAdapter is a built-in adapter named "unifi" that accepts every command.
+type stubAdapter struct{}
+
+func (stubAdapter) Name() string { return "unifi" }
+
+func (stubAdapter) Start(ctx context.Context, _ adapter.Host) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (stubAdapter) Adopt(context.Context, adapter.Device) error  { return nil }
+func (stubAdapter) Forget(context.Context, adapter.Device) error { return nil }

@@ -522,8 +522,12 @@ func TestUserAndTokenPermissions(t *testing.T) {
 func TestListAdapters(t *testing.T) {
 	f := newAPIFixture(t)
 	res, err := adminv1connect.NewAdapterServiceClient(f.client(f.adminToken)).ListAdapters(t.Context(), &adminv1.ListAdaptersRequest{})
-	if err != nil || len(res.GetAdapters()) != 0 {
+	if err != nil || len(res.GetAdapters()) != 1 {
 		t.Fatalf("adapters = %v, %v", res, err)
+	}
+	a := res.GetAdapters()[0]
+	if a.GetName() != "unifi" || a.GetKind() != adminv1.AdapterKind_ADAPTER_KIND_BUILTIN || !a.GetHealthy() || a.GetConnectTime() == nil {
+		t.Fatalf("adapter = %v", a)
 	}
 }
 
