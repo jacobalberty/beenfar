@@ -13,3 +13,11 @@ jacobalberty/inform-inspect fork), used under the MIT License:
 
 Both are device-to-controller informs; no controller reply has been
 captured, so replies are only verified by round trip.
+
+`system-cfg-keys.txt` lists the key names of a system.cfg captured from a
+dual-radio access point (madwifi driver) managed by a UniFi controller, with
+a WPA2/3-enterprise SSID using RADIUS authentication and accounting, a
+WPA-PSK SSID and a guest SSID on VLAN 5. Numeric indexes are replaced by
+`N`, and the values (which include the device key, passphrases and RADIUS
+secrets) are not kept. The renderer's tests check every key it writes
+against this list.

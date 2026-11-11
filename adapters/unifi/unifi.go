@@ -74,6 +74,13 @@ type Options struct {
 	Meter metric.Meter
 	// Interval is the inform interval in seconds (default DefaultInterval).
 	Interval int
+	// PushSystemConfig sends adopted devices the wifi, VLAN and RADIUS
+	// settings as a system_cfg fragment (see renderSystemConfig). It is off
+	// by default: the keys are verified against a real device, but whether
+	// a device merges a fragment or replaces its whole configuration with
+	// it is not. Without it, devices are re-keyed and track config
+	// revisions, but their settings are left alone.
+	PushSystemConfig bool
 	// ReadoptAfter is how long an adopted device must have been silent before
 	// one that then speaks the default key is taken for factory reset and
 	// offered for re-adoption (see the package comment). Zero turns that off:
@@ -420,11 +427,14 @@ func (a *Adapter) setParam(authKey []byte, version string, desired adapter.Desir
 	if err != nil {
 		return nil, fmt.Errorf("rendering mgmt_cfg: %w", err)
 	}
+	sp := inform.SetParam{ManagementConfig: mgmt.String(), ConfigVersion: version}
+	if !a.opts.PushSystemConfig {
+		return sp, nil
+	}
 	system, err := renderSystemConfig(desired)
 	if err != nil {
 		return nil, fmt.Errorf("rendering system_cfg: %w", err)
 	}
-	sp := inform.SetParam{ManagementConfig: mgmt.String(), ConfigVersion: version}
 	if system.Len() > 0 {
 		sp.SystemConfig = system.String()
 	}

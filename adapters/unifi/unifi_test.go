@@ -311,7 +311,7 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); v != version {
 		t.Fatalf("cfgversion %q, want %q", v, version)
 	}
-	// system_cfg stays empty until its key names are verified.
+	// Without PushSystemConfig, no system_cfg is sent.
 	if _, ok := reply["system_cfg"]; ok {
 		t.Errorf("unexpected system_cfg: %v", reply["system_cfg"])
 	}
@@ -323,6 +323,38 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	_, reply = e.post(d, key, version)
 	if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); v == version || len(v) != 16 {
 		t.Fatalf("cfgversion after a config change = %q (was %q)", v, version)
+	}
+}
+
+// With PushSystemConfig, the device is sent its wifi settings.
+func TestPushSystemConfig(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{PushSystemConfig: true})
+	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
+		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	d := newDevice(9)
+	e.post(d, inform.DefaultKey(), "")
+	if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	_, reply := e.post(d, inform.DefaultKey(), "")
+	sys, ok := reply["system_cfg"].(string)
+	if !ok {
+		t.Fatalf("no system_cfg in %v", reply)
+	}
+	cfg, err := inform.ParseConfig(sys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, want := range map[string]string{
+		"aaa.1.ssid": "home", "aaa.1.wpa.psk": "hunter2hunter2", "aaa.1.devname": "wifi1ap0", "wireless.1.parent": "wifi1",
+	} {
+		if got, _ := cfg.Get(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
 	}
 }
 

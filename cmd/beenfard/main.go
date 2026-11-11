@@ -54,6 +54,8 @@ type config struct {
 	// How long an adopted UniFi device must be silent before one on the
 	// default key is taken for factory reset and offered for re-adoption.
 	unifiReadoptAfter time.Duration
+	// Send UniFi devices their wifi, VLAN and RADIUS settings.
+	unifiSystemCfg bool
 }
 
 func parseFlags(args []string) (config, error) {
@@ -72,6 +74,8 @@ func parseFlags(args []string) (config, error) {
 		"silence after which an adopted UniFi device on the default key is offered for re-adoption; 0 turns it off (env BEENFAR_UNIFI_READOPT_AFTER)")
 	fs.BoolVar(&cfg.unifiGCM, "unifi-gcm", cfg.auth.envBool("BEENFAR_UNIFI_GCM", false),
 		"switch UniFi devices to AES-GCM when adopting them (env BEENFAR_UNIFI_GCM)")
+	fs.BoolVar(&cfg.unifiSystemCfg, "unifi-system-cfg", cfg.auth.envBool("BEENFAR_UNIFI_SYSTEM_CFG", false),
+		"send adopted UniFi devices their wifi, VLAN and RADIUS settings (system_cfg); experimental, off by default (env BEENFAR_UNIFI_SYSTEM_CFG)")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -141,7 +145,8 @@ func run() error {
 		Interval: cfg.unifiInterval,
 		UseGCM:   cfg.unifiGCM,
 
-		ReadoptAfter: cfg.unifiReadoptAfter,
+		ReadoptAfter:     cfg.unifiReadoptAfter,
+		PushSystemConfig: cfg.unifiSystemCfg,
 	})
 	if err != nil {
 		return err

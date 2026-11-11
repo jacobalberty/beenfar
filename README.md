@@ -136,6 +136,7 @@ accepted until it has switched.
 |---|---|---|
 | `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
 | `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
+| `BEENFAR_UNIFI_SYSTEM_CFG` | `false` | Send adopted devices their wifi, VLAN and RADIUS settings (experimental, see below) |
 | `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |
 
 **Reset devices.** An adopted device that comes back speaking the default key
@@ -151,10 +152,28 @@ inform with it for any MAC. Only a device that has been silent for
 a spoofed inform. With that set to `0` a reset device stays locked, and has to
 be forgotten and adopted again.
 
-**Known limitation.** Adopted devices are re-keyed and tracked by config
-revision, but are not yet sent wifi or VLAN settings: the `system_cfg` key
-names have not been verified against real devices, so that part
-(`renderSystemConfig` in `adapters/unifi/systemcfg.go`) renders nothing.
+**Device settings (experimental).** With `BEENFAR_UNIFI_SYSTEM_CFG=true`,
+adopted devices are sent their wifi networks (WPA-PSK, and WPA-enterprise
+with a RADIUS server for authentication and optional accounting), the VLANs
+those networks use, and the matching bridges, as a `system_cfg` document
+(`renderSystemConfig` in `adapters/unifi/systemcfg.go`). The key names come
+from a `system.cfg` captured from a dual-radio access point with the madwifi
+driver, and the tests check every rendered key against that capture. What is
+not verified, and why it is off by default:
+
+- the document only holds those sections, not radio channels, SSH users,
+  NTP and the other settings beenfar does not manage, and whether a device
+  merges it into its configuration or replaces its configuration with it has
+  not been tried on hardware;
+- other radio layouts (newer models use other interface names);
+- open, WEP and guest networks are not rendered (a config containing one is
+  refused, and the push fails with an error), nor is more than one RADIUS
+  server per network;
+- switch port settings are stored and handed to the adapter, but not sent to
+  devices: the capture has no port VLAN or PoE keys.
+
+Without it, adopted devices are re-keyed and tracked by config revision, but
+their settings are left alone.
 
 **Taking over devices from another controller.** Extract each device's
 credentials with an outside tool (the `x_authkey` in the old controller's
