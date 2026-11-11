@@ -11,4 +11,4 @@ linters:
       attr-only: true
   exclusions:
     paths:
-      - internal/store/sqlite/db # sqlc-generated
+      - "(^|/)gen/" # generated code (buf, sqlc)

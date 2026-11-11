@@ -2,6 +2,8 @@
 // modernc.org/sqlite driver, sqlc-generated queries and goose migrations.
 package sqlite
 
+// gen/ holds only sqlc output and is wiped first (see api/generate.go).
+//go:generate rm -rf gen
 //go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 
 import (
@@ -21,7 +23,7 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 
 	"github.com/jacobalberty/beenfar/internal/store"
-	"github.com/jacobalberty/beenfar/internal/store/sqlite/db"
+	"github.com/jacobalberty/beenfar/internal/store/sqlite/gen/db"
 )
 
 //go:embed migrations/*.sql

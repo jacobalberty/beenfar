@@ -21,7 +21,7 @@ import (
 
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1/configv1connect"
-	"github.com/jacobalberty/beenfar/api/gen/openapi"
+	"github.com/jacobalberty/beenfar/api"
 	"github.com/jacobalberty/beenfar/internal/auth"
 	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/store"
@@ -73,7 +73,7 @@ func New(opts Options) (http.Handler, error) {
 
 	mux.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(openapi.JSON)
+		_, _ = w.Write(api.OpenAPIJSON)
 	})
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

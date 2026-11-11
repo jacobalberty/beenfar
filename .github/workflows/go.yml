@@ -74,6 +74,14 @@ jobs:
             git --no-pager diff --stat
             exit 1
           fi
+      - name: Generated Go code lives only under gen/
+        run: |
+          stray=$(git grep -l -E '^// Code generated .* DO NOT EDIT\.$' -- '*.go' ':!**/gen/**' || true)
+          if [ -n "$stray" ]; then
+            echo "::error::Generated files outside a gen/ directory:"
+            echo "$stray"
+            exit 1
+          fi
       - name: Vet and build the api module
         working-directory: api
         run: |

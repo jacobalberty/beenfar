@@ -9,5 +9,7 @@ package api
 //go:generate install connectrpc.com/connect/v2/cmd/protoc-gen-connect-go@v2.0.0
 //go:generate install connectrpc.com/protoc-gen-connect-openapi@v0.30.0
 
-//go:generate rm -rf gen/go
+// gen/ holds only generated output, so it is wiped first; a hand-written
+// file placed there would be deleted and fail the CI freshness check.
+//go:generate rm -rf gen
 //go:generate buf generate

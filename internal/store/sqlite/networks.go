@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/jacobalberty/beenfar/internal/store"
-	"github.com/jacobalberty/beenfar/internal/store/sqlite/db"
+	"github.com/jacobalberty/beenfar/internal/store/sqlite/gen/db"
 )
 
 func toNetwork(n db.Network) store.Network {
