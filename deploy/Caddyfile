@@ -1,0 +1,24 @@
+# Puts beenfar and its web UI on ONE origin, which beenfar needs for cookie
+# sign-in (it refuses requests whose Origin is not its own Host). Caddy keeps
+# the Host header and sets X-Forwarded-Proto itself.
+#
+# Environment (all have defaults, set by compose.yaml):
+#   BEENFAR_PUBLIC_ADDRESS  what to listen on: ":8000" for plain http on that
+#                           port, or a host name such as "beenfar.example.com"
+#                           for automatic HTTPS (needs ports 80 and 443)
+#   BEENFAR_API_UPSTREAM    where beenfard is   (default 127.0.0.1:8080)
+#   BEENFAR_UI_UPSTREAM     where the UI is     (default 127.0.0.1:8081)
+
+{$BEENFAR_PUBLIC_ADDRESS::8000} {
+	# beenfar's own paths: Connect/gRPC-Web (/beenfar.*), REST (/api/), OpenID
+	# Connect (/auth/), the API description and the health check.
+	@api path /beenfar.* /api/* /auth/* /openapi.json /healthz
+	handle @api {
+		reverse_proxy {$BEENFAR_API_UPSTREAM:127.0.0.1:8080}
+	}
+
+	# Everything else is the web UI.
+	handle {
+		reverse_proxy {$BEENFAR_UI_UPSTREAM:127.0.0.1:8081}
+	}
+}

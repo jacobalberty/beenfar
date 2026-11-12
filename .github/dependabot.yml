@@ -23,6 +23,13 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+  # Pinned third-party images in the compose files (caddy, ...).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      compose-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }

@@ -1,0 +1,76 @@
+# beenfar with its web UI on its own addresses on your LAN (ipvlan), instead of
+# the host's. Each container gets a fixed IP on your network, so devices can be
+# pointed at a dedicated controller address and the host's ports stay free.
+#
+#   docker compose -f compose.ipvlan.yaml up -d
+#
+# Set these in .env (see .env.example), choosing addresses your DHCP server will
+# not hand out:
+#   LAN_INTERFACE   the host's network interface, e.g. eth0 (ipvlan also works on wifi)
+#   LAN_SUBNET      e.g. 192.168.1.0/24
+#   LAN_GATEWAY     e.g. 192.168.1.1
+#   BEENFAR_IP      beenfard's address; devices inform http://<BEENFAR_IP>:8080/inform
+#   BEENFAR_UI_IP   the UI container's address (only the proxy talks to it)
+#   BEENFAR_PROXY_IP  the address to open in a browser: http://<BEENFAR_PROXY_IP>
+#
+# Known limit of ipvlan and macvlan: the Docker HOST cannot reach these
+# addresses itself (other machines on the LAN can). Browse from another
+# machine, or add a host-side shim interface; see deploy/README.md.
+name: beenfar
+
+services:
+  beenfar:
+    image: ghcr.io/jacobalberty/beenfar:${BEENFAR_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      BEENFAR_ADMIN_PASSWORD: ${BEENFAR_ADMIN_PASSWORD:-}
+    volumes:
+      - beenfar-data:/data
+    networks:
+      lan:
+        ipv4_address: ${BEENFAR_IP:?set BEENFAR_IP to a free address on your LAN}
+
+  ui:
+    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:0.1.0}
+    restart: unless-stopped
+    environment:
+      LOOKMORELIKE_API_BASE: /
+    networks:
+      lan:
+        ipv4_address: ${BEENFAR_UI_IP:?set BEENFAR_UI_IP to a free address on your LAN}
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - beenfar
+      - ui
+    environment:
+      # Plain http on port 80 of its own address; use a host name instead for
+      # automatic HTTPS (it must resolve to BEENFAR_PROXY_IP, ports 80 and 443).
+      BEENFAR_PUBLIC_ADDRESS: ${BEENFAR_PUBLIC_ADDRESS:-:80}
+      BEENFAR_API_UPSTREAM: beenfar:8080
+      BEENFAR_UI_UPSTREAM: ui:8080
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      lan:
+        ipv4_address: ${BEENFAR_PROXY_IP:?set BEENFAR_PROXY_IP to a free address on your LAN}
+
+networks:
+  lan:
+    driver: ipvlan
+    driver_opts:
+      parent: ${LAN_INTERFACE:?set LAN_INTERFACE to the host's network interface}
+      ipvlan_mode: l2
+    ipam:
+      config:
+        - subnet: ${LAN_SUBNET:?set LAN_SUBNET, e.g. 192.168.1.0/24}
+          gateway: ${LAN_GATEWAY:?set LAN_GATEWAY, e.g. 192.168.1.1}
+
+volumes:
+  beenfar-data:
+  caddy-data:
+  caddy-config:

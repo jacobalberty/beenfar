@@ -1,0 +1,67 @@
+# beenfar with its web UI.
+#
+#   cp .env.example .env     # set BEENFAR_ADMIN_PASSWORD
+#   docker compose up -d
+#   open http://<this host>:8000
+#
+# Host networking is the default: UniFi devices find and inform the controller
+# on this machine's own address (http://<host>:8080/inform), with no port
+# mapping or NAT in the way. See deploy/README.md for the other ways to run it
+# (ipvlan, Traefik, Pangolin).
+#
+#   beenfard   :8080  the API, and /inform for devices   (host network)
+#   proxy      :8000  the one address to open in a browser (host network)
+#   ui         127.0.0.1:8081                              (published on loopback only)
+#
+# The UI and the API must share one origin (beenfar compares Origin with
+# Host), which is what the proxy is for.
+name: beenfar
+
+services:
+  beenfar:
+    image: ghcr.io/jacobalberty/beenfar:${BEENFAR_VERSION:-latest}
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # Creates the first admin when the database has no users; unused after
+      # that. Without it, create one with:
+      #   docker compose run --rm -T beenfar /beenfard admin create -username admin
+      # (it reads the password from stdin).
+      BEENFAR_ADMIN_PASSWORD: ${BEENFAR_ADMIN_PASSWORD:-}
+      # Uncomment to turn on the experimental UniFi settings push (unverified
+      # on hardware; see the README).
+      # BEENFAR_UNIFI_SYSTEM_CFG: "true"
+    volumes:
+      - beenfar-data:/data
+
+  ui:
+    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:0.1.0}
+    restart: unless-stopped
+    environment:
+      # beenfard is reached at the root of the same origin.
+      LOOKMORELIKE_API_BASE: /
+    # The host's port 8080 belongs to beenfard, so the UI sits on another,
+    # reachable by the proxy only.
+    ports:
+      - "127.0.0.1:8081:8080"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - beenfar
+      - ui
+    environment:
+      BEENFAR_PUBLIC_ADDRESS: ${BEENFAR_PUBLIC_ADDRESS:-:8000}
+      BEENFAR_API_UPSTREAM: 127.0.0.1:8080
+      BEENFAR_UI_UPSTREAM: 127.0.0.1:8081
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  beenfar-data:
+  caddy-data:
+  caddy-config:
