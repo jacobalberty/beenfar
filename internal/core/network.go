@@ -18,15 +18,25 @@ func (s *NetworkService) Create(ctx context.Context, n store.Network) (store.Net
 	if err != nil {
 		return store.Network{}, err
 	}
-	return s.store.CreateNetwork(ctx, n)
+	return networkTracking.create(ctx, s.store, func(tx store.Store) (store.Network, error) {
+		return tx.CreateNetwork(ctx, n)
+	})
 }
 
 func (s *NetworkService) Get(ctx context.Context, id string) (store.Network, error) {
-	return s.store.GetNetwork(ctx, id)
+	n, err := s.store.GetNetwork(ctx, id)
+	if err != nil {
+		return n, err
+	}
+	return n, networkTracking.load(ctx, s.store, &n)
 }
 
 func (s *NetworkService) List(ctx context.Context) ([]store.Network, error) {
-	return s.store.ListNetworks(ctx)
+	list, err := s.store.ListNetworks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return list, networkTracking.loadAll(ctx, s.store, list)
 }
 
 // networkFields are the mutable fields of a network, by API name.
@@ -49,7 +59,8 @@ func (s *NetworkService) Update(ctx context.Context, n store.Network, paths []st
 		normalizeNetwork,
 		func(ctx context.Context, tx store.Store, n store.Network) (store.Network, error) {
 			return tx.UpdateNetwork(ctx, n)
-		})
+		},
+		networkTracking.afterWrite)
 }
 
 // Delete deletes by id. A non-zero revision must match. It fails while a

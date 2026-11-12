@@ -24,15 +24,25 @@ func (s *RadiusService) Create(ctx context.Context, r store.RadiusServer) (store
 	if err != nil {
 		return store.RadiusServer{}, err
 	}
-	return s.store.CreateRadiusServer(ctx, r)
+	return radiusTracking.create(ctx, s.store, func(tx store.Store) (store.RadiusServer, error) {
+		return tx.CreateRadiusServer(ctx, r)
+	})
 }
 
 func (s *RadiusService) Get(ctx context.Context, id string) (store.RadiusServer, error) {
-	return s.store.GetRadiusServer(ctx, id)
+	r, err := s.store.GetRadiusServer(ctx, id)
+	if err != nil {
+		return r, err
+	}
+	return r, radiusTracking.load(ctx, s.store, &r)
 }
 
 func (s *RadiusService) List(ctx context.Context) ([]store.RadiusServer, error) {
-	return s.store.ListRadiusServers(ctx)
+	list, err := s.store.ListRadiusServers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return list, radiusTracking.loadAll(ctx, s.store, list)
 }
 
 // radiusFields are the mutable fields of a RADIUS server, by API name. The
@@ -62,7 +72,8 @@ func (s *RadiusService) Update(ctx context.Context, r store.RadiusServer, paths 
 		normalizeRadius,
 		func(ctx context.Context, tx store.Store, r store.RadiusServer) (store.RadiusServer, error) {
 			return tx.UpdateRadiusServer(ctx, r)
-		})
+		},
+		radiusTracking.afterWrite)
 }
 
 // Delete deletes by id. A non-zero revision must match. It fails while a
