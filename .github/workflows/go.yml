@@ -111,6 +111,43 @@ jobs:
           go vet ./...
           go build ./...
 
+  compose:
+    name: compose files
+    runs-on: ubuntu-latest
+    # Placeholder values for the settings the files require.
+    env:
+      BEENFAR_ADMIN_PASSWORD: ci-placeholder
+      BEENFAR_DOMAIN: beenfar.example.com
+      LAN_INTERFACE: eth0
+      LAN_SUBNET: 192.168.1.0/24
+      LAN_GATEWAY: 192.168.1.1
+      BEENFAR_IP: 192.168.1.50
+      BEENFAR_UI_IP: 192.168.1.51
+      BEENFAR_PROXY_IP: 192.168.1.52
+      PANGOLIN_ENDPOINT: https://pangolin.example.com
+      NEWT_ID: ci
+      NEWT_SECRET: ci
+    steps:
+      - uses: actions/checkout@v7
+      - name: Every compose file is valid
+        run: |
+          for f in compose.yaml compose.ipvlan.yaml compose.traefik.yaml; do
+            docker compose -f "$f" config -q
+          done
+          docker compose -f compose.yaml -f compose.pangolin.yaml config -q
+      - name: Pangolin replaces the local proxy instead of adding to it
+        run: |
+          services=$(docker compose -f compose.yaml -f compose.pangolin.yaml config --services)
+          echo "$services"
+          grep -qx newt <<<"$services"
+          if grep -qx proxy <<<"$services"; then echo "::error::the proxy is still started with compose.pangolin.yaml"; exit 1; fi
+      - name: The Caddyfile is valid, for a port and for a host name
+        run: |
+          for addr in ':8000' 'beenfar.example.com'; do
+            docker run --rm -e "BEENFAR_PUBLIC_ADDRESS=$addr" -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+              caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+          done
+
   gofix:
     name: go fix is clean
     runs-on: ubuntu-latest
