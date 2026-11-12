@@ -56,7 +56,7 @@ func (h *wifiHandler) UpdateWifiNetwork(ctx context.Context, req *configv1.Updat
 	if err != nil {
 		return nil, err
 	}
-	out, err := h.svc.Update(ctx, w)
+	out, err := h.svc.Update(ctx, w, req.GetUpdateMask().GetPaths())
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (h *networkHandler) UpdateNetwork(ctx context.Context, req *configv1.Update
 	if err != nil {
 		return nil, err
 	}
-	out, err := h.svc.Update(ctx, n)
+	out, err := h.svc.Update(ctx, n, req.GetUpdateMask().GetPaths())
 	if err != nil {
 		return nil, err
 	}
@@ -185,4 +185,130 @@ func (h *deviceHandler) ForgetDevice(ctx context.Context, req *configv1.ForgetDe
 		return nil, err
 	}
 	return &configv1.ForgetDeviceResponse{}, nil
+}
+
+// --- RadiusServerService ---
+
+type radiusHandler struct {
+	configv1connect.UnimplementedRadiusServerServiceHandler
+	svc *core.RadiusService
+}
+
+func (h *radiusHandler) CreateRadiusServer(ctx context.Context, req *configv1.CreateRadiusServerRequest) (*configv1.CreateRadiusServerResponse, error) {
+	r, err := apiconvgen.RadiusFromProto(req.GetRadiusServer())
+	if err != nil {
+		return nil, err
+	}
+	r.Revision = 0
+	out, err := h.svc.Create(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.CreateRadiusServerResponse{RadiusServer: apiconvgen.RadiusToProto(out)}, nil
+}
+
+func (h *radiusHandler) GetRadiusServer(ctx context.Context, req *configv1.GetRadiusServerRequest) (*configv1.GetRadiusServerResponse, error) {
+	out, err := h.svc.Get(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.GetRadiusServerResponse{RadiusServer: apiconvgen.RadiusToProto(out)}, nil
+}
+
+func (h *radiusHandler) ListRadiusServers(ctx context.Context, _ *configv1.ListRadiusServersRequest) (*configv1.ListRadiusServersResponse, error) {
+	list, err := h.svc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := &configv1.ListRadiusServersResponse{RadiusServers: make([]*configv1.RadiusServer, 0, len(list))}
+	for _, r := range list {
+		resp.RadiusServers = append(resp.RadiusServers, apiconvgen.RadiusToProto(r))
+	}
+	return resp, nil
+}
+
+func (h *radiusHandler) UpdateRadiusServer(ctx context.Context, req *configv1.UpdateRadiusServerRequest) (*configv1.UpdateRadiusServerResponse, error) {
+	r, err := apiconvgen.RadiusFromProto(req.GetRadiusServer())
+	if err != nil {
+		return nil, err
+	}
+	out, err := h.svc.Update(ctx, r, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.UpdateRadiusServerResponse{RadiusServer: apiconvgen.RadiusToProto(out)}, nil
+}
+
+func (h *radiusHandler) DeleteRadiusServer(ctx context.Context, req *configv1.DeleteRadiusServerRequest) (*configv1.DeleteRadiusServerResponse, error) {
+	rev, err := apiconv.ParseEtag(req.GetEtag())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.Delete(ctx, req.GetId(), rev); err != nil {
+		return nil, err
+	}
+	return &configv1.DeleteRadiusServerResponse{}, nil
+}
+
+// --- SwitchPortService ---
+
+type switchPortHandler struct {
+	configv1connect.UnimplementedSwitchPortServiceHandler
+	svc *core.SwitchPortService
+}
+
+func (h *switchPortHandler) CreateSwitchPort(ctx context.Context, req *configv1.CreateSwitchPortRequest) (*configv1.CreateSwitchPortResponse, error) {
+	p, err := apiconvgen.SwitchPortFromProto(req.GetSwitchPort())
+	if err != nil {
+		return nil, err
+	}
+	p.Revision = 0
+	out, err := h.svc.Create(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.CreateSwitchPortResponse{SwitchPort: apiconvgen.SwitchPortToProto(out)}, nil
+}
+
+func (h *switchPortHandler) GetSwitchPort(ctx context.Context, req *configv1.GetSwitchPortRequest) (*configv1.GetSwitchPortResponse, error) {
+	out, err := h.svc.Get(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.GetSwitchPortResponse{SwitchPort: apiconvgen.SwitchPortToProto(out)}, nil
+}
+
+func (h *switchPortHandler) ListSwitchPorts(ctx context.Context, req *configv1.ListSwitchPortsRequest) (*configv1.ListSwitchPortsResponse, error) {
+	list, err := h.svc.List(ctx, req.GetDeviceId())
+	if err != nil {
+		return nil, err
+	}
+	resp := &configv1.ListSwitchPortsResponse{SwitchPorts: make([]*configv1.SwitchPort, 0, len(list))}
+	for _, p := range list {
+		resp.SwitchPorts = append(resp.SwitchPorts, apiconvgen.SwitchPortToProto(p))
+	}
+	return resp, nil
+}
+
+func (h *switchPortHandler) UpdateSwitchPort(ctx context.Context, req *configv1.UpdateSwitchPortRequest) (*configv1.UpdateSwitchPortResponse, error) {
+	p, err := apiconvgen.SwitchPortFromProto(req.GetSwitchPort())
+	if err != nil {
+		return nil, err
+	}
+	out, err := h.svc.Update(ctx, p, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.UpdateSwitchPortResponse{SwitchPort: apiconvgen.SwitchPortToProto(out)}, nil
+}
+
+func (h *switchPortHandler) DeleteSwitchPort(ctx context.Context, req *configv1.DeleteSwitchPortRequest) (*configv1.DeleteSwitchPortResponse, error) {
+	rev, err := apiconv.ParseEtag(req.GetEtag())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.Delete(ctx, req.GetId(), rev); err != nil {
+		return nil, err
+	}
+	return &configv1.DeleteSwitchPortResponse{}, nil
 }

@@ -1,11 +1,11 @@
 -- name: CreateWifiNetwork :one
 INSERT INTO wifi_networks (
     id, ssid, security, security_key, band, network_id, guest, hidden,
-    default_user_group, radius_profile, revision, create_time, update_time
+    default_user_group, radius_profile, radius_server_id, revision, create_time, update_time
 ) VALUES (
     sqlc.arg(id), sqlc.arg(ssid), sqlc.arg(security), sqlc.arg(security_key), sqlc.arg(band),
     sqlc.arg(network_id), sqlc.arg(guest), sqlc.arg(hidden), sqlc.arg(default_user_group),
-    sqlc.arg(radius_profile), 1, sqlc.arg(now), sqlc.arg(now)
+    sqlc.arg(radius_profile), sqlc.arg(radius_server_id), 1, sqlc.arg(now), sqlc.arg(now)
 )
 RETURNING *;
 
@@ -26,6 +26,7 @@ UPDATE wifi_networks SET
     hidden             = sqlc.arg(hidden),
     default_user_group = sqlc.arg(default_user_group),
     radius_profile     = sqlc.arg(radius_profile),
+    radius_server_id   = sqlc.arg(radius_server_id),
     revision           = revision + 1,
     update_time        = sqlc.arg(now)
 WHERE id = sqlc.arg(id)

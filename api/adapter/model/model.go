@@ -73,10 +73,14 @@ type State struct {
 
 // DesiredConfig is the configuration for one device.
 type DesiredConfig struct {
-	// Revision changes whenever Networks or Wifi change.
-	Revision int64
-	Networks []Network
-	Wifi     []WifiNetwork
+	// Revision changes whenever anything below changes.
+	Revision      int64
+	Networks      []Network
+	Wifi          []WifiNetwork
+	RadiusServers []RadiusServer
+	// SwitchPorts are the settings of this device's ports, ordered by
+	// PortIndex. Ports not listed run with the device's defaults.
+	SwitchPorts []SwitchPort
 }
 
 // Network is a resolved network (a VLAN and its addressing).
@@ -122,4 +126,46 @@ type WifiNetwork struct {
 	NetworkID string
 	Guest     bool
 	Hidden    bool
+	// RadiusServerID is the RADIUS server a WPA-enterprise network
+	// authenticates against, one of DesiredConfig.RadiusServers.
+	RadiusServerID string
+}
+
+// RadiusServer is a RADIUS server for WPA-enterprise authentication and,
+// when AccountingPort is non-zero, accounting.
+type RadiusServer struct {
+	ID             string
+	Address        string // IP address
+	AuthPort       int
+	AccountingPort int // 0 means no accounting
+	SharedSecret   string
+}
+
+// SwitchPortTagging says which networks a switch port carries tagged.
+type SwitchPortTagging string
+
+const (
+	TaggingAll    SwitchPortTagging = "all"    // every network except the native one
+	TaggingNone   SwitchPortTagging = "none"   // only the native network, untagged
+	TaggingCustom SwitchPortTagging = "custom" // the networks in TaggedNetworkIDs
+)
+
+// PoEMode is the Power over Ethernet output of a switch port.
+type PoEMode string
+
+const (
+	PoEAuto PoEMode = "auto"
+	PoEOff  PoEMode = "off"
+)
+
+// SwitchPort holds the settings of one port of the device.
+type SwitchPort struct {
+	PortIndex int // 1-based
+	Name      string
+	Disabled  bool
+	// NativeNetworkID is the untagged network; empty means the default one.
+	NativeNetworkID  string
+	Tagging          SwitchPortTagging
+	TaggedNetworkIDs []string
+	PoEMode          PoEMode
 }

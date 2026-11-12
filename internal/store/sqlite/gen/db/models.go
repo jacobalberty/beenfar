@@ -61,12 +61,44 @@ type Network struct {
 	UpdateTime  int64
 }
 
+type RadiusServer struct {
+	ID             string
+	Name           string
+	Address        string
+	AuthPort       int64
+	AccountingPort int64
+	SharedSecret   string
+	SecretVersion  int64
+	Revision       int64
+	CreateTime     int64
+	UpdateTime     int64
+}
+
 type Session struct {
 	IDHash     string
 	UserID     string
 	CreateTime int64
 	ExpireTime int64
 	Provider   string
+}
+
+type SwitchPort struct {
+	ID              string
+	DeviceID        string
+	PortIndex       int64
+	Name            string
+	Disabled        bool
+	NativeNetworkID string
+	Tagging         string
+	PoeMode         string
+	Revision        int64
+	CreateTime      int64
+	UpdateTime      int64
+}
+
+type SwitchPortTaggedNetwork struct {
+	SwitchPortID string
+	NetworkID    string
 }
 
 type User struct {
@@ -101,6 +133,7 @@ type WifiNetwork struct {
 	Revision         int64
 	CreateTime       int64
 	UpdateTime       int64
+	RadiusServerID   string
 }
 
 type WifiNetworkApGroup struct {

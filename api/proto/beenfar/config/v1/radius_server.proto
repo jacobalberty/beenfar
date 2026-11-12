@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package beenfar.config.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+// RadiusServerService manages the RADIUS servers that WPA-enterprise
+// wireless networks authenticate against.
+service RadiusServerService {
+  // CreateRadiusServer creates a RADIUS server. The name must be unique.
+  rpc CreateRadiusServer(CreateRadiusServerRequest) returns (CreateRadiusServerResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/radius-servers"
+      body: "radius_server"
+      response_body: "radius_server"
+    };
+  }
+
+  // GetRadiusServer returns one RADIUS server by id.
+  rpc GetRadiusServer(GetRadiusServerRequest) returns (GetRadiusServerResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/radius-servers/{id}"
+      response_body: "radius_server"
+    };
+  }
+
+  // ListRadiusServers returns every RADIUS server, ordered by name.
+  rpc ListRadiusServers(ListRadiusServersRequest) returns (ListRadiusServersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/radius-servers"};
+  }
+
+  // UpdateRadiusServer replaces the fields named by update_mask, or every
+  // mutable field when the mask is empty. When etag is set it must match the
+  // stored etag, or the call fails with ABORTED.
+  rpc UpdateRadiusServer(UpdateRadiusServerRequest) returns (UpdateRadiusServerResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/radius-servers/{radius_server.id}"
+      body: "radius_server"
+      response_body: "radius_server"
+      additional_bindings: {
+        patch: "/api/v1/radius-servers/{radius_server.id}"
+        body: "radius_server"
+        response_body: "radius_server"
+      }
+    };
+  }
+
+  // DeleteRadiusServer deletes a RADIUS server. It fails with
+  // FAILED_PRECONDITION while a wireless network still refers to it.
+  rpc DeleteRadiusServer(DeleteRadiusServerRequest) returns (DeleteRadiusServerResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/radius-servers/{id}"};
+  }
+}
+
+// RadiusServer is a RADIUS server used for WPA-enterprise authentication
+// and, optionally, accounting.
+message RadiusServer {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // Display name, 1-64 bytes. Unique across RADIUS servers.
+  string name = 2 [(google.api.field_behavior) = REQUIRED];
+  // IPv4 or IPv6 address of the server.
+  string address = 3 [(google.api.field_behavior) = REQUIRED];
+  // Authentication port. 0 means the default, 1812.
+  uint32 auth_port = 4;
+  // Accounting port, usually 1813. 0 means no accounting.
+  uint32 accounting_port = 5;
+  // Shared secret, 1-128 printable ASCII characters. Required on create. It
+  // is never returned; on update an empty value keeps the current secret.
+  string shared_secret = 6 [(google.api.field_behavior) = INPUT_ONLY];
+  // Starts at 1 and increases whenever the shared secret changes, so clients
+  // can tell that it was replaced without reading it.
+  int64 shared_secret_version = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Opaque version of this resource, for optimistic concurrency.
+  string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message CreateRadiusServerRequest {
+  RadiusServer radius_server = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateRadiusServerResponse {
+  RadiusServer radius_server = 1;
+}
+
+message GetRadiusServerRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetRadiusServerResponse {
+  RadiusServer radius_server = 1;
+}
+
+message ListRadiusServersRequest {}
+
+message ListRadiusServersResponse {
+  repeated RadiusServer radius_servers = 1;
+}
+
+message UpdateRadiusServerRequest {
+  // id selects the RADIUS server; etag, when set, guards the update.
+  RadiusServer radius_server = 1 [(google.api.field_behavior) = REQUIRED];
+  // Fields to update, named by their proto field names. Fields not listed
+  // keep their stored values. When the mask is empty or "*", every mutable
+  // field is replaced.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateRadiusServerResponse {
+  RadiusServer radius_server = 1;
+}
+
+message DeleteRadiusServerRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string etag = 2;
+}
+
+message DeleteRadiusServerResponse {}

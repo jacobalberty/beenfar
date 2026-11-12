@@ -25,6 +25,18 @@ func DesiredConfigFromProto(source *v1.DesiredConfig) model.DesiredConfig {
 				modelDesiredConfig.Wifi[j] = pAdapterv1WifiNetworkToModelWifiNetwork((*source).Wifi[j])
 			}
 		}
+		if (*source).RadiusServers != nil {
+			modelDesiredConfig.RadiusServers = make([]model.RadiusServer, len((*source).RadiusServers))
+			for k := 0; k < len((*source).RadiusServers); k++ {
+				modelDesiredConfig.RadiusServers[k] = pAdapterv1RadiusServerToModelRadiusServer((*source).RadiusServers[k])
+			}
+		}
+		if (*source).SwitchPorts != nil {
+			modelDesiredConfig.SwitchPorts = make([]model.SwitchPort, len((*source).SwitchPorts))
+			for l := 0; l < len((*source).SwitchPorts); l++ {
+				modelDesiredConfig.SwitchPorts[l] = pAdapterv1SwitchPortToModelSwitchPort((*source).SwitchPorts[l])
+			}
+		}
 	}
 	return modelDesiredConfig
 }
@@ -41,6 +53,18 @@ func DesiredConfigToProto(source model.DesiredConfig) *v1.DesiredConfig {
 		adapterv1DesiredConfig.Wifi = make([]*v1.WifiNetwork, len(source.Wifi))
 		for j := 0; j < len(source.Wifi); j++ {
 			adapterv1DesiredConfig.Wifi[j] = modelWifiNetworkToPAdapterv1WifiNetwork(source.Wifi[j])
+		}
+	}
+	if source.RadiusServers != nil {
+		adapterv1DesiredConfig.RadiusServers = make([]*v1.RadiusServer, len(source.RadiusServers))
+		for k := 0; k < len(source.RadiusServers); k++ {
+			adapterv1DesiredConfig.RadiusServers[k] = modelRadiusServerToPAdapterv1RadiusServer(source.RadiusServers[k])
+		}
+	}
+	if source.SwitchPorts != nil {
+		adapterv1DesiredConfig.SwitchPorts = make([]*v1.SwitchPort, len(source.SwitchPorts))
+		for l := 0; l < len(source.SwitchPorts); l++ {
+			adapterv1DesiredConfig.SwitchPorts[l] = modelSwitchPortToPAdapterv1SwitchPort(source.SwitchPorts[l])
 		}
 	}
 	return &adapterv1DesiredConfig
@@ -121,6 +145,31 @@ func modelNetworkToPAdapterv1Network(source model.Network) *v1.Network {
 	adapterv1Network.DomainName = source.DomainName
 	return &adapterv1Network
 }
+func modelRadiusServerToPAdapterv1RadiusServer(source model.RadiusServer) *v1.RadiusServer {
+	var adapterv1RadiusServer v1.RadiusServer
+	adapterv1RadiusServer.Id = source.ID
+	adapterv1RadiusServer.Address = source.Address
+	adapterv1RadiusServer.AuthPort = wire.Int32(source.AuthPort)
+	adapterv1RadiusServer.AccountingPort = wire.Int32(source.AccountingPort)
+	adapterv1RadiusServer.SharedSecret = source.SharedSecret
+	return &adapterv1RadiusServer
+}
+func modelSwitchPortToPAdapterv1SwitchPort(source model.SwitchPort) *v1.SwitchPort {
+	var adapterv1SwitchPort v1.SwitchPort
+	adapterv1SwitchPort.PortIndex = wire.Int32(source.PortIndex)
+	adapterv1SwitchPort.Name = source.Name
+	adapterv1SwitchPort.Disabled = source.Disabled
+	adapterv1SwitchPort.NativeNetworkId = source.NativeNetworkID
+	adapterv1SwitchPort.Tagging = wire.TaggingToProto(source.Tagging)
+	if source.TaggedNetworkIDs != nil {
+		adapterv1SwitchPort.TaggedNetworkIds = make([]string, len(source.TaggedNetworkIDs))
+		for i := 0; i < len(source.TaggedNetworkIDs); i++ {
+			adapterv1SwitchPort.TaggedNetworkIds[i] = source.TaggedNetworkIDs[i]
+		}
+	}
+	adapterv1SwitchPort.PoeMode = wire.PoEModeToProto(source.PoEMode)
+	return &adapterv1SwitchPort
+}
 func modelWifiNetworkToPAdapterv1WifiNetwork(source model.WifiNetwork) *v1.WifiNetwork {
 	var adapterv1WifiNetwork v1.WifiNetwork
 	adapterv1WifiNetwork.Id = source.ID
@@ -131,6 +180,7 @@ func modelWifiNetworkToPAdapterv1WifiNetwork(source model.WifiNetwork) *v1.WifiN
 	adapterv1WifiNetwork.NetworkId = source.NetworkID
 	adapterv1WifiNetwork.Guest = source.Guest
 	adapterv1WifiNetwork.Hidden = source.Hidden
+	adapterv1WifiNetwork.RadiusServerId = source.RadiusServerID
 	return &adapterv1WifiNetwork
 }
 func pAdapterv1NetworkToModelNetwork(source *v1.Network) model.Network {
@@ -147,6 +197,35 @@ func pAdapterv1NetworkToModelNetwork(source *v1.Network) model.Network {
 	}
 	return modelNetwork
 }
+func pAdapterv1RadiusServerToModelRadiusServer(source *v1.RadiusServer) model.RadiusServer {
+	var modelRadiusServer model.RadiusServer
+	if source != nil {
+		modelRadiusServer.ID = (*source).Id
+		modelRadiusServer.Address = (*source).Address
+		modelRadiusServer.AuthPort = wire.Int((*source).AuthPort)
+		modelRadiusServer.AccountingPort = wire.Int((*source).AccountingPort)
+		modelRadiusServer.SharedSecret = (*source).SharedSecret
+	}
+	return modelRadiusServer
+}
+func pAdapterv1SwitchPortToModelSwitchPort(source *v1.SwitchPort) model.SwitchPort {
+	var modelSwitchPort model.SwitchPort
+	if source != nil {
+		modelSwitchPort.PortIndex = wire.Int((*source).PortIndex)
+		modelSwitchPort.Name = (*source).Name
+		modelSwitchPort.Disabled = (*source).Disabled
+		modelSwitchPort.NativeNetworkID = (*source).NativeNetworkId
+		modelSwitchPort.Tagging = wire.TaggingFromProto((*source).Tagging)
+		if (*source).TaggedNetworkIds != nil {
+			modelSwitchPort.TaggedNetworkIDs = make([]string, len((*source).TaggedNetworkIds))
+			for i := 0; i < len((*source).TaggedNetworkIds); i++ {
+				modelSwitchPort.TaggedNetworkIDs[i] = (*source).TaggedNetworkIds[i]
+			}
+		}
+		modelSwitchPort.PoEMode = wire.PoEModeFromProto((*source).PoeMode)
+	}
+	return modelSwitchPort
+}
 func pAdapterv1WifiNetworkToModelWifiNetwork(source *v1.WifiNetwork) model.WifiNetwork {
 	var modelWifiNetwork model.WifiNetwork
 	if source != nil {
@@ -158,6 +237,7 @@ func pAdapterv1WifiNetworkToModelWifiNetwork(source *v1.WifiNetwork) model.WifiN
 		modelWifiNetwork.NetworkID = (*source).NetworkId
 		modelWifiNetwork.Guest = (*source).Guest
 		modelWifiNetwork.Hidden = (*source).Hidden
+		modelWifiNetwork.RadiusServerID = (*source).RadiusServerId
 	}
 	return modelWifiNetwork
 }

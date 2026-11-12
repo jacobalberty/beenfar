@@ -347,6 +347,9 @@ func (s *Store) CreateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 		if err := txs.checkNetworkRef(ctx, w.NetworkID); err != nil {
 			return err
 		}
+		if err := txs.checkRadiusRef(ctx, w.RadiusServerID); err != nil {
+			return err
+		}
 		row, err := txs.q.CreateWifiNetwork(ctx, db.CreateWifiNetworkParams{
 			ID:               newID(),
 			Ssid:             w.SSID,
@@ -358,6 +361,7 @@ func (s *Store) CreateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 			Hidden:           w.Hidden,
 			DefaultUserGroup: w.DefaultUserGroup,
 			RadiusProfile:    w.RadiusProfile,
+			RadiusServerID:   w.RadiusServerID,
 			Now:              txs.nowMilli(),
 		})
 		if err != nil {
@@ -414,6 +418,9 @@ func (s *Store) UpdateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 		if err := txs.checkNetworkRef(ctx, w.NetworkID); err != nil {
 			return err
 		}
+		if err := txs.checkRadiusRef(ctx, w.RadiusServerID); err != nil {
+			return err
+		}
 		row, err := txs.q.UpdateWifiNetwork(ctx, db.UpdateWifiNetworkParams{
 			ID:               w.ID,
 			Ssid:             w.SSID,
@@ -425,6 +432,7 @@ func (s *Store) UpdateWifiNetwork(ctx context.Context, w store.WifiNetwork) (sto
 			Hidden:           w.Hidden,
 			DefaultUserGroup: w.DefaultUserGroup,
 			RadiusProfile:    w.RadiusProfile,
+			RadiusServerID:   w.RadiusServerID,
 			Now:              txs.nowMilli(),
 			ExpectedRevision: w.Revision,
 		})

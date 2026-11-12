@@ -93,6 +93,30 @@ func Networks(source []db.Network) []store.Network {
 	}
 	return storeNetworkList
 }
+func RadiusServer(source db.RadiusServer) store.RadiusServer {
+	var storeRadiusServer store.RadiusServer
+	storeRadiusServer.ID = source.ID
+	storeRadiusServer.Name = source.Name
+	storeRadiusServer.Address = source.Address
+	storeRadiusServer.AuthPort = dbconv.Int(source.AuthPort)
+	storeRadiusServer.AccountingPort = dbconv.Int(source.AccountingPort)
+	storeRadiusServer.SharedSecret = source.SharedSecret
+	storeRadiusServer.SecretVersion = source.SecretVersion
+	storeRadiusServer.Revision = source.Revision
+	storeRadiusServer.CreateTime = dbconv.FromMilli(source.CreateTime)
+	storeRadiusServer.UpdateTime = dbconv.FromMilli(source.UpdateTime)
+	return storeRadiusServer
+}
+func RadiusServers(source []db.RadiusServer) []store.RadiusServer {
+	var storeRadiusServerList []store.RadiusServer
+	if source != nil {
+		storeRadiusServerList = make([]store.RadiusServer, len(source))
+		for i := 0; i < len(source); i++ {
+			storeRadiusServerList[i] = RadiusServer(source[i])
+		}
+	}
+	return storeRadiusServerList
+}
 func Session(source db.Session) store.Session {
 	var storeSession store.Session
 	storeSession.IDHash = source.IDHash
@@ -101,6 +125,21 @@ func Session(source db.Session) store.Session {
 	storeSession.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeSession.ExpireTime = dbconv.FromMilli(source.ExpireTime)
 	return storeSession
+}
+func SwitchPort(source db.SwitchPort) store.SwitchPort {
+	var storeSwitchPort store.SwitchPort
+	storeSwitchPort.ID = source.ID
+	storeSwitchPort.DeviceID = source.DeviceID
+	storeSwitchPort.PortIndex = dbconv.Int(source.PortIndex)
+	storeSwitchPort.Name = source.Name
+	storeSwitchPort.Disabled = source.Disabled
+	storeSwitchPort.NativeNetworkID = source.NativeNetworkID
+	storeSwitchPort.Tagging = dbconv.SwitchPortTagging(source.Tagging)
+	storeSwitchPort.PoEMode = dbconv.PoEMode(source.PoeMode)
+	storeSwitchPort.Revision = source.Revision
+	storeSwitchPort.CreateTime = dbconv.FromMilli(source.CreateTime)
+	storeSwitchPort.UpdateTime = dbconv.FromMilli(source.UpdateTime)
+	return storeSwitchPort
 }
 func User(source db.User) store.User {
 	var storeUser store.User
@@ -136,6 +175,7 @@ func WifiNetwork(source db.WifiNetwork) store.WifiNetwork {
 	storeWifiNetwork.Hidden = source.Hidden
 	storeWifiNetwork.DefaultUserGroup = source.DefaultUserGroup
 	storeWifiNetwork.RadiusProfile = source.RadiusProfile
+	storeWifiNetwork.RadiusServerID = source.RadiusServerID
 	storeWifiNetwork.Revision = source.Revision
 	storeWifiNetwork.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeWifiNetwork.UpdateTime = dbconv.FromMilli(source.UpdateTime)

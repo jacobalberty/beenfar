@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package beenfar.config.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+// SwitchPortService manages the settings of individual ports of adopted
+// switches. A port with no SwitchPort runs with the device's defaults;
+// deleting a SwitchPort returns the port to them.
+service SwitchPortService {
+  // CreateSwitchPort sets up a port. The device must be adopted, and each
+  // (device_id, port_index) can have one SwitchPort.
+  rpc CreateSwitchPort(CreateSwitchPortRequest) returns (CreateSwitchPortResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/switch-ports"
+      body: "switch_port"
+      response_body: "switch_port"
+    };
+  }
+
+  // GetSwitchPort returns one switch port by id.
+  rpc GetSwitchPort(GetSwitchPortRequest) returns (GetSwitchPortResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/switch-ports/{id}"
+      response_body: "switch_port"
+    };
+  }
+
+  // ListSwitchPorts returns switch ports ordered by device and port index.
+  rpc ListSwitchPorts(ListSwitchPortsRequest) returns (ListSwitchPortsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/api/v1/switch-ports"};
+  }
+
+  // UpdateSwitchPort replaces the fields named by update_mask, or every
+  // mutable field when the mask is empty. device_id and port_index cannot
+  // change. When etag is set it must match the stored etag, or the call
+  // fails with ABORTED.
+  rpc UpdateSwitchPort(UpdateSwitchPortRequest) returns (UpdateSwitchPortResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/switch-ports/{switch_port.id}"
+      body: "switch_port"
+      response_body: "switch_port"
+      additional_bindings: {
+        patch: "/api/v1/switch-ports/{switch_port.id}"
+        body: "switch_port"
+        response_body: "switch_port"
+      }
+    };
+  }
+
+  // DeleteSwitchPort returns a port to the device's defaults.
+  rpc DeleteSwitchPort(DeleteSwitchPortRequest) returns (DeleteSwitchPortResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/api/v1/switch-ports/{id}"};
+  }
+}
+
+// SwitchPortTagging says which networks a port carries tagged.
+enum SwitchPortTagging {
+  // Unspecified means all.
+  SWITCH_PORT_TAGGING_UNSPECIFIED = 0;
+  // Every network except the native one.
+  SWITCH_PORT_TAGGING_ALL = 1;
+  // Only the native network, untagged.
+  SWITCH_PORT_TAGGING_NONE = 2;
+  // The networks in tagged_network_ids.
+  SWITCH_PORT_TAGGING_CUSTOM = 3;
+}
+
+// PoeMode is the Power over Ethernet output of a port.
+enum PoeMode {
+  // Unspecified means auto.
+  POE_MODE_UNSPECIFIED = 0;
+  POE_MODE_AUTO = 1;
+  POE_MODE_OFF = 2;
+}
+
+// SwitchPort holds the settings of one port of an adopted switch.
+message SwitchPort {
+  // Server-assigned, immutable identifier.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+  // Id of the beenfar.config.v1.Device the port belongs to.
+  string device_id = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = IMMUTABLE
+  ];
+  // 1-based port number, as printed on the device.
+  uint32 port_index = 3 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = IMMUTABLE
+  ];
+  // Label, at most 64 bytes.
+  string name = 4;
+  // Turns the port off.
+  bool disabled = 5;
+  // Id of the beenfar.config.v1.Network carried untagged. Empty means the
+  // default network.
+  string native_network_id = 6;
+  SwitchPortTagging tagging = 7;
+  // Ids of the networks carried tagged. Only with
+  // SWITCH_PORT_TAGGING_CUSTOM; must not include the native network.
+  repeated string tagged_network_ids = 8;
+  PoeMode poe_mode = 9;
+
+  // Opaque version of this resource, for optimistic concurrency.
+  string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message CreateSwitchPortRequest {
+  SwitchPort switch_port = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateSwitchPortResponse {
+  SwitchPort switch_port = 1;
+}
+
+message GetSwitchPortRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetSwitchPortResponse {
+  SwitchPort switch_port = 1;
+}
+
+message ListSwitchPortsRequest {
+  // Only the ports of this device; empty lists every device's ports.
+  string device_id = 1;
+}
+
+message ListSwitchPortsResponse {
+  repeated SwitchPort switch_ports = 1;
+}
+
+message UpdateSwitchPortRequest {
+  // id selects the port; etag, when set, guards the update.
+  SwitchPort switch_port = 1 [(google.api.field_behavior) = REQUIRED];
+  // Fields to update, named by their proto field names. Fields not listed
+  // keep their stored values. When the mask is empty or "*", every mutable
+  // field is replaced.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateSwitchPortResponse {
+  SwitchPort switch_port = 1;
+}
+
+message DeleteSwitchPortRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  string etag = 2;
+}
+
+message DeleteSwitchPortResponse {}

@@ -1,6 +1,7 @@
 package sqlite_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -200,4 +201,151 @@ func TestAdapterTokens(t *testing.T) {
 	wantErr(t, s.DeleteAdapterToken(ctx, tok.ID), store.ErrNotFound)
 	_, err = s.GetAdapterTokenByPrefix(ctx, "abc")
 	wantErr(t, err, store.ErrNotFound)
+}
+
+func TestRadiusServers(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	_, err := s.CreateRadiusServer(ctx, store.RadiusServer{Name: "nosecret", Address: "10.0.0.2", AuthPort: 1812})
+	wantErr(t, err, store.ErrInvalid)
+
+	r, err := s.CreateRadiusServer(ctx, store.RadiusServer{
+		Name: "corp", Address: "10.0.0.2", AuthPort: 1812, AccountingPort: 1813, SharedSecret: "s3cret",
+	})
+	if err != nil || r.ID == "" || r.Revision != 1 || r.SecretVersion != 1 || r.SharedSecret != "s3cret" {
+		t.Fatalf("create = %+v, %v", r, err)
+	}
+	_, err = s.CreateRadiusServer(ctx, store.RadiusServer{Name: "corp", Address: "10.0.0.3", AuthPort: 1812, SharedSecret: "x"})
+	wantErr(t, err, store.ErrConflict)
+
+	// Changing other fields keeps the secret version; changing the secret
+	// moves it.
+	r.AuthPort = 11812
+	r, err = s.UpdateRadiusServer(ctx, r)
+	if err != nil || r.Revision != 2 || r.SecretVersion != 1 || r.AuthPort != 11812 {
+		t.Fatalf("update = %+v, %v", r, err)
+	}
+	r.SharedSecret = "n3w"
+	r, err = s.UpdateRadiusServer(ctx, r)
+	if err != nil || r.Revision != 3 || r.SecretVersion != 2 {
+		t.Fatalf("update secret = %+v, %v", r, err)
+	}
+	stale := r
+	stale.Revision = 1
+	_, err = s.UpdateRadiusServer(ctx, stale)
+	wantErr(t, err, store.ErrStale)
+
+	// Wireless networks may only refer to existing servers, and a server in
+	// use cannot be deleted.
+	enterprise := store.WifiNetwork{SSID: "corp", Security: store.WifiSecurityWPAEnterprise, Band: store.WifiBandBoth,
+		RadiusServerID: "missing"}
+	_, err = s.CreateWifiNetwork(ctx, enterprise)
+	wantErr(t, err, store.ErrInvalid)
+	enterprise.RadiusServerID = r.ID
+	w, err := s.CreateWifiNetwork(ctx, enterprise)
+	if err != nil || w.RadiusServerID != r.ID {
+		t.Fatalf("wifi = %+v, %v", w, err)
+	}
+	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 0), store.ErrFailedPrecondition)
+
+	w.RadiusServerID = ""
+	if _, err := s.UpdateWifiNetwork(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 1), store.ErrStale)
+	if err := s.DeleteRadiusServer(ctx, r.ID, r.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteRadiusServer(ctx, r.ID, 0), store.ErrNotFound)
+	if list, err := s.ListRadiusServers(ctx); err != nil || len(list) != 0 {
+		t.Fatalf("list = %+v, %v", list, err)
+	}
+}
+
+func TestSwitchPorts(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lan, err := s.CreateNetwork(ctx, store.Network{Name: "lan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	iot, err := s.CreateNetwork(ctx, store.Network{Name: "iot", VLANID: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cams, err := s.CreateNetwork(ctx, store.Network{Name: "cams", VLANID: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	port := store.SwitchPort{
+		DeviceID: d.ID, PortIndex: 3, Name: "uplink", NativeNetworkID: lan.ID,
+		Tagging: store.SwitchPortTaggingCustom, TaggedNetworkIDs: []string{iot.ID, cams.ID, iot.ID},
+		PoEMode: store.PoEModeOff,
+	}
+	p, err := s.CreateSwitchPort(ctx, port)
+	if err != nil || p.ID == "" || p.Revision != 1 || len(p.TaggedNetworkIDs) != 2 || p.PoEMode != store.PoEModeOff {
+		t.Fatalf("create = %+v, %v", p, err)
+	}
+	_, err = s.CreateSwitchPort(ctx, port)
+	wantErr(t, err, store.ErrConflict) // same device and index
+
+	for name, bad := range map[string]store.SwitchPort{
+		"missing device": {DeviceID: "missing", PortIndex: 1, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto},
+		"missing native": {DeviceID: d.ID, PortIndex: 1, NativeNetworkID: "missing", Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto},
+		"missing tagged": {DeviceID: d.ID, PortIndex: 1, Tagging: store.SwitchPortTaggingCustom, TaggedNetworkIDs: []string{"missing"}, PoEMode: store.PoEModeAuto},
+		"index 0":        {DeviceID: d.ID, PortIndex: 0, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto},
+	} {
+		if _, err := s.CreateSwitchPort(ctx, bad); !errors.Is(err, store.ErrInvalid) {
+			t.Errorf("%s: err = %v, want invalid", name, err)
+		}
+	}
+
+	// Networks in use by a port cannot be deleted.
+	wantErr(t, s.DeleteNetwork(ctx, lan.ID, 0), store.ErrFailedPrecondition)
+	wantErr(t, s.DeleteNetwork(ctx, cams.ID, 0), store.ErrFailedPrecondition)
+
+	// Update replaces the settings but never the device or index.
+	p.TaggedNetworkIDs = []string{iot.ID}
+	p.DeviceID, p.PortIndex = "other", 9
+	upd, err := s.UpdateSwitchPort(ctx, p)
+	if err != nil || upd.Revision != 2 || upd.DeviceID != d.ID || upd.PortIndex != 3 || len(upd.TaggedNetworkIDs) != 1 {
+		t.Fatalf("update = %+v, %v", upd, err)
+	}
+	if err := s.DeleteNetwork(ctx, cams.ID, 0); err != nil {
+		t.Fatalf("cams is no longer used: %v", err)
+	}
+	_, err = s.UpdateSwitchPort(ctx, p) // revision 1 is stale
+	wantErr(t, err, store.ErrStale)
+
+	if _, err := s.CreateSwitchPort(ctx, store.SwitchPort{DeviceID: d.ID, PortIndex: 1, Tagging: store.SwitchPortTaggingAll, PoEMode: store.PoEModeAuto}); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.ListSwitchPorts(ctx, d.ID)
+	if err != nil || len(list) != 2 || list[0].PortIndex != 1 || list[1].PortIndex != 3 || list[1].TaggedNetworkIDs[0] != iot.ID {
+		t.Fatalf("list = %+v, %v", list, err)
+	}
+	if other, err := s.ListSwitchPorts(ctx, "nobody"); err != nil || len(other) != 0 {
+		t.Fatalf("list other = %+v, %v", other, err)
+	}
+
+	wantErr(t, s.DeleteSwitchPort(ctx, upd.ID, 1), store.ErrStale)
+	if err := s.DeleteSwitchPort(ctx, upd.ID, upd.Revision); err != nil {
+		t.Fatal(err)
+	}
+	wantErr(t, s.DeleteSwitchPort(ctx, upd.ID, 0), store.ErrNotFound)
+
+	// Forgetting the device drops its port settings.
+	if err := s.DeleteDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	if all, err := s.ListSwitchPorts(ctx, ""); err != nil || len(all) != 0 {
+		t.Fatalf("after forget = %+v, %v", all, err)
+	}
 }

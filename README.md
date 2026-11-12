@@ -29,6 +29,46 @@ beenfard admin token -username admin -name terraform
 or through the API (`ApiTokenService.CreateApiToken`). Send it as
 `Authorization: Bearer <token>`.
 
+## Configuration API
+
+Everything that configures the network is a resource in `beenfar.config.v1`,
+served over Connect, gRPC and REST (`/api/v1/...`, described at
+`/openapi.json`): networks, wifi networks, RADIUS servers, switch ports and
+devices. The UI and the [Terraform provider](https://github.com/jacobalberty/terraform-provider-beenfar)
+use the same RPCs. Resources have server-assigned ids and an `etag`; send the
+etag back on update or delete to fail with `ABORTED` if someone changed the
+resource in the meantime.
+
+**Partial updates.** Every `Update` takes an optional `update_mask`
+([AIP-134](https://google.aip.dev/134)) naming the fields to change; the
+others keep their stored values. An empty mask (or `*`) replaces every
+field. Over REST, use `PATCH` with `?update_mask=ssid,securityKey`. This is
+what lets Terraform manage some fields of a resource while the UI manages
+others: Terraform sends only the fields in its configuration, so for
+instance the access point groups of a wifi network can be left to the UI.
+
+**RADIUS servers.** WPA-enterprise wifi networks name a RADIUS server
+(`radius_server_id`; the old free-text `radius_profile` is deprecated). The
+server's shared secret is write-only: no response contains it, and an update
+without one keeps it. `shared_secret_version` increases whenever it changes.
+
+**Switch ports.** Ports of adopted devices can be given settings (name,
+disabled, native network, tagged networks, PoE mode) by device id and
+1-based port index. A port without settings runs with the device's
+defaults; deleting them restores the defaults.
+
+## API module
+
+The protobuf API and its generated Go clients, together with the adapter
+SDK, are the module `github.com/jacobalberty/beenfar/api` in `api/`, which
+the Terraform provider and external adapters import. It is released on its
+own, as `api/vX.Y.Z` tags: every push to `main` that touches `api/` runs CI
+and tags a release when the commits that touched `api/` since the last one
+call for it (`feat` minor, `fix`/`perf` patch, breaking changes minor while
+0.x; see `.github/scripts/api-next-version.sh`). Commits that touch `api/`
+must therefore follow [Conventional Commits](https://www.conventionalcommits.org/),
+which a pull request check enforces.
+
 ## Authentication
 
 API tokens (`Authorization: Bearer`) and the password login form are always
@@ -136,6 +176,7 @@ accepted until it has switched.
 |---|---|---|
 | `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
 | `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
+| `BEENFAR_UNIFI_SYSTEM_CFG` | `false` | Send adopted devices their wifi, VLAN and RADIUS settings (experimental, see below) |
 | `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |
 
 **Reset devices.** An adopted device that comes back speaking the default key
@@ -151,10 +192,28 @@ inform with it for any MAC. Only a device that has been silent for
 a spoofed inform. With that set to `0` a reset device stays locked, and has to
 be forgotten and adopted again.
 
-**Known limitation.** Adopted devices are re-keyed and tracked by config
-revision, but are not yet sent wifi or VLAN settings: the `system_cfg` key
-names have not been verified against real devices, so that part
-(`renderSystemConfig` in `adapters/unifi/systemcfg.go`) renders nothing.
+**Device settings (experimental).** With `BEENFAR_UNIFI_SYSTEM_CFG=true`,
+adopted devices are sent their wifi networks (WPA-PSK, and WPA-enterprise
+with a RADIUS server for authentication and optional accounting), the VLANs
+those networks use, and the matching bridges, as a `system_cfg` document
+(`renderSystemConfig` in `adapters/unifi/systemcfg.go`). The key names come
+from a `system.cfg` captured from a dual-radio access point with the madwifi
+driver, and the tests check every rendered key against that capture. What is
+not verified, and why it is off by default:
+
+- the document only holds those sections, not radio channels, SSH users,
+  NTP and the other settings beenfar does not manage, and whether a device
+  merges it into its configuration or replaces its configuration with it has
+  not been tried on hardware;
+- other radio layouts (newer models use other interface names);
+- open, WEP and guest networks are not rendered (a config containing one is
+  refused, and the push fails with an error), nor is more than one RADIUS
+  server per network;
+- switch port settings are stored and handed to the adapter, but not sent to
+  devices: the capture has no port VLAN or PoE keys.
+
+Without it, adopted devices are re-keyed and tracked by config revision, but
+their settings are left alone.
 
 **Taking over devices from another controller.** Extract each device's
 credentials with an outside tool (the `x_authkey` in the old controller's
@@ -178,9 +237,8 @@ for it with `beenfard admin adapter-token create -adapter NAME` (also `list`
 and `revoke`); the token lets its holder act as that adapter only.
 
 ## Todo
-* Terraform provider
 * Per device command queues
-* Translate internal configuration data to per device data (UniFi wifi and VLAN settings)
+* Verify the UniFi `system_cfg` push on hardware, and render guest networks and switch ports
 * [Frontend](https://github.com/jacobalberty/LookMoreLike)
 
 ## Supported device types

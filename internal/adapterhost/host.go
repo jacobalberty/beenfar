@@ -76,7 +76,15 @@ func (h *Host) DesiredConfig(ctx context.Context, deviceID string) (adapter.Desi
 		if err != nil {
 			return err
 		}
-		cfg = buildConfig(networks, wifi)
+		radius, err := tx.ListRadiusServers(ctx)
+		if err != nil {
+			return err
+		}
+		ports, err := tx.ListSwitchPorts(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+		cfg = buildConfig(networks, wifi, radius, ports)
 		return nil
 	})
 	if err != nil {
@@ -151,7 +159,7 @@ func toDevice(d store.Device) adapter.Device {
 	}
 }
 
-func buildConfig(networks []store.Network, wifi []store.WifiNetwork) adapter.DesiredConfig {
+func buildConfig(networks []store.Network, wifi []store.WifiNetwork, radius []store.RadiusServer, ports []store.SwitchPort) adapter.DesiredConfig {
 	// The revision is a digest of every resource's id and revision, so it
 	// changes when anything is added, removed or updated.
 	h := fnv.New64a()
@@ -163,8 +171,10 @@ func buildConfig(networks []store.Network, wifi []store.WifiNetwork) adapter.Des
 		h.Write(b[:])
 	}
 	cfg := adapter.DesiredConfig{
-		Networks: make([]adapter.Network, 0, len(networks)),
-		Wifi:     make([]adapter.WifiNetwork, 0, len(wifi)),
+		Networks:      make([]adapter.Network, 0, len(networks)),
+		Wifi:          make([]adapter.WifiNetwork, 0, len(wifi)),
+		RadiusServers: make([]adapter.RadiusServer, 0, len(radius)),
+		SwitchPorts:   make([]adapter.SwitchPort, 0, len(ports)),
 	}
 	for _, n := range networks {
 		put('n', n.ID, n.Revision)
@@ -180,6 +190,22 @@ func buildConfig(networks []store.Network, wifi []store.WifiNetwork) adapter.Des
 			ID: w.ID, SSID: w.SSID, Security: adapter.WifiSecurity(w.Security),
 			SecurityKey: w.SecurityKey, Band: adapter.WifiBand(w.Band),
 			NetworkID: w.NetworkID, Guest: w.Guest, Hidden: w.Hidden,
+			RadiusServerID: w.RadiusServerID,
+		})
+	}
+	for _, r := range radius {
+		put('r', r.ID, r.Revision)
+		cfg.RadiusServers = append(cfg.RadiusServers, adapter.RadiusServer{
+			ID: r.ID, Address: r.Address, AuthPort: r.AuthPort,
+			AccountingPort: r.AccountingPort, SharedSecret: r.SharedSecret,
+		})
+	}
+	for _, p := range ports {
+		put('p', p.ID, p.Revision)
+		cfg.SwitchPorts = append(cfg.SwitchPorts, adapter.SwitchPort{
+			PortIndex: p.PortIndex, Name: p.Name, Disabled: p.Disabled,
+			NativeNetworkID: p.NativeNetworkID, Tagging: adapter.SwitchPortTagging(p.Tagging),
+			TaggedNetworkIDs: p.TaggedNetworkIDs, PoEMode: adapter.PoEMode(p.PoEMode),
 		})
 	}
 	// Clear the sign bit so the revision stays a positive number that

@@ -29,13 +29,27 @@ func (s *NetworkService) List(ctx context.Context) ([]store.Network, error) {
 	return s.store.ListNetworks(ctx)
 }
 
-// Update replaces every mutable field. A non-zero n.Revision must match.
-func (s *NetworkService) Update(ctx context.Context, n store.Network) (store.Network, error) {
-	n, err := normalizeNetwork(n)
-	if err != nil {
-		return store.Network{}, err
-	}
-	return s.store.UpdateNetwork(ctx, n)
+// networkFields are the mutable fields of a network, by API name.
+var networkFields = fieldSetters[store.Network]{
+	"name":         func(d *store.Network, s store.Network) { d.Name = s.Name },
+	"vlan_id":      func(d *store.Network, s store.Network) { d.VLANID = s.VLANID },
+	"subnet":       func(d *store.Network, s store.Network) { d.Subnet = s.Subnet },
+	"dhcp_enabled": func(d *store.Network, s store.Network) { d.DHCPEnabled = s.DHCPEnabled },
+	"dhcp_start":   func(d *store.Network, s store.Network) { d.DHCPStart = s.DHCPStart },
+	"dhcp_stop":    func(d *store.Network, s store.Network) { d.DHCPStop = s.DHCPStop },
+	"domain_name":  func(d *store.Network, s store.Network) { d.DomainName = s.DomainName },
+}
+
+// Update replaces the fields named by paths, or every mutable field when
+// paths is empty or "*", like WifiService.Update.
+func (s *NetworkService) Update(ctx context.Context, n store.Network, paths []string) (store.Network, error) {
+	return updateMasked(ctx, s.store, n, paths, networkFields,
+		func(n *store.Network) *int64 { return &n.Revision },
+		func(ctx context.Context, tx store.Store) (store.Network, error) { return tx.GetNetwork(ctx, n.ID) },
+		normalizeNetwork,
+		func(ctx context.Context, tx store.Store, n store.Network) (store.Network, error) {
+			return tx.UpdateNetwork(ctx, n)
+		})
 }
 
 // Delete deletes by id. A non-zero revision must match. It fails while a

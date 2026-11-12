@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -565,12 +566,36 @@ func TestOpenAPI(t *testing.T) {
 	}
 	for _, r := range routes {
 		method, path, _ := strings.Cut(r, " ")
-		// The generator writes nested path params in JSON form.
-		path = strings.Replace(path, "{wifi_network.id}", "{wifiNetwork.id}", 1)
+		// The generator writes nested path params in JSON form
+		// ({wifi_network.id} becomes {wifiNetwork.id}).
+		path = jsonPathParams(path)
 		if _, ok := doc.Paths[path][method]; !ok {
 			t.Errorf("openapi lacks %s %s", method, path)
 		}
 	}
+}
+
+// jsonPathParams rewrites the snake_case field names inside {...} path
+// parameters to their JSON (lowerCamelCase) names.
+func jsonPathParams(path string) string {
+	var b strings.Builder
+	inParam, upper := false, false
+	for _, r := range path {
+		switch {
+		case r == '{':
+			inParam = true
+		case r == '}':
+			inParam = false
+		case inParam && r == '_':
+			upper = true
+			continue
+		case upper:
+			r = unicode.ToUpper(r)
+			upper = false
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func collectRoutes(out *[]string) func(protoreflect.FileDescriptor) bool {
@@ -582,12 +607,14 @@ func collectRoutes(out *[]string) func(protoreflect.FileDescriptor) bool {
 				if rule == nil {
 					continue
 				}
-				for method, path := range map[string]string{
-					"get": rule.GetGet(), "post": rule.GetPost(), "put": rule.GetPut(),
-					"delete": rule.GetDelete(), "patch": rule.GetPatch(),
-				} {
-					if path != "" {
-						*out = append(*out, method+" "+path)
+				for _, r := range append([]*annotations.HttpRule{rule}, rule.GetAdditionalBindings()...) {
+					for method, path := range map[string]string{
+						"get": r.GetGet(), "post": r.GetPost(), "put": r.GetPut(),
+						"delete": r.GetDelete(), "patch": r.GetPatch(),
+					} {
+						if path != "" {
+							*out = append(*out, method+" "+path)
+						}
 					}
 				}
 			}

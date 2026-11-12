@@ -145,6 +145,46 @@ func (s *Store) DeleteDeviceSecret(ctx context.Context, deviceID, name string) e
 	return run0(ctx, s, "DeleteDeviceSecret", func(ctx context.Context) error { return s.next.DeleteDeviceSecret(ctx, deviceID, name) })
 }
 
+func (s *Store) CreateRadiusServer(ctx context.Context, r store.RadiusServer) (store.RadiusServer, error) {
+	return run(ctx, s, "CreateRadiusServer", func(ctx context.Context) (store.RadiusServer, error) { return s.next.CreateRadiusServer(ctx, r) })
+}
+
+func (s *Store) GetRadiusServer(ctx context.Context, id string) (store.RadiusServer, error) {
+	return run(ctx, s, "GetRadiusServer", func(ctx context.Context) (store.RadiusServer, error) { return s.next.GetRadiusServer(ctx, id) })
+}
+
+func (s *Store) ListRadiusServers(ctx context.Context) ([]store.RadiusServer, error) {
+	return run(ctx, s, "ListRadiusServers", func(ctx context.Context) ([]store.RadiusServer, error) { return s.next.ListRadiusServers(ctx) })
+}
+
+func (s *Store) UpdateRadiusServer(ctx context.Context, r store.RadiusServer) (store.RadiusServer, error) {
+	return run(ctx, s, "UpdateRadiusServer", func(ctx context.Context) (store.RadiusServer, error) { return s.next.UpdateRadiusServer(ctx, r) })
+}
+
+func (s *Store) DeleteRadiusServer(ctx context.Context, id string, revision int64) error {
+	return run0(ctx, s, "DeleteRadiusServer", func(ctx context.Context) error { return s.next.DeleteRadiusServer(ctx, id, revision) })
+}
+
+func (s *Store) CreateSwitchPort(ctx context.Context, p store.SwitchPort) (store.SwitchPort, error) {
+	return run(ctx, s, "CreateSwitchPort", func(ctx context.Context) (store.SwitchPort, error) { return s.next.CreateSwitchPort(ctx, p) })
+}
+
+func (s *Store) GetSwitchPort(ctx context.Context, id string) (store.SwitchPort, error) {
+	return run(ctx, s, "GetSwitchPort", func(ctx context.Context) (store.SwitchPort, error) { return s.next.GetSwitchPort(ctx, id) })
+}
+
+func (s *Store) ListSwitchPorts(ctx context.Context, deviceID string) ([]store.SwitchPort, error) {
+	return run(ctx, s, "ListSwitchPorts", func(ctx context.Context) ([]store.SwitchPort, error) { return s.next.ListSwitchPorts(ctx, deviceID) })
+}
+
+func (s *Store) UpdateSwitchPort(ctx context.Context, p store.SwitchPort) (store.SwitchPort, error) {
+	return run(ctx, s, "UpdateSwitchPort", func(ctx context.Context) (store.SwitchPort, error) { return s.next.UpdateSwitchPort(ctx, p) })
+}
+
+func (s *Store) DeleteSwitchPort(ctx context.Context, id string, revision int64) error {
+	return run0(ctx, s, "DeleteSwitchPort", func(ctx context.Context) error { return s.next.DeleteSwitchPort(ctx, id, revision) })
+}
+
 func (s *Store) CreateWifiNetwork(ctx context.Context, w store.WifiNetwork) (store.WifiNetwork, error) {
 	return run(ctx, s, "CreateWifiNetwork", func(ctx context.Context) (store.WifiNetwork, error) { return s.next.CreateWifiNetwork(ctx, w) })
 }

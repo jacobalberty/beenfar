@@ -4,6 +4,7 @@ package beenfar.config.v1;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
+import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 
 // NetworkService manages wired/L3 networks (VLANs and their subnets).
@@ -32,13 +33,20 @@ service NetworkService {
     option (google.api.http) = {get: "/api/v1/networks"};
   }
 
-  // UpdateNetwork replaces every mutable field of a network. When etag is
-  // set it must match the stored etag, or the call fails with ABORTED.
+  // UpdateNetwork replaces the fields named by update_mask, or every mutable
+  // field when the mask is empty. When etag is set it must match the stored
+  // etag, or the call fails with ABORTED. PATCH and PUT bind the same call
+  // over REST; pass update_mask as a query parameter.
   rpc UpdateNetwork(UpdateNetworkRequest) returns (UpdateNetworkResponse) {
     option (google.api.http) = {
       put: "/api/v1/networks/{network.id}"
       body: "network"
       response_body: "network"
+      additional_bindings: {
+        patch: "/api/v1/networks/{network.id}"
+        body: "network"
+        response_body: "network"
+      }
     };
   }
 
@@ -97,9 +105,13 @@ message ListNetworksResponse {
 }
 
 message UpdateNetworkRequest {
-  // The full resource. id selects the network; etag, when set, guards the
-  // update.
+  // id selects the network; etag, when set, guards the update.
   Network network = 1 [(google.api.field_behavior) = REQUIRED];
+  // Fields to update, named by their proto field names (e.g. "ssid",
+  // "ap_groups"). Fields not listed keep their stored values, so a client
+  // can manage some fields and leave the rest to others. When the mask is
+  // empty or "*", every mutable field is replaced.
+  google.protobuf.FieldMask update_mask = 2;
 }
 
 message UpdateNetworkResponse {

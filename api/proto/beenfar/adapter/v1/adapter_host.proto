@@ -148,14 +148,55 @@ message WifiNetwork {
   string network_id = 6;
   bool guest = 7;
   bool hidden = 8;
+  // The RADIUS server of a WPA-enterprise network, one of
+  // DesiredConfig.radius_servers.
+  string radius_server_id = 9;
+}
+
+message RadiusServer {
+  string id = 1;
+  // IP address.
+  string address = 2;
+  int32 auth_port = 3;
+  // 0 means no accounting.
+  int32 accounting_port = 4;
+  string shared_secret = 5;
+}
+
+enum SwitchPortTagging {
+  SWITCH_PORT_TAGGING_UNSPECIFIED = 0;
+  SWITCH_PORT_TAGGING_ALL = 1;
+  SWITCH_PORT_TAGGING_NONE = 2;
+  SWITCH_PORT_TAGGING_CUSTOM = 3;
+}
+
+enum PoeMode {
+  POE_MODE_UNSPECIFIED = 0;
+  POE_MODE_AUTO = 1;
+  POE_MODE_OFF = 2;
+}
+
+message SwitchPort {
+  // 1-based.
+  int32 port_index = 1;
+  string name = 2;
+  bool disabled = 3;
+  // The untagged network; empty means the default one.
+  string native_network_id = 4;
+  SwitchPortTagging tagging = 5;
+  repeated string tagged_network_ids = 6;
+  PoeMode poe_mode = 7;
 }
 
 // DesiredConfig is the configuration for one device.
 message DesiredConfig {
-  // Changes whenever any network or wifi network changes.
+  // Changes whenever anything in the configuration changes.
   int64 revision = 1;
   repeated Network networks = 2;
   repeated WifiNetwork wifi = 3;
+  repeated RadiusServer radius_servers = 4;
+  // This device's port settings, ordered by port_index.
+  repeated SwitchPort switch_ports = 5;
 }
 
 message RegisterRequest {

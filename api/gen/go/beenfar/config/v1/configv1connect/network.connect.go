@@ -89,8 +89,10 @@ type NetworkServiceClient interface {
 	GetNetwork(context.Context, *v1.GetNetworkRequest) (*v1.GetNetworkResponse, error)
 	// ListNetworks returns every network, ordered by name.
 	ListNetworks(context.Context, *v1.ListNetworksRequest) (*v1.ListNetworksResponse, error)
-	// UpdateNetwork replaces every mutable field of a network. When etag is
-	// set it must match the stored etag, or the call fails with ABORTED.
+	// UpdateNetwork replaces the fields named by update_mask, or every mutable
+	// field when the mask is empty. When etag is set it must match the stored
+	// etag, or the call fails with ABORTED. PATCH and PUT bind the same call
+	// over REST; pass update_mask as a query parameter.
 	UpdateNetwork(context.Context, *v1.UpdateNetworkRequest) (*v1.UpdateNetworkResponse, error)
 	// DeleteNetwork deletes a network. It fails with FAILED_PRECONDITION while
 	// a wireless network still refers to it.
@@ -111,8 +113,10 @@ type NetworkServiceHandler interface {
 	GetNetwork(context.Context, *v1.GetNetworkRequest) (*v1.GetNetworkResponse, error)
 	// ListNetworks returns every network, ordered by name.
 	ListNetworks(context.Context, *v1.ListNetworksRequest) (*v1.ListNetworksResponse, error)
-	// UpdateNetwork replaces every mutable field of a network. When etag is
-	// set it must match the stored etag, or the call fails with ABORTED.
+	// UpdateNetwork replaces the fields named by update_mask, or every mutable
+	// field when the mask is empty. When etag is set it must match the stored
+	// etag, or the call fails with ABORTED. PATCH and PUT bind the same call
+	// over REST; pass update_mask as a query parameter.
 	UpdateNetwork(context.Context, *v1.UpdateNetworkRequest) (*v1.UpdateNetworkResponse, error)
 	// DeleteNetwork deletes a network. It fails with FAILED_PRECONDITION while
 	// a wireless network still refers to it.

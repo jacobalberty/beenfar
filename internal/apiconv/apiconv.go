@@ -38,6 +38,7 @@ import (
 // goverter:useZeroValueOnPointerInconsistency
 // goverter:extend Timestamp WifiSecurityToProto WifiSecurityFromProto WifiBandToProto WifiBandFromProto
 // goverter:extend DeviceStateToProto ReadoptionToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
+// goverter:extend SwitchPortTaggingToProto SwitchPortTaggingFromProto PoEModeToProto PoEModeFromProto
 type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
@@ -50,6 +51,27 @@ type Converter interface {
 	// goverter:map Etag Revision | ParseEtag
 	// goverter:ignore CreateTime UpdateTime
 	NetworkFromProto(*configv1.Network) (store.Network, error)
+
+	// The shared secret is input-only: it is never returned.
+	// goverter:map Revision Etag | Etag
+	// goverter:map SecretVersion SharedSecretVersion
+	// goverter:map AuthPort AuthPort | PortToProto
+	// goverter:map AccountingPort AccountingPort | PortToProto
+	// goverter:ignore SharedSecret
+	RadiusToProto(store.RadiusServer) *configv1.RadiusServer
+	// goverter:map Etag Revision | ParseEtag
+	// goverter:map AuthPort AuthPort | PortFromProto
+	// goverter:map AccountingPort AccountingPort | PortFromProto
+	// goverter:ignore CreateTime UpdateTime SecretVersion
+	RadiusFromProto(*configv1.RadiusServer) (store.RadiusServer, error)
+
+	// goverter:map Revision Etag | Etag
+	// goverter:map PortIndex PortIndex | PortToProto
+	SwitchPortToProto(store.SwitchPort) *configv1.SwitchPort
+	// goverter:map Etag Revision | ParseEtag
+	// goverter:map PortIndex PortIndex | PortFromProto
+	// goverter:ignore CreateTime UpdateTime
+	SwitchPortFromProto(*configv1.SwitchPort) (store.SwitchPort, error)
 
 	// goverter:map LastSeen LastSeenTime
 	DeviceToProto(store.Device) *configv1.Device
@@ -99,6 +121,15 @@ func VLANFromProto(v uint32) (int, error) {
 	return int(v), nil
 }
 
+func PortToProto(v int) uint32 { return uint32(v) } //nolint:gosec // 0-65535, enforced on write
+
+func PortFromProto(v uint32) (int, error) {
+	if v > 65535 {
+		return 0, fmt.Errorf("%w: port numbers must be at most 65535", store.ErrInvalid)
+	}
+	return int(v), nil
+}
+
 // --- enums ---
 
 var wifiSecurity = biMap[configv1.WifiSecurity, store.WifiSecurity]{
@@ -112,6 +143,17 @@ var wifiBand = biMap[configv1.WifiBand, store.WifiBand]{
 	configv1.WifiBand_WIFI_BAND_BOTH: store.WifiBandBoth,
 	configv1.WifiBand_WIFI_BAND_2G:   store.WifiBand2G,
 	configv1.WifiBand_WIFI_BAND_5G:   store.WifiBand5G,
+}
+
+var switchPortTagging = biMap[configv1.SwitchPortTagging, store.SwitchPortTagging]{
+	configv1.SwitchPortTagging_SWITCH_PORT_TAGGING_ALL:    store.SwitchPortTaggingAll,
+	configv1.SwitchPortTagging_SWITCH_PORT_TAGGING_NONE:   store.SwitchPortTaggingNone,
+	configv1.SwitchPortTagging_SWITCH_PORT_TAGGING_CUSTOM: store.SwitchPortTaggingCustom,
+}
+
+var poeMode = biMap[configv1.PoeMode, store.PoEMode]{
+	configv1.PoeMode_POE_MODE_AUTO: store.PoEModeAuto,
+	configv1.PoeMode_POE_MODE_OFF:  store.PoEModeOff,
 }
 
 var deviceState = biMap[configv1.DeviceState, store.DeviceState]{
@@ -172,6 +214,20 @@ func WifiBandToProto(b store.WifiBand) configv1.WifiBand { return wifiBand.toPro
 
 func WifiBandFromProto(b configv1.WifiBand) (store.WifiBand, error) {
 	return wifiBand.fromProto(b, "band")
+}
+
+func SwitchPortTaggingToProto(t store.SwitchPortTagging) configv1.SwitchPortTagging {
+	return switchPortTagging.toProto(t)
+}
+
+func SwitchPortTaggingFromProto(t configv1.SwitchPortTagging) (store.SwitchPortTagging, error) {
+	return switchPortTagging.fromProto(t, "tagging")
+}
+
+func PoEModeToProto(m store.PoEMode) configv1.PoeMode { return poeMode.toProto(m) }
+
+func PoEModeFromProto(m configv1.PoeMode) (store.PoEMode, error) {
+	return poeMode.fromProto(m, "poe_mode")
 }
 
 func DeviceStateToProto(s store.DeviceState) configv1.DeviceState { return deviceState.toProto(s) }
