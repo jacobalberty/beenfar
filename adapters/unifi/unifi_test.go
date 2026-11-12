@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -687,5 +688,168 @@ func TestReadoptionCanBeTurnedOff(t *testing.T) {
 	}
 	if got := e.deviceByMAC(d); !got.Locked || got.Readoption != store.ReadoptionNone || e.secret(dev.ID, "pending") != nil {
 		t.Fatalf("device = %+v", got)
+	}
+}
+
+// Forgetting an adopted device factory resets it: it is sent a SetDefault on
+// its next inform (and again if the reply is lost), and once it speaks the
+// default key it is released and comes back as a new, pending device that can
+// be adopted again.
+func TestForgetResetsTheDevice(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{})
+	d := newDevice(20)
+	dev, key, version := e.adoptFully(d)
+
+	got, err := e.devices.Forget(ctx, dev.ID, false)
+	if err != nil || !got.Forgetting || got.State != store.DeviceStateAdopted {
+		t.Fatalf("forget = %+v, %v", got, err)
+	}
+	// Its keys stay: the command is sealed with them.
+	if !bytes.Equal(e.secret(dev.ID, "current"), key) {
+		t.Fatal("the device's key was dropped before it had been told to reset")
+	}
+
+	status, reply := e.post(d, key, version)
+	if status != http.StatusOK || reply["_type"] != "setdefault" {
+		t.Fatalf("reply = %d %v, want a setdefault", status, reply)
+	}
+	delete(reply, "server_time_in_utc")
+	if len(reply) != 1 {
+		t.Fatalf("a setdefault carries nothing else: %v", reply)
+	}
+	// The reply is lost: the device asks again and is told again.
+	if status, again := e.post(d, key, version); status != http.StatusOK || again["_type"] != "setdefault" {
+		t.Fatalf("second reply = %d %v", status, again)
+	}
+	if got := e.deviceByMAC(d); !got.Forgetting || got.State != store.DeviceStateAdopted {
+		t.Fatalf("device = %+v, want it kept until it has reset", got)
+	}
+
+	// It reset: the default key is all it speaks. The controller drops it.
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("reset device: status = %d, want 404", status)
+	}
+	if _, err := e.st.GetDeviceByMAC(ctx, d.mac.String()); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("the device is still known after it was reset: %v", err)
+	}
+	if e.secret(dev.ID, "current") != nil {
+		t.Fatal("the device's key outlived it")
+	}
+
+	// Its next inform makes it a new device, and it can be adopted again.
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("new device: status = %d", status)
+	}
+	fresh := e.deviceByMAC(d)
+	if fresh.State != store.DeviceStatePending || fresh.Locked || fresh.ID == dev.ID {
+		t.Fatalf("device = %+v, want a new pending device that is not locked", fresh)
+	}
+	if _, err := e.devices.Adopt(ctx, fresh.ID, ""); err != nil {
+		t.Fatalf("adopting the reset device again: %v", err)
+	}
+	if status, reply := e.post(d, inform.DefaultKey(), ""); status != http.StatusOK || reply["_type"] != "setparam" {
+		t.Fatalf("after adoption: %d %v", status, reply)
+	}
+
+	if push := e.sums("beenfar.unifi.config_pushes", "reason"); push["reset"] != 2 {
+		t.Errorf("pushes = %v, want 2 reset (a reply and its repeat)", push)
+	}
+}
+
+// A default-key inform is something anybody can send, so one that arrives
+// before the device was told to reset does not make the controller drop it.
+func TestForgottenDeviceIsNotDroppedByASpoofedInform(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{})
+	d := newDevice(21)
+	dev, key, version := e.adoptFully(d)
+	if _, err := e.devices.Forget(ctx, dev.ID, false); err != nil {
+		t.Fatal(err)
+	}
+
+	for range 3 {
+		if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+			t.Fatalf("spoofed inform: status = %d, want 404", status)
+		}
+	}
+	if got := e.deviceByMAC(d); got.ID != dev.ID || !got.Forgetting || !bytes.Equal(e.secret(dev.ID, "current"), key) {
+		t.Fatalf("a spoofed inform changed the device: %+v", got)
+	}
+	// The real device, on its own key, is still told to reset.
+	if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "setdefault" {
+		t.Fatalf("real device: %d %v", status, reply)
+	}
+}
+
+// A device that never comes back can be removed by forcing the forget; it is
+// left with the key beenfar threw away, so it is locked until it is reset.
+func TestForceForgetDropsTheKeys(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{})
+	d := newDevice(22)
+	dev, key, version := e.adoptFully(d)
+	if _, err := e.devices.Forget(ctx, dev.ID, false); err != nil {
+		t.Fatal(err)
+	}
+
+	gone, err := e.devices.Forget(ctx, dev.ID, true)
+	if err != nil || gone.ID != "" {
+		t.Fatalf("forced forget = %+v, %v", gone, err)
+	}
+	if _, err := e.st.GetDeviceByMAC(ctx, d.mac.String()); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("device still known: %v", err)
+	}
+	// It still holds its old key, which nothing opens now.
+	if status, _ := e.post(d, key, version); status != http.StatusNotFound {
+		t.Fatalf("old key: status = %d, want 404", status)
+	}
+	if got := e.deviceByMAC(d); !got.Locked {
+		t.Fatalf("device = %+v, want locked", got)
+	}
+}
+
+// A pending device has nothing to reset: forgetting it just removes it.
+func TestForgetRemovesAPendingDeviceAtOnce(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{})
+	d := newDevice(23)
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("status = %d", status)
+	}
+	pending := e.deviceByMAC(d)
+	if got, err := e.devices.Forget(ctx, pending.ID, false); err != nil || got.ID != "" {
+		t.Fatalf("forget = %+v, %v", got, err)
+	}
+	if _, err := e.st.GetDeviceByMAC(ctx, d.mac.String()); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("pending device still known: %v", err)
+	}
+}
+
+// A device that was already reset (awaiting re-adoption) and is then forgotten
+// is released as soon as it speaks the default key: it needs no command.
+func TestForgetAResetDeviceReleasesItAtOnce(t *testing.T) {
+	ctx := t.Context()
+	const window = 400 * time.Millisecond
+	e := newEnv(t, unifi.Options{ReadoptAfter: window})
+	d := newDevice(24)
+	dev, _, _ := e.adoptFully(d)
+
+	time.Sleep(window + 100*time.Millisecond)
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("status = %d", status)
+	}
+	if got := e.deviceByMAC(d); got.Readoption != store.ReadoptionAwaiting {
+		t.Fatalf("device = %+v, want awaiting re-adoption", got)
+	}
+
+	if got, err := e.devices.Forget(ctx, dev.ID, false); err != nil || !got.Forgetting {
+		t.Fatalf("forget = %+v, %v", got, err)
+	}
+	if status, _ := e.post(d, inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("status = %d", status)
+	}
+	if _, err := e.st.GetDeviceByMAC(ctx, d.mac.String()); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("the reset device was not released: %v", err)
 	}
 }

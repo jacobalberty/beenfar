@@ -21,7 +21,16 @@ const (
 	SecretPending = "pending"
 	// SecretImported is a key taken over from another controller.
 	SecretImported = "imported"
+	// SecretReset is not a key: it marks that the device, which the
+	// controller is forgetting, has been told to factory reset itself (its value
+	// is when). The device's next inform on the default key then confirms the
+	// reset; without the mark a default-key inform proves nothing, since anybody
+	// can send one.
+	SecretReset = "reset"
 )
+
+// secretNames are all the secrets the adapter keeps for a device.
+var secretNames = [...]string{SecretPending, SecretCurrent, SecretImported, SecretReset}
 
 // keyOrder is the order in which a device's keys are tried. A pending key is
 // tried first: once the device has switched to it, it is the likeliest.
@@ -39,8 +48,9 @@ const keyDefault = "default"
 // packet with, so it must not open a device that has a private one. It is
 // offered once the device has been silent for readoptAfter (0 never offers
 // it), because a device that comes back after that long may have been factory
-// reset and can only speak the default key; and while the device is being
-// readopted. Opening an inform is harmless; what is sent in reply is decided
+// reset and can only speak the default key; while the device is being
+// readopted; and while the controller is forgetting it, because the reset it
+// is waiting for leaves the device speaking the default key at once. Opening an inform is harmless; what is sent in reply is decided
 // by respond, and a reset device is sent nothing until its re-adoption has
 // been accepted.
 func keysFor(ctx context.Context, h adapter.Host, mac string, readoptAfter time.Duration, now time.Time) ([]inform.Key, error) {
@@ -63,8 +73,8 @@ func keysFor(ctx context.Context, h adapter.Host, mac string, readoptAfter time.
 			keys = append(keys, inform.Key{Name: name, Bytes: b})
 			hasCurrent = hasCurrent || name == SecretCurrent
 		}
-		mayBeReset = readoptAfter > 0 && dev.State == adapter.DeviceAdopted &&
-			(dev.Readoption != adapter.ReadoptionNone || now.Sub(dev.LastSeen) > readoptAfter)
+		mayBeReset = dev.Forgetting || (readoptAfter > 0 && dev.State == adapter.DeviceAdopted &&
+			(dev.Readoption != adapter.ReadoptionNone || now.Sub(dev.LastSeen) > readoptAfter))
 	}
 	if hasCurrent && !mayBeReset {
 		return keys, nil
