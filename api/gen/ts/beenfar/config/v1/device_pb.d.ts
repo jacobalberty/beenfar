@@ -81,6 +81,14 @@ export declare type Device = Message<"beenfar.config.v1.Device"> & {
   readoption: ReadoptionState;
 
   /**
+   * Set while the device is being forgotten and the controller is waiting for
+   * it to reset itself (see ForgetDevice). The device is removed once it has.
+   *
+   * @generated from field: bool forgetting = 11;
+   */
+  forgetting: boolean;
+
+  /**
    * @generated from field: google.protobuf.Timestamp create_time = 21;
    */
   createTime?: Timestamp | undefined;
@@ -258,6 +266,14 @@ export declare type ForgetDeviceRequest = Message<"beenfar.config.v1.ForgetDevic
    * @generated from field: string id = 1;
    */
   id: string;
+
+  /**
+   * Remove the device now instead of waiting for it to reset itself. Over REST:
+   * DELETE /api/v1/devices/{id}?force=true.
+   *
+   * @generated from field: bool force = 2;
+   */
+  force: boolean;
 };
 
 /**
@@ -270,6 +286,13 @@ export declare const ForgetDeviceRequestSchema: GenMessage<ForgetDeviceRequest>;
  * @generated from message beenfar.config.v1.ForgetDeviceResponse
  */
 export declare type ForgetDeviceResponse = Message<"beenfar.config.v1.ForgetDeviceResponse"> & {
+  /**
+   * The device while it is still being forgotten (forgetting is set): it is
+   * waiting to be reset. Unset once the device has been removed.
+   *
+   * @generated from field: beenfar.config.v1.Device device = 1;
+   */
+  device?: Device | undefined;
 };
 
 /**
@@ -394,8 +417,16 @@ export declare const DeviceService: GenService<{
     output: typeof AdoptDeviceResponseSchema;
   },
   /**
-   * ForgetDevice removes a device, adopted or pending. A forgotten device that
-   * is still on the network shows up again as pending.
+   * ForgetDevice stops managing a device. An adopted device is factory reset
+   * (for UniFi: told to reset itself on its next inform), so that it comes back
+   * as a new, pending device that can be adopted again. The reset can only be
+   * delivered when the device next contacts the controller, so until then the
+   * device stays in the list with forgetting set, and is removed once it has
+   * reset; asking again meanwhile changes nothing, and force gives up waiting
+   * and removes it at once without resetting it (the device then still holds
+   * the key beenfar threw away, so it must be reset by hand before it can be
+   * adopted: it shows as locked). A pending or locked device has nothing to
+   * reset and is removed at once.
    *
    * @generated from rpc beenfar.config.v1.DeviceService.ForgetDevice
    */

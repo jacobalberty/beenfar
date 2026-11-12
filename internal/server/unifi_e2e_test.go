@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -249,5 +250,109 @@ func TestUnifiReadoptionThroughTheAPI(t *testing.T) {
 	got, err = devices.GetDevice(ctx, &configv1.GetDeviceRequest{Id: id})
 	if err != nil || got.GetDevice().GetReadoption() != configv1.ReadoptionState_READOPTION_STATE_UNSPECIFIED || got.GetDevice().GetState() != configv1.DeviceState_DEVICE_STATE_ADOPTED {
 		t.Fatalf("device = %v, %v", got, err)
+	}
+}
+
+// Forgetting an adopted device through the API resets it: the device stays
+// listed as forgetting until it has reset, is told to reset on its next inform,
+// is dropped once it speaks the default key, and comes back as a new, pending
+// device that can be adopted again.
+func TestForgetDeviceResetsTheDevice(t *testing.T) {
+	f, _ := newUnifiFixture(t)
+	ctx := t.Context()
+	devices := configv1connect.NewDeviceServiceClient(f.client(f.adminToken))
+	d := unifiDevice{t: t, f: f, mac: net.HardwareAddr{0xde, 0xad, 0xbe, 0xef, 0x30, 0x01}}
+
+	d.inform(inform.DefaultKey(), "")
+	pending, err := devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
+	if err != nil || len(pending.GetDevices()) != 1 {
+		t.Fatalf("pending = %v, %v", pending, err)
+	}
+	id := pending.GetDevices()[0].GetId()
+	if _, err := devices.AdoptDevice(ctx, &configv1.AdoptDeviceRequest{Device: &configv1.AdoptDeviceRequest_Id{Id: id}}); err != nil {
+		t.Fatal(err)
+	}
+	_, reply := d.inform(inform.DefaultKey(), "")
+	key, version := authKeyOf(t, reply)
+	if status, reply := d.inform(key, version); status != http.StatusOK || reply["_type"] != "noop" {
+		t.Fatalf("adopted device: %d %v", status, reply)
+	}
+
+	// Forgetting it does not remove it yet: it has to be reset first.
+	res, err := devices.ForgetDevice(ctx, &configv1.ForgetDeviceRequest{Id: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.GetDevice().GetForgetting() || res.GetDevice().GetState() != configv1.DeviceState_DEVICE_STATE_ADOPTED {
+		t.Fatalf("forget returned %v, want the device marked as forgetting", res.GetDevice())
+	}
+	got, err := devices.GetDevice(ctx, &configv1.GetDeviceRequest{Id: id})
+	if err != nil || !got.GetDevice().GetForgetting() {
+		t.Fatalf("get = %v, %v", got, err)
+	}
+	// Asking again changes nothing; adopting a device that is being reset is refused.
+	if again, err := devices.ForgetDevice(ctx, &configv1.ForgetDeviceRequest{Id: id}); err != nil || !again.GetDevice().GetForgetting() {
+		t.Fatalf("second forget = %v, %v", again, err)
+	}
+	_, err = devices.AdoptDevice(ctx, &configv1.AdoptDeviceRequest{Device: &configv1.AdoptDeviceRequest_Id{Id: id}})
+	wantCode(t, err, connect.CodeFailedPrecondition)
+
+	// The device's next inform brings the reset command; it keeps coming until the device has reset.
+	for range 2 {
+		if status, reply := d.inform(key, version); status != http.StatusOK || reply["_type"] != "setdefault" {
+			t.Fatalf("reply to a forgotten device: %d %v, want a setdefault", status, reply)
+		}
+	}
+
+	// Reset: it speaks the default key and is dropped, then shows up as new.
+	if status, _ := d.inform(inform.DefaultKey(), ""); status != http.StatusNotFound {
+		t.Fatalf("reset device: status = %d, want 404", status)
+	}
+	_, err = devices.GetDevice(ctx, &configv1.GetDeviceRequest{Id: id})
+	wantCode(t, err, connect.CodeNotFound)
+	d.inform(inform.DefaultKey(), "")
+	pending, err = devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
+	if err != nil || len(pending.GetDevices()) != 1 || pending.GetDevices()[0].GetLocked() || pending.GetDevices()[0].GetForgetting() {
+		t.Fatalf("pending after the reset = %v, %v", pending, err)
+	}
+	if _, err := devices.AdoptDevice(ctx, &configv1.AdoptDeviceRequest{Device: &configv1.AdoptDeviceRequest_Id{Id: pending.GetDevices()[0].GetId()}}); err != nil {
+		t.Fatalf("adopting the reset device again: %v", err)
+	}
+}
+
+// force gives up waiting for the reset (also as DELETE ...?force=true over
+// REST) and removes the device at once; it is then locked until reset by hand.
+func TestForceForgetDevice(t *testing.T) {
+	f, _ := newUnifiFixture(t)
+	ctx := t.Context()
+	devices := configv1connect.NewDeviceServiceClient(f.client(f.adminToken))
+	d := unifiDevice{t: t, f: f, mac: net.HardwareAddr{0xde, 0xad, 0xbe, 0xef, 0x30, 0x02}}
+
+	d.inform(inform.DefaultKey(), "")
+	pending, _ := devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
+	id := pending.GetDevices()[0].GetId()
+	if _, err := devices.AdoptDevice(ctx, &configv1.AdoptDeviceRequest{Device: &configv1.AdoptDeviceRequest_Id{Id: id}}); err != nil {
+		t.Fatal(err)
+	}
+	_, reply := d.inform(inform.DefaultKey(), "")
+	key, version := authKeyOf(t, reply)
+	d.inform(key, version)
+
+	if res, err := devices.ForgetDevice(ctx, &configv1.ForgetDeviceRequest{Id: id}); err != nil || !res.GetDevice().GetForgetting() {
+		t.Fatalf("forget = %v, %v", res, err)
+	}
+	code, body, _ := f.rest(t, http.MethodDelete, "/api/v1/devices/"+id+"?force=true", f.adminToken, "")
+	if code != http.StatusOK || strings.Contains(string(body), "forgetting") {
+		t.Fatalf("forced forget = %d %s, want 200 and the device gone", code, body)
+	}
+	_, err := devices.GetDevice(ctx, &configv1.GetDeviceRequest{Id: id})
+	wantCode(t, err, connect.CodeNotFound)
+	// The device still holds the key beenfar dropped: nothing opens it, so it is locked.
+	if status, _ := d.inform(key, version); status != http.StatusNotFound {
+		t.Fatalf("old key: status = %d, want 404", status)
+	}
+	pending, err = devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
+	if err != nil || len(pending.GetDevices()) != 1 || !pending.GetDevices()[0].GetLocked() {
+		t.Fatalf("pending = %v, %v, want one locked device", pending, err)
 	}
 }

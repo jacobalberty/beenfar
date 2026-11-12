@@ -181,10 +181,14 @@ func (h *deviceHandler) AdoptDevice(ctx context.Context, req *configv1.AdoptDevi
 }
 
 func (h *deviceHandler) ForgetDevice(ctx context.Context, req *configv1.ForgetDeviceRequest) (*configv1.ForgetDeviceResponse, error) {
-	if _, err := h.svc.Forget(ctx, req.GetId(), false); err != nil {
+	d, err := h.svc.Forget(ctx, req.GetId(), req.GetForce())
+	if err != nil {
 		return nil, err
 	}
-	return &configv1.ForgetDeviceResponse{}, nil
+	if d.ID == "" { // removed
+		return &configv1.ForgetDeviceResponse{}, nil
+	}
+	return &configv1.ForgetDeviceResponse{Device: apiconvgen.DeviceToProto(d)}, nil
 }
 
 // --- RadiusServerService ---

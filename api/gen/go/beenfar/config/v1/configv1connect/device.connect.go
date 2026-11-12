@@ -92,8 +92,16 @@ type DeviceServiceClient interface {
 	// It fails with NOT_FOUND if no such device has been seen and
 	// FAILED_PRECONDITION if it is already adopted and not awaiting.
 	AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error)
-	// ForgetDevice removes a device, adopted or pending. A forgotten device that
-	// is still on the network shows up again as pending.
+	// ForgetDevice stops managing a device. An adopted device is factory reset
+	// (for UniFi: told to reset itself on its next inform), so that it comes back
+	// as a new, pending device that can be adopted again. The reset can only be
+	// delivered when the device next contacts the controller, so until then the
+	// device stays in the list with forgetting set, and is removed once it has
+	// reset; asking again meanwhile changes nothing, and force gives up waiting
+	// and removes it at once without resetting it (the device then still holds
+	// the key beenfar threw away, so it must be reset by hand before it can be
+	// adopted: it shows as locked). A pending or locked device has nothing to
+	// reset and is removed at once.
 	ForgetDevice(context.Context, *v1.ForgetDeviceRequest) (*v1.ForgetDeviceResponse, error)
 }
 
@@ -116,8 +124,16 @@ type DeviceServiceHandler interface {
 	// It fails with NOT_FOUND if no such device has been seen and
 	// FAILED_PRECONDITION if it is already adopted and not awaiting.
 	AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error)
-	// ForgetDevice removes a device, adopted or pending. A forgotten device that
-	// is still on the network shows up again as pending.
+	// ForgetDevice stops managing a device. An adopted device is factory reset
+	// (for UniFi: told to reset itself on its next inform), so that it comes back
+	// as a new, pending device that can be adopted again. The reset can only be
+	// delivered when the device next contacts the controller, so until then the
+	// device stays in the list with forgetting set, and is removed once it has
+	// reset; asking again meanwhile changes nothing, and force gives up waiting
+	// and removes it at once without resetting it (the device then still holds
+	// the key beenfar threw away, so it must be reset by hand before it can be
+	// adopted: it shows as locked). A pending or locked device has nothing to
+	// reset and is removed at once.
 	ForgetDevice(context.Context, *v1.ForgetDeviceRequest) (*v1.ForgetDeviceResponse, error)
 }
 
