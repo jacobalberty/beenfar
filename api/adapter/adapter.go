@@ -34,6 +34,12 @@ var (
 	ErrUnknownDevice = errors.New("adapter: unknown device")
 	// ErrNoSecret means the device has no secret under that name.
 	ErrNoSecret = errors.New("adapter: no such device secret")
+	// ErrForgetDeferred is what Forget returns when the adapter cannot finish
+	// forgetting the device now but will, the next time the device contacts it
+	// (UniFi: by telling it to factory reset). The controller keeps the device,
+	// marked as forgetting, until the adapter reports it released
+	// (State.Released). It is not a failure.
+	ErrForgetDeferred = errors.New("adapter: forget deferred until the device next contacts the adapter")
 )
 
 // Adapter is a device adapter.
@@ -48,7 +54,13 @@ type Adapter interface {
 	// adapter takes the device over (for UniFi: re-keys it). An error fails
 	// the adoption and leaves the device pending.
 	Adopt(ctx context.Context, d Device) error
-	// Forget tells the adapter that the controller no longer manages d.
+	// Forget tells the adapter that the controller no longer manages d. An
+	// adapter that can reset the device returns ErrForgetDeferred for a device
+	// it will reset on its next contact, and reports it released
+	// (State.Released) once it has. Forget is called again, with
+	// d.Forgetting set, when the controller gives up waiting (a forced
+	// forget): the adapter then drops what it holds for the device and
+	// returns nil. Any other result removes the device at once.
 	Forget(ctx context.Context, d Device) error
 }
 

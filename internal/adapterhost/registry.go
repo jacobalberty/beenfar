@@ -300,9 +300,10 @@ func (s *Session) Close() {
 }
 
 // CompleteCommand records an external adapter's answer to a command. An
-// empty errMsg means success. Only the adapter that was sent the command may
-// answer it.
-func (r *Registry) CompleteCommand(adapterName, id, errMsg string) error {
+// empty errMsg means success; deferred means a Forget the adapter will finish
+// when the device next contacts it (adapter.ErrForgetDeferred). Only the
+// adapter that was sent the command may answer it.
+func (r *Registry) CompleteCommand(adapterName, id, errMsg string, deferred bool) error {
 	r.mu.Lock()
 	p, ok := r.pending[id]
 	if !ok || p.adapter != adapterName {
@@ -311,9 +312,12 @@ func (r *Registry) CompleteCommand(adapterName, id, errMsg string) error {
 	}
 	delete(r.pending, id)
 	r.mu.Unlock()
-	if errMsg != "" {
+	switch {
+	case errMsg != "":
 		p.done <- errors.New(errMsg)
-	} else {
+	case deferred:
+		p.done <- adapter.ErrForgetDeferred
+	default:
 		p.done <- nil
 	}
 	return nil

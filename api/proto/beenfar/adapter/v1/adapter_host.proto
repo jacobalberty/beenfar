@@ -83,6 +83,8 @@ message Device {
   // When the controller last heard from the device through its adapter.
   google.protobuf.Timestamp last_seen_time = 5;
   ReadoptionState readoption = 6;
+  // The controller is waiting for the adapter to reset the device.
+  bool forgetting = 7;
 }
 
 // Discovered is what an adapter reports when it sees a device.
@@ -107,6 +109,9 @@ message State {
   int64 uptime_seconds = 5;
   // What the adapter found out about the device's readoption.
   ReadoptionState readoption = 6;
+  // A device the controller is forgetting has been reset: drop it. Ignored for
+  // any other device.
+  bool released = 7;
 }
 
 // Network is a resolved network.
@@ -230,6 +235,9 @@ message CompleteCommandRequest {
   string command_id = 1;
   // Empty on success; otherwise why the command failed.
   string error = 2;
+  // A Forget that the adapter will finish when the device next contacts it
+  // (adapter.ErrForgetDeferred). Not a failure; error is empty.
+  bool deferred = 3;
 }
 
 message CompleteCommandResponse {}

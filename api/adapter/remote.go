@@ -229,14 +229,19 @@ func (r *remote) handle(ctx context.Context, msg *adapterv1.RegisterResponse) {
 		trace.WithAttributes(attribute.String("adapter", r.impl.Name()), attribute.String("device.id", dev.ID), attribute.String("device.mac", dev.MAC)))
 	defer span.End()
 
-	var msgErr string
-	if err := run(ctx, dev); err != nil {
+	var (
+		msgErr   string
+		deferred bool
+	)
+	if err := run(ctx, dev); errors.Is(err, ErrForgetDeferred) {
+		deferred = true
+	} else if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		slog.WarnContext(ctx, "command failed", slog.String("command", verb), slog.Any("error", err))
 		msgErr = err.Error()
 	}
-	if _, err := r.client.CompleteCommand(ctx, &adapterv1.CompleteCommandRequest{CommandId: msg.GetCommandId(), Error: msgErr}); err != nil {
+	if _, err := r.client.CompleteCommand(ctx, &adapterv1.CompleteCommandRequest{CommandId: msg.GetCommandId(), Error: msgErr, Deferred: deferred}); err != nil {
 		span.RecordError(err)
 		slog.WarnContext(ctx, "reporting command result failed", slog.String("command", verb), slog.Any("error", err))
 	}
