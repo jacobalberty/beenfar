@@ -33,19 +33,30 @@ func (s *SwitchPortService) Create(ctx context.Context, p store.SwitchPort) (sto
 			return fmt.Errorf("%w: device %s is not adopted; only adopted devices have configurable ports", store.ErrFailedPrecondition, d.ID)
 		}
 		out, err = tx.CreateSwitchPort(ctx, p)
-		return err
+		if err != nil {
+			return err
+		}
+		return switchPortTracking.afterWrite(ctx, tx, &out, nil)
 	})
 	return out, err
 }
 
 func (s *SwitchPortService) Get(ctx context.Context, id string) (store.SwitchPort, error) {
-	return s.store.GetSwitchPort(ctx, id)
+	p, err := s.store.GetSwitchPort(ctx, id)
+	if err != nil {
+		return p, err
+	}
+	return p, switchPortTracking.load(ctx, s.store, &p)
 }
 
 // List lists the ports of one device, or of all devices when deviceID is
 // empty.
 func (s *SwitchPortService) List(ctx context.Context, deviceID string) ([]store.SwitchPort, error) {
-	return s.store.ListSwitchPorts(ctx, deviceID)
+	list, err := s.store.ListSwitchPorts(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	return list, switchPortTracking.loadAll(ctx, s.store, list)
 }
 
 // switchPortFields are the mutable fields of a switch port, by API name.
@@ -78,7 +89,8 @@ func (s *SwitchPortService) Update(ctx context.Context, p store.SwitchPort, path
 		normalizeSwitchPort,
 		func(ctx context.Context, tx store.Store, p store.SwitchPort) (store.SwitchPort, error) {
 			return tx.UpdateSwitchPort(ctx, p)
-		})
+		},
+		switchPortTracking.afterWrite)
 }
 
 // Delete returns the port to the device's defaults. A non-zero revision

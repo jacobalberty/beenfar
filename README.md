@@ -47,6 +47,15 @@ what lets Terraform manage some fields of a resource while the UI manages
 others: Terraform sends only the fields in its configuration, so for
 instance the access point groups of a wifi network can be left to the UI.
 
+**Who set what.** Networks, wifi networks, RADIUS servers and switch ports
+report `field_writers`: for each field that has been written, the user or API
+token (by name, e.g. `terraform-ci`) that last set it, and when. A create
+records every field; an update records the fields named in its `update_mask`
+(all of them for an empty mask). This is a record of writes, not of
+ownership: beenfar cannot know that a client "manages" a field, only that it
+named it, and fields written before this was recorded have no entry. It is not
+part of the `etag`.
+
 **RADIUS servers.** WPA-enterprise wifi networks name a RADIUS server
 (`radius_server_id`; the old free-text `radius_profile` is deprecated). The
 server's shared secret is write-only: no response contains it, and an update

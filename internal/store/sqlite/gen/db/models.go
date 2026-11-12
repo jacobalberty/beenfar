@@ -47,6 +47,15 @@ type DeviceSecret struct {
 	UpdateTime int64
 }
 
+type FieldWriter struct {
+	Resource   string
+	ResourceID string
+	Field      string
+	Writer     string
+	Kind       string
+	WriteTime  int64
+}
+
 type Network struct {
 	ID          string
 	Name        string

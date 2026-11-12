@@ -29,18 +29,21 @@ type Converter interface {
 	Device(db.Device) store.Device
 	Devices([]db.Device) []store.Device
 
-	// APGroups live in their own table; the caller fills them in.
-	// goverter:ignore APGroups
+	// APGroups live in their own table; the caller fills them in. So do
+	// the field writers, which core adds.
+	// goverter:ignore APGroups FieldWriters
 	WifiNetwork(db.WifiNetwork) store.WifiNetwork
 
+	// goverter:ignore FieldWriters
 	Network(db.Network) store.Network
 
+	// goverter:ignore FieldWriters
 	RadiusServer(db.RadiusServer) store.RadiusServer
 	RadiusServers([]db.RadiusServer) []store.RadiusServer
 
 	// Tagged networks live in their own table; the caller fills them in.
 	// goverter:map PoeMode PoEMode
-	// goverter:ignore TaggedNetworkIDs
+	// goverter:ignore TaggedNetworkIDs FieldWriters
 	SwitchPort(db.SwitchPort) store.SwitchPort
 	Networks([]db.Network) []store.Network
 

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package beenfar.config.v1;
 
+import "beenfar/config/v1/field_writer.proto";
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/field_mask.proto";
@@ -111,6 +112,9 @@ message SwitchPort {
   string etag = 20 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Who last set each field, for the fields that have been written since
+  // beenfar started recording. Not part of the etag.
+  repeated FieldWriter field_writers = 23 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 message CreateSwitchPortRequest {

@@ -53,6 +53,9 @@ func TestSwitchPorts(t *testing.T) {
 	if p.GetTagging() != configv1.SwitchPortTagging_SWITCH_PORT_TAGGING_ALL || p.GetPoeMode() != configv1.PoeMode_POE_MODE_AUTO {
 		t.Fatalf("defaults: %v", p)
 	}
+	if writerOf(p.GetFieldWriters(), "native_network_id").GetWriter() != "test" {
+		t.Fatalf("switch port writers after create: %v", p.GetFieldWriters())
+	}
 	_, err = ports.CreateSwitchPort(ctx, &configv1.CreateSwitchPortRequest{SwitchPort: port})
 	wantCode(t, err, connect.CodeAlreadyExists)
 

@@ -62,6 +62,7 @@ type Principal struct {
 	Ambient bool
 	// TokenID is set for MethodToken; SessionHash for MethodSession.
 	TokenID     string
+	TokenName   string // for MethodToken: the token's name, e.g. "terraform-ci"
 	SessionHash string
 	// SessionProvider is how a session started ("" for password login,
 	// "oidc:<id>"), for signing out upstream.
@@ -471,7 +472,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token string) (*Princip
 			slog.WarnContext(ctx, "recording token use", slog.Any("error", err))
 		}
 	}
-	return &Principal{User: u, Method: MethodToken, TokenID: t.ID}, nil
+	return &Principal{User: u, Method: MethodToken, TokenID: t.ID, TokenName: t.Name}, nil
 }
 
 // ListAPITokens lists the principal's tokens, or all tokens for an admin.

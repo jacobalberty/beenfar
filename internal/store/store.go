@@ -37,6 +37,7 @@ type Store interface {
 	NetworkStore
 	RadiusServerStore
 	SwitchPortStore
+	FieldWriterStore
 	UserStore
 	APITokenStore
 	AdapterTokenStore
@@ -189,6 +190,9 @@ type WifiNetwork struct {
 	// RadiusServerID is the RadiusServer that a WPA-enterprise network
 	// authenticates against; empty means none.
 	RadiusServerID string
+	// FieldWriters says who last set each field. It is not stored with
+	// the record: core fills it in from FieldWriterStore, and writes ignore it.
+	FieldWriters []FieldWriter
 	// Revision increases on every update and backs the API's etag.
 	Revision   int64
 	CreateTime time.Time
@@ -220,6 +224,9 @@ type Network struct {
 	DHCPStart   string
 	DHCPStop    string
 	DomainName  string
+	// FieldWriters says who last set each field. It is not stored with
+	// the record: core fills it in from FieldWriterStore, and writes ignore it.
+	FieldWriters []FieldWriter
 	// Revision increases on every update and backs the API's etag.
 	Revision   int64
 	CreateTime time.Time
@@ -256,6 +263,9 @@ type RadiusServer struct {
 	// SecretVersion starts at 1 and increases whenever SharedSecret
 	// changes, so the secret's history can be tracked without reading it.
 	SecretVersion int64
+	// FieldWriters says who last set each field. It is not stored with
+	// the record: core fills it in from FieldWriterStore, and writes ignore it.
+	FieldWriters []FieldWriter
 	// Revision increases on every update and backs the API's etag.
 	Revision   int64
 	CreateTime time.Time
@@ -276,6 +286,50 @@ type RadiusServerStore interface {
 	// DeleteWifiNetwork. It returns ErrFailedPrecondition while a wireless
 	// network refers to it.
 	DeleteRadiusServer(ctx context.Context, id string, revision int64) error
+}
+
+// FieldResource names a kind of resource whose fields have recorded writers.
+type FieldResource string
+
+const (
+	FieldResourceWifiNetwork FieldResource = "wifi_network"
+	FieldResourceNetwork     FieldResource = "network"
+	FieldResourceRadius      FieldResource = "radius_server"
+	FieldResourceSwitchPort  FieldResource = "switch_port"
+)
+
+// FieldWriterKind says what kind of caller wrote a field.
+type FieldWriterKind string
+
+const (
+	// FieldWriterUser is a person, through a session, Basic auth or a proxy.
+	FieldWriterUser FieldWriterKind = "user"
+	// FieldWriterAPIToken is a client using an API token, e.g. Terraform.
+	FieldWriterAPIToken FieldWriterKind = "api_token"
+)
+
+// FieldWriter records who last set one field of a resource, and when. It is
+// evidence of a write, not a claim of ownership.
+type FieldWriter struct {
+	// Field is the API name of the field, e.g. "ap_groups".
+	Field string
+	// Writer is the user name or, for an API token, the token's name.
+	Writer    string
+	Kind      FieldWriterKind
+	WriteTime time.Time
+}
+
+// FieldWriterStore keeps the last writer of each field of the resources in
+// FieldResource. Rows disappear with their resource.
+type FieldWriterStore interface {
+	// RecordFieldWriters makes w (its Field and WriteTime are ignored; the
+	// store stamps the time) the last writer of each of fields.
+	RecordFieldWriters(ctx context.Context, resource FieldResource, id string, fields []string, w FieldWriter) error
+	// GetFieldWriters returns the writers of one resource, ordered by field.
+	GetFieldWriters(ctx context.Context, resource FieldResource, id string) ([]FieldWriter, error)
+	// ListFieldWriters returns the writers of every resource of a kind,
+	// by resource id.
+	ListFieldWriters(ctx context.Context, resource FieldResource) (map[string][]FieldWriter, error)
 }
 
 // SwitchPortTagging says which networks a switch port carries tagged.
@@ -310,6 +364,9 @@ type SwitchPort struct {
 	Tagging          SwitchPortTagging
 	TaggedNetworkIDs []string // sorted; only with SwitchPortTaggingCustom
 	PoEMode          PoEMode
+	// FieldWriters says who last set each field. It is not stored with the
+	// record: core fills it in from FieldWriterStore, and writes ignore it.
+	FieldWriters []FieldWriter
 	// Revision increases on every update and backs the API's etag.
 	Revision   int64
 	CreateTime time.Time

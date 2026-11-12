@@ -45,9 +45,12 @@ type RadiusServer struct {
 	// can tell that it was replaced without reading it.
 	SharedSecretVersion int64 `protobuf:"varint,7,opt,name=shared_secret_version,json=sharedSecretVersion,proto3" json:"shared_secret_version,omitempty"`
 	// Opaque version of this resource, for optimistic concurrency.
-	Etag          string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
-	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	Etag       string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
+	CreateTime *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	// Who last set each field, for the fields that have been written since
+	// beenfar started recording. Not part of the etag.
+	FieldWriters  []*FieldWriter `protobuf:"bytes,23,rep,name=field_writers,json=fieldWriters,proto3" json:"field_writers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -148,6 +151,13 @@ func (x *RadiusServer) GetCreateTime() *timestamppb.Timestamp {
 func (x *RadiusServer) GetUpdateTime() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdateTime
+	}
+	return nil
+}
+
+func (x *RadiusServer) GetFieldWriters() []*FieldWriter {
+	if x != nil {
+		return x.FieldWriters
 	}
 	return nil
 }
@@ -600,7 +610,7 @@ var File_beenfar_config_v1_radius_server_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_radius_server_proto_rawDesc = "" +
 	"\n" +
-	"%beenfar/config/v1/radius_server.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa9\x03\n" +
+	"%beenfar/config/v1/radius_server.proto\x12\x11beenfar.config.v1\x1a$beenfar/config/v1/field_writer.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf4\x03\n" +
 	"\fRadiusServer\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x18\n" +
 	"\x04name\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12\x1e\n" +
@@ -613,7 +623,8 @@ const file_beenfar_config_v1_radius_server_proto_rawDesc = "" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
 	"\vupdate_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
-	"updateTime\"g\n" +
+	"updateTime\x12I\n" +
+	"\rfield_writers\x18\x17 \x03(\v2\x1e.beenfar.config.v1.FieldWriterB\x04\xe2A\x01\x03R\ffieldWriters\"g\n" +
 	"\x19CreateRadiusServerRequest\x12J\n" +
 	"\rradius_server\x18\x01 \x01(\v2\x1f.beenfar.config.v1.RadiusServerB\x04\xe2A\x01\x02R\fradiusServer\"b\n" +
 	"\x1aCreateRadiusServerResponse\x12D\n" +
@@ -669,33 +680,35 @@ var file_beenfar_config_v1_radius_server_proto_goTypes = []any{
 	(*DeleteRadiusServerRequest)(nil),  // 9: beenfar.config.v1.DeleteRadiusServerRequest
 	(*DeleteRadiusServerResponse)(nil), // 10: beenfar.config.v1.DeleteRadiusServerResponse
 	(*timestamppb.Timestamp)(nil),      // 11: google.protobuf.Timestamp
-	(*fieldmaskpb.FieldMask)(nil),      // 12: google.protobuf.FieldMask
+	(*FieldWriter)(nil),                // 12: beenfar.config.v1.FieldWriter
+	(*fieldmaskpb.FieldMask)(nil),      // 13: google.protobuf.FieldMask
 }
 var file_beenfar_config_v1_radius_server_proto_depIdxs = []int32{
 	11, // 0: beenfar.config.v1.RadiusServer.create_time:type_name -> google.protobuf.Timestamp
 	11, // 1: beenfar.config.v1.RadiusServer.update_time:type_name -> google.protobuf.Timestamp
-	0,  // 2: beenfar.config.v1.CreateRadiusServerRequest.radius_server:type_name -> beenfar.config.v1.RadiusServer
-	0,  // 3: beenfar.config.v1.CreateRadiusServerResponse.radius_server:type_name -> beenfar.config.v1.RadiusServer
-	0,  // 4: beenfar.config.v1.GetRadiusServerResponse.radius_server:type_name -> beenfar.config.v1.RadiusServer
-	0,  // 5: beenfar.config.v1.ListRadiusServersResponse.radius_servers:type_name -> beenfar.config.v1.RadiusServer
-	0,  // 6: beenfar.config.v1.UpdateRadiusServerRequest.radius_server:type_name -> beenfar.config.v1.RadiusServer
-	12, // 7: beenfar.config.v1.UpdateRadiusServerRequest.update_mask:type_name -> google.protobuf.FieldMask
-	0,  // 8: beenfar.config.v1.UpdateRadiusServerResponse.radius_server:type_name -> beenfar.config.v1.RadiusServer
-	1,  // 9: beenfar.config.v1.RadiusServerService.CreateRadiusServer:input_type -> beenfar.config.v1.CreateRadiusServerRequest
-	3,  // 10: beenfar.config.v1.RadiusServerService.GetRadiusServer:input_type -> beenfar.config.v1.GetRadiusServerRequest
-	5,  // 11: beenfar.config.v1.RadiusServerService.ListRadiusServers:input_type -> beenfar.config.v1.ListRadiusServersRequest
-	7,  // 12: beenfar.config.v1.RadiusServerService.UpdateRadiusServer:input_type -> beenfar.config.v1.UpdateRadiusServerRequest
-	9,  // 13: beenfar.config.v1.RadiusServerService.DeleteRadiusServer:input_type -> beenfar.config.v1.DeleteRadiusServerRequest
-	2,  // 14: beenfar.config.v1.RadiusServerService.CreateRadiusServer:output_type -> beenfar.config.v1.CreateRadiusServerResponse
-	4,  // 15: beenfar.config.v1.RadiusServerService.GetRadiusServer:output_type -> beenfar.config.v1.GetRadiusServerResponse
-	6,  // 16: beenfar.config.v1.RadiusServerService.ListRadiusServers:output_type -> beenfar.config.v1.ListRadiusServersResponse
-	8,  // 17: beenfar.config.v1.RadiusServerService.UpdateRadiusServer:output_type -> beenfar.config.v1.UpdateRadiusServerResponse
-	10, // 18: beenfar.config.v1.RadiusServerService.DeleteRadiusServer:output_type -> beenfar.config.v1.DeleteRadiusServerResponse
-	14, // [14:19] is the sub-list for method output_type
-	9,  // [9:14] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	12, // 2: beenfar.config.v1.RadiusServer.field_writers:type_name -> beenfar.config.v1.FieldWriter
+	0,  // 3: beenfar.config.v1.CreateRadiusServerRequest.radius_server:type_name -> beenfar.config.v1.RadiusServer
+	0,  // 4: beenfar.config.v1.CreateRadiusServerResponse.radius_server:type_name -> beenfar.config.v1.RadiusServer
+	0,  // 5: beenfar.config.v1.GetRadiusServerResponse.radius_server:type_name -> beenfar.config.v1.RadiusServer
+	0,  // 6: beenfar.config.v1.ListRadiusServersResponse.radius_servers:type_name -> beenfar.config.v1.RadiusServer
+	0,  // 7: beenfar.config.v1.UpdateRadiusServerRequest.radius_server:type_name -> beenfar.config.v1.RadiusServer
+	13, // 8: beenfar.config.v1.UpdateRadiusServerRequest.update_mask:type_name -> google.protobuf.FieldMask
+	0,  // 9: beenfar.config.v1.UpdateRadiusServerResponse.radius_server:type_name -> beenfar.config.v1.RadiusServer
+	1,  // 10: beenfar.config.v1.RadiusServerService.CreateRadiusServer:input_type -> beenfar.config.v1.CreateRadiusServerRequest
+	3,  // 11: beenfar.config.v1.RadiusServerService.GetRadiusServer:input_type -> beenfar.config.v1.GetRadiusServerRequest
+	5,  // 12: beenfar.config.v1.RadiusServerService.ListRadiusServers:input_type -> beenfar.config.v1.ListRadiusServersRequest
+	7,  // 13: beenfar.config.v1.RadiusServerService.UpdateRadiusServer:input_type -> beenfar.config.v1.UpdateRadiusServerRequest
+	9,  // 14: beenfar.config.v1.RadiusServerService.DeleteRadiusServer:input_type -> beenfar.config.v1.DeleteRadiusServerRequest
+	2,  // 15: beenfar.config.v1.RadiusServerService.CreateRadiusServer:output_type -> beenfar.config.v1.CreateRadiusServerResponse
+	4,  // 16: beenfar.config.v1.RadiusServerService.GetRadiusServer:output_type -> beenfar.config.v1.GetRadiusServerResponse
+	6,  // 17: beenfar.config.v1.RadiusServerService.ListRadiusServers:output_type -> beenfar.config.v1.ListRadiusServersResponse
+	8,  // 18: beenfar.config.v1.RadiusServerService.UpdateRadiusServer:output_type -> beenfar.config.v1.UpdateRadiusServerResponse
+	10, // 19: beenfar.config.v1.RadiusServerService.DeleteRadiusServer:output_type -> beenfar.config.v1.DeleteRadiusServerResponse
+	15, // [15:20] is the sub-list for method output_type
+	10, // [10:15] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_config_v1_radius_server_proto_init() }
@@ -703,6 +716,7 @@ func file_beenfar_config_v1_radius_server_proto_init() {
 	if File_beenfar_config_v1_radius_server_proto != nil {
 		return
 	}
+	file_beenfar_config_v1_field_writer_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

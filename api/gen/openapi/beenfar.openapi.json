@@ -951,6 +951,42 @@
         ],
         "description": "DeviceState is the adoption state of a device."
       },
+      "beenfar.config.v1.FieldWriter": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "field",
+            "description": "The proto name of the field, as in an update_mask, e.g. \"ap_groups\"."
+          },
+          "writer": {
+            "type": "string",
+            "title": "writer",
+            "description": "The user name or, for an API token, the token's name, e.g. \"terraform-ci\"."
+          },
+          "kind": {
+            "title": "kind",
+            "$ref": "#/components/schemas/beenfar.config.v1.FieldWriterKind"
+          },
+          "writeTime": {
+            "title": "write_time",
+            "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          }
+        },
+        "title": "FieldWriter",
+        "additionalProperties": false,
+        "description": "FieldWriter says who last set one field of a resource, and when.\n\n It is a record of writes, not a claim of ownership: beenfar cannot know\n that a client \"manages\" a field, only that the client named it in a create\n or in the update_mask of an update. Clients that send only the fields they\n manage, as the Terraform provider and the UI do, are recorded for exactly\n those fields. Fields nobody has written since this was recorded have no\n entry."
+      },
+      "beenfar.config.v1.FieldWriterKind": {
+        "type": "string",
+        "title": "FieldWriterKind",
+        "enum": [
+          "FIELD_WRITER_KIND_UNSPECIFIED",
+          "FIELD_WRITER_KIND_USER",
+          "FIELD_WRITER_KIND_API_TOKEN"
+        ],
+        "description": "FieldWriterKind says what kind of caller wrote a field."
+      },
       "beenfar.config.v1.ForgetDeviceRequest": {
         "type": "object",
         "properties": {
@@ -1290,6 +1326,15 @@
             "title": "update_time",
             "readOnly": true,
             "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "fieldWriters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.FieldWriter"
+            },
+            "title": "field_writers",
+            "description": "Who last set each field, for the fields that have been written since\n beenfar started recording. Not part of the etag.",
+            "readOnly": true
           }
         },
         "title": "Network",
@@ -1365,6 +1410,15 @@
             "title": "update_time",
             "readOnly": true,
             "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "fieldWriters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.FieldWriter"
+            },
+            "title": "field_writers",
+            "description": "Who last set each field, for the fields that have been written since\n beenfar started recording. Not part of the etag.",
+            "readOnly": true
           }
         },
         "title": "RadiusServer",
@@ -1449,6 +1503,15 @@
             "title": "update_time",
             "readOnly": true,
             "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "fieldWriters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.FieldWriter"
+            },
+            "title": "field_writers",
+            "description": "Who last set each field, for the fields that have been written since\n beenfar started recording. Not part of the etag.",
+            "readOnly": true
           }
         },
         "title": "SwitchPort",
@@ -1682,6 +1745,15 @@
             "title": "update_time",
             "readOnly": true,
             "$ref": "#/components/schemas/google.protobuf.Timestamp"
+          },
+          "fieldWriters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/beenfar.config.v1.FieldWriter"
+            },
+            "title": "field_writers",
+            "description": "Who last set each field, for the fields that have been written since\n beenfar started recording. Not part of the etag.",
+            "readOnly": true
           }
         },
         "title": "WifiNetwork",

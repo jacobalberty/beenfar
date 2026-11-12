@@ -17,15 +17,25 @@ func (s *WifiService) Create(ctx context.Context, w store.WifiNetwork) (store.Wi
 	if err != nil {
 		return store.WifiNetwork{}, err
 	}
-	return s.store.CreateWifiNetwork(ctx, w)
+	return wifiTracking.create(ctx, s.store, func(tx store.Store) (store.WifiNetwork, error) {
+		return tx.CreateWifiNetwork(ctx, w)
+	})
 }
 
 func (s *WifiService) Get(ctx context.Context, id string) (store.WifiNetwork, error) {
-	return s.store.GetWifiNetwork(ctx, id)
+	w, err := s.store.GetWifiNetwork(ctx, id)
+	if err != nil {
+		return w, err
+	}
+	return w, wifiTracking.load(ctx, s.store, &w)
 }
 
 func (s *WifiService) List(ctx context.Context) ([]store.WifiNetwork, error) {
-	return s.store.ListWifiNetworks(ctx)
+	list, err := s.store.ListWifiNetworks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return list, wifiTracking.loadAll(ctx, s.store, list)
 }
 
 // wifiFields are the mutable fields of a wireless network, by API name.
@@ -55,7 +65,8 @@ func (s *WifiService) Update(ctx context.Context, w store.WifiNetwork, paths []s
 		normalizeWifi,
 		func(ctx context.Context, tx store.Store, w store.WifiNetwork) (store.WifiNetwork, error) {
 			return tx.UpdateWifiNetwork(ctx, w)
-		})
+		},
+		wifiTracking.afterWrite)
 }
 
 // Delete deletes by id. A non-zero revision must match.

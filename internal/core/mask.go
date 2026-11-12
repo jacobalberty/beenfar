@@ -54,7 +54,9 @@ func fullReplace(paths []string) bool {
 //     check, over the whole resource),
 //   - the masked fields of update are copied onto the stored record,
 //   - normalize validates the merged record, and put writes it, guarded by
-//     the stored revision so a concurrent writer cannot be overwritten.
+//     the stored revision so a concurrent writer cannot be overwritten,
+//   - finish runs in the same transaction on the written record and the
+//     update mask (it records who wrote the fields).
 func updateMasked[T any](
 	ctx context.Context,
 	st store.Store,
@@ -65,6 +67,7 @@ func updateMasked[T any](
 	get func(context.Context, store.Store) (T, error),
 	normalize func(T) (T, error),
 	put func(context.Context, store.Store, T) (T, error),
+	finish func(ctx context.Context, tx store.Store, written *T, paths []string) error,
 ) (T, error) {
 	var out T
 	err := st.WithTx(ctx, func(tx store.Store) error {
@@ -84,8 +87,10 @@ func updateMasked[T any](
 		if err != nil {
 			return err
 		}
-		out, err = put(ctx, tx, merged)
-		return err
+		if out, err = put(ctx, tx, merged); err != nil {
+			return err
+		}
+		return finish(ctx, tx, &out, paths)
 	})
 	return out, err
 }

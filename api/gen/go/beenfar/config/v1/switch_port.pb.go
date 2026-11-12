@@ -154,9 +154,12 @@ type SwitchPort struct {
 	TaggedNetworkIds []string `protobuf:"bytes,8,rep,name=tagged_network_ids,json=taggedNetworkIds,proto3" json:"tagged_network_ids,omitempty"`
 	PoeMode          PoeMode  `protobuf:"varint,9,opt,name=poe_mode,json=poeMode,proto3,enum=beenfar.config.v1.PoeMode" json:"poe_mode,omitempty"`
 	// Opaque version of this resource, for optimistic concurrency.
-	Etag          string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
-	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	Etag       string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
+	CreateTime *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	// Who last set each field, for the fields that have been written since
+	// beenfar started recording. Not part of the etag.
+	FieldWriters  []*FieldWriter `protobuf:"bytes,23,rep,name=field_writers,json=fieldWriters,proto3" json:"field_writers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -271,6 +274,13 @@ func (x *SwitchPort) GetCreateTime() *timestamppb.Timestamp {
 func (x *SwitchPort) GetUpdateTime() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdateTime
+	}
+	return nil
+}
+
+func (x *SwitchPort) GetFieldWriters() []*FieldWriter {
+	if x != nil {
+		return x.FieldWriters
 	}
 	return nil
 }
@@ -732,7 +742,7 @@ var File_beenfar_config_v1_switch_port_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_switch_port_proto_rawDesc = "" +
 	"\n" +
-	"#beenfar/config/v1/switch_port.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x04\n" +
+	"#beenfar/config/v1/switch_port.proto\x12\x11beenfar.config.v1\x1a$beenfar/config/v1/field_writer.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd8\x04\n" +
 	"\n" +
 	"SwitchPort\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\"\n" +
@@ -749,7 +759,8 @@ const file_beenfar_config_v1_switch_port_proto_rawDesc = "" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
 	"\vupdate_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
-	"updateTime\"_\n" +
+	"updateTime\x12I\n" +
+	"\rfield_writers\x18\x17 \x03(\v2\x1e.beenfar.config.v1.FieldWriterB\x04\xe2A\x01\x03R\ffieldWriters\"_\n" +
 	"\x17CreateSwitchPortRequest\x12D\n" +
 	"\vswitch_port\x18\x01 \x01(\v2\x1d.beenfar.config.v1.SwitchPortB\x04\xe2A\x01\x02R\n" +
 	"switchPort\"Z\n" +
@@ -823,35 +834,37 @@ var file_beenfar_config_v1_switch_port_proto_goTypes = []any{
 	(*DeleteSwitchPortRequest)(nil),  // 11: beenfar.config.v1.DeleteSwitchPortRequest
 	(*DeleteSwitchPortResponse)(nil), // 12: beenfar.config.v1.DeleteSwitchPortResponse
 	(*timestamppb.Timestamp)(nil),    // 13: google.protobuf.Timestamp
-	(*fieldmaskpb.FieldMask)(nil),    // 14: google.protobuf.FieldMask
+	(*FieldWriter)(nil),              // 14: beenfar.config.v1.FieldWriter
+	(*fieldmaskpb.FieldMask)(nil),    // 15: google.protobuf.FieldMask
 }
 var file_beenfar_config_v1_switch_port_proto_depIdxs = []int32{
 	0,  // 0: beenfar.config.v1.SwitchPort.tagging:type_name -> beenfar.config.v1.SwitchPortTagging
 	1,  // 1: beenfar.config.v1.SwitchPort.poe_mode:type_name -> beenfar.config.v1.PoeMode
 	13, // 2: beenfar.config.v1.SwitchPort.create_time:type_name -> google.protobuf.Timestamp
 	13, // 3: beenfar.config.v1.SwitchPort.update_time:type_name -> google.protobuf.Timestamp
-	2,  // 4: beenfar.config.v1.CreateSwitchPortRequest.switch_port:type_name -> beenfar.config.v1.SwitchPort
-	2,  // 5: beenfar.config.v1.CreateSwitchPortResponse.switch_port:type_name -> beenfar.config.v1.SwitchPort
-	2,  // 6: beenfar.config.v1.GetSwitchPortResponse.switch_port:type_name -> beenfar.config.v1.SwitchPort
-	2,  // 7: beenfar.config.v1.ListSwitchPortsResponse.switch_ports:type_name -> beenfar.config.v1.SwitchPort
-	2,  // 8: beenfar.config.v1.UpdateSwitchPortRequest.switch_port:type_name -> beenfar.config.v1.SwitchPort
-	14, // 9: beenfar.config.v1.UpdateSwitchPortRequest.update_mask:type_name -> google.protobuf.FieldMask
-	2,  // 10: beenfar.config.v1.UpdateSwitchPortResponse.switch_port:type_name -> beenfar.config.v1.SwitchPort
-	3,  // 11: beenfar.config.v1.SwitchPortService.CreateSwitchPort:input_type -> beenfar.config.v1.CreateSwitchPortRequest
-	5,  // 12: beenfar.config.v1.SwitchPortService.GetSwitchPort:input_type -> beenfar.config.v1.GetSwitchPortRequest
-	7,  // 13: beenfar.config.v1.SwitchPortService.ListSwitchPorts:input_type -> beenfar.config.v1.ListSwitchPortsRequest
-	9,  // 14: beenfar.config.v1.SwitchPortService.UpdateSwitchPort:input_type -> beenfar.config.v1.UpdateSwitchPortRequest
-	11, // 15: beenfar.config.v1.SwitchPortService.DeleteSwitchPort:input_type -> beenfar.config.v1.DeleteSwitchPortRequest
-	4,  // 16: beenfar.config.v1.SwitchPortService.CreateSwitchPort:output_type -> beenfar.config.v1.CreateSwitchPortResponse
-	6,  // 17: beenfar.config.v1.SwitchPortService.GetSwitchPort:output_type -> beenfar.config.v1.GetSwitchPortResponse
-	8,  // 18: beenfar.config.v1.SwitchPortService.ListSwitchPorts:output_type -> beenfar.config.v1.ListSwitchPortsResponse
-	10, // 19: beenfar.config.v1.SwitchPortService.UpdateSwitchPort:output_type -> beenfar.config.v1.UpdateSwitchPortResponse
-	12, // 20: beenfar.config.v1.SwitchPortService.DeleteSwitchPort:output_type -> beenfar.config.v1.DeleteSwitchPortResponse
-	16, // [16:21] is the sub-list for method output_type
-	11, // [11:16] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	14, // 4: beenfar.config.v1.SwitchPort.field_writers:type_name -> beenfar.config.v1.FieldWriter
+	2,  // 5: beenfar.config.v1.CreateSwitchPortRequest.switch_port:type_name -> beenfar.config.v1.SwitchPort
+	2,  // 6: beenfar.config.v1.CreateSwitchPortResponse.switch_port:type_name -> beenfar.config.v1.SwitchPort
+	2,  // 7: beenfar.config.v1.GetSwitchPortResponse.switch_port:type_name -> beenfar.config.v1.SwitchPort
+	2,  // 8: beenfar.config.v1.ListSwitchPortsResponse.switch_ports:type_name -> beenfar.config.v1.SwitchPort
+	2,  // 9: beenfar.config.v1.UpdateSwitchPortRequest.switch_port:type_name -> beenfar.config.v1.SwitchPort
+	15, // 10: beenfar.config.v1.UpdateSwitchPortRequest.update_mask:type_name -> google.protobuf.FieldMask
+	2,  // 11: beenfar.config.v1.UpdateSwitchPortResponse.switch_port:type_name -> beenfar.config.v1.SwitchPort
+	3,  // 12: beenfar.config.v1.SwitchPortService.CreateSwitchPort:input_type -> beenfar.config.v1.CreateSwitchPortRequest
+	5,  // 13: beenfar.config.v1.SwitchPortService.GetSwitchPort:input_type -> beenfar.config.v1.GetSwitchPortRequest
+	7,  // 14: beenfar.config.v1.SwitchPortService.ListSwitchPorts:input_type -> beenfar.config.v1.ListSwitchPortsRequest
+	9,  // 15: beenfar.config.v1.SwitchPortService.UpdateSwitchPort:input_type -> beenfar.config.v1.UpdateSwitchPortRequest
+	11, // 16: beenfar.config.v1.SwitchPortService.DeleteSwitchPort:input_type -> beenfar.config.v1.DeleteSwitchPortRequest
+	4,  // 17: beenfar.config.v1.SwitchPortService.CreateSwitchPort:output_type -> beenfar.config.v1.CreateSwitchPortResponse
+	6,  // 18: beenfar.config.v1.SwitchPortService.GetSwitchPort:output_type -> beenfar.config.v1.GetSwitchPortResponse
+	8,  // 19: beenfar.config.v1.SwitchPortService.ListSwitchPorts:output_type -> beenfar.config.v1.ListSwitchPortsResponse
+	10, // 20: beenfar.config.v1.SwitchPortService.UpdateSwitchPort:output_type -> beenfar.config.v1.UpdateSwitchPortResponse
+	12, // 21: beenfar.config.v1.SwitchPortService.DeleteSwitchPort:output_type -> beenfar.config.v1.DeleteSwitchPortResponse
+	17, // [17:22] is the sub-list for method output_type
+	12, // [12:17] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_config_v1_switch_port_proto_init() }
@@ -859,6 +872,7 @@ func file_beenfar_config_v1_switch_port_proto_init() {
 	if File_beenfar_config_v1_switch_port_proto != nil {
 		return
 	}
+	file_beenfar_config_v1_field_writer_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
