@@ -6,6 +6,17 @@ updates:
     groups:
       go-minor-patch:
         update-types: [minor, patch]
+  # The TypeScript client's generator (api/ts). protoc-gen-es and the
+  # @bufbuild/protobuf runtime it targets must move together, and a bump
+  # changes api/gen/ts, so the PR needs `go generate` in api/ before it passes.
+  - package-ecosystem: npm
+    directory: /api/ts
+    schedule: { interval: weekly }
+    groups:
+      bufbuild:
+        patterns: ["@bufbuild/*"]
+      npm-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
