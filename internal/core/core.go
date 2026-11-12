@@ -72,7 +72,9 @@ type AdapterRegistry interface {
 	// returns ErrFailedPrecondition if that adapter is not connected.
 	AdoptDevice(ctx context.Context, d store.Device) error
 	// ForgetDevice tells the device's adapter the device is no longer managed.
-	ForgetDevice(ctx context.Context, d store.Device) error
+	// deferred is true when the adapter will reset the device on its next
+	// contact and the controller must keep the device until then.
+	ForgetDevice(ctx context.Context, d store.Device) (deferred bool, err error)
 }
 
 // NoAdapters is an AdapterRegistry with nothing registered.
@@ -84,8 +86,8 @@ func (NoAdapters) AdoptDevice(_ context.Context, d store.Device) error {
 	return fmt.Errorf("%w: adapter %q is not connected", store.ErrFailedPrecondition, d.Adapter)
 }
 
-func (NoAdapters) ForgetDevice(_ context.Context, d store.Device) error {
-	return fmt.Errorf("%w: adapter %q is not connected", store.ErrFailedPrecondition, d.Adapter)
+func (NoAdapters) ForgetDevice(_ context.Context, d store.Device) (bool, error) {
+	return false, fmt.Errorf("%w: adapter %q is not connected", store.ErrFailedPrecondition, d.Adapter)
 }
 
 // SortedAdapters returns r's adapters ordered by name.

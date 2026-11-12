@@ -52,6 +52,15 @@ UPDATE devices SET
 WHERE id = sqlc.arg(id) AND (state = 'pending' OR readoption = 'awaiting')
 RETURNING *;
 
+-- name: MarkDeviceForgetting :one
+-- Marks an adopted device as being forgotten (its adapter will reset it on its
+-- next contact). Only adopted devices have anything to reset.
+UPDATE devices SET
+    forgetting  = TRUE,
+    update_time = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND state = 'adopted'
+RETURNING *;
+
 -- name: DeleteDevice :execrows
 DELETE FROM devices WHERE id = ?;
 

@@ -94,10 +94,17 @@ func (h *Host) DesiredConfig(ctx context.Context, deviceID string) (adapter.Desi
 }
 
 func (h *Host) ReportState(ctx context.Context, deviceID string, s adapter.State) error {
-	if _, err := h.device(ctx, deviceID); err != nil {
+	dev, err := h.device(ctx, deviceID)
+	if err != nil {
 		return err
 	}
-	_, err := h.store.RecordDeviceState(ctx, deviceID, store.DeviceReport{
+	// The adapter reset a device the controller was forgetting: it is done with
+	// it. The flag means nothing for a device that is not being forgotten, so an
+	// adapter cannot drop a device the controller still manages.
+	if s.Released && dev.Forgetting {
+		return hostErr(h.store.DeleteDevice(ctx, deviceID))
+	}
+	_, err = h.store.RecordDeviceState(ctx, deviceID, store.DeviceReport{
 		Model:          s.Model,
 		IP:             s.IP,
 		Firmware:       s.Firmware,
@@ -156,6 +163,7 @@ func toDevice(d store.Device) adapter.Device {
 		ConfigRevision: d.ConfigRevision,
 		LastSeen:       d.LastSeen,
 		Readoption:     adapter.Readoption(d.Readoption),
+		Forgetting:     d.Forgetting,
 	}
 }
 

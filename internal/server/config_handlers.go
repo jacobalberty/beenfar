@@ -181,7 +181,7 @@ func (h *deviceHandler) AdoptDevice(ctx context.Context, req *configv1.AdoptDevi
 }
 
 func (h *deviceHandler) ForgetDevice(ctx context.Context, req *configv1.ForgetDeviceRequest) (*configv1.ForgetDeviceResponse, error) {
-	if err := h.svc.Forget(ctx, req.GetId()); err != nil {
+	if _, err := h.svc.Forget(ctx, req.GetId(), false); err != nil {
 		return nil, err
 	}
 	return &configv1.ForgetDeviceResponse{}, nil

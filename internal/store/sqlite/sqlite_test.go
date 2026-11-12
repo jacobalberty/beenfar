@@ -372,3 +372,36 @@ func TestLockedReportsDoNotCountAsContact(t *testing.T) {
 		t.Fatalf("ordinary report: %+v, %v", again, err)
 	}
 }
+
+func TestMarkDeviceForgetting(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+
+	pending, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:40", Adapter: "unifi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// There is nothing to reset on a device that is not adopted.
+	_, err = s.MarkDeviceForgetting(ctx, pending.ID)
+	wantErr(t, err, store.ErrFailedPrecondition)
+	_, err = s.MarkDeviceForgetting(ctx, "missing")
+	wantErr(t, err, store.ErrNotFound)
+
+	if _, err := s.AdoptDevice(ctx, pending.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.MarkDeviceForgetting(ctx, pending.ID)
+	if err != nil || !got.Forgetting || got.State != store.DeviceStateAdopted {
+		t.Fatalf("mark = %+v, %v", got, err)
+	}
+	// It stays marked across reads and reports, until the device is removed.
+	if _, err := s.RecordDeviceState(ctx, pending.ID, store.DeviceReport{Model: "U7PG2"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetDevice(ctx, pending.ID); !got.Forgetting || got.Model != "U7PG2" {
+		t.Fatalf("after a report: %+v", got)
+	}
+	if err := s.DeleteDevice(ctx, pending.ID); err != nil {
+		t.Fatal(err)
+	}
+}
