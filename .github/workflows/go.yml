@@ -47,6 +47,12 @@ jobs:
         with:
           version: ${{ env.BUF_VERSION }}
           setup_only: true
+      # protoc-gen-es (the TypeScript client) runs on Node.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: api/ts/package-lock.json
       - name: buf lint
         working-directory: api
         run: buf lint
@@ -82,6 +88,23 @@ jobs:
             echo "$stray"
             exit 1
           fi
+      - name: TypeScript client type-checks and loads as an npm package
+        run: |
+          # The package as it would be published, using the tooling that
+          # `go generate` installed in api/ts (typescript, @bufbuild/protobuf).
+          pkg="$RUNNER_TEMP/beenfar-api"
+          .github/scripts/api-npm-package.sh "$pkg" 0.0.0-ci
+          ln -s "$PWD/api/ts/node_modules" "$pkg/node_modules"
+          cd "$pkg"
+          find beenfar google -name '*.d.ts' -print0 |
+            xargs -0 ./node_modules/.bin/tsc --noEmit --strict --target es2022 \
+              --module esnext --moduleResolution bundler
+          find beenfar google -name '*_pb.js' -print0 |
+            while IFS= read -r -d '' f; do
+              node --input-type=module -e "await import('./$f')"
+            done
+          # Through the package's own exports map (self-reference).
+          node --input-type=module -e "await import('@jacobalberty/beenfar-api/beenfar/config/v1/network_pb')"
       - name: Vet and build the api module
         working-directory: api
         run: |
