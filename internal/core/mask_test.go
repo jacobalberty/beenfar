@@ -20,7 +20,7 @@ func checkSetters[T any](t *testing.T, setters fieldSetters[T], readOnly ...stri
 	for f := range typ.Fields() {
 		want[norm(f.Name)] = true
 	}
-	for _, r := range append(readOnly, "ID", "Revision", "CreateTime", "UpdateTime") {
+	for _, r := range append(readOnly, "ID", "Revision", "CreateTime", "UpdateTime", "FieldWriters") {
 		delete(want, norm(r))
 	}
 	for name := range setters {

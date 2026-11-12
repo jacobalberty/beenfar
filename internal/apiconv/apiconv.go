@@ -43,13 +43,13 @@ type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
 	// goverter:map Etag Revision | ParseEtag
-	// goverter:ignore CreateTime UpdateTime
+	// goverter:ignore CreateTime UpdateTime FieldWriters
 	WifiFromProto(*configv1.WifiNetwork) (store.WifiNetwork, error)
 
 	// goverter:map Revision Etag | Etag
 	NetworkToProto(store.Network) *configv1.Network
 	// goverter:map Etag Revision | ParseEtag
-	// goverter:ignore CreateTime UpdateTime
+	// goverter:ignore CreateTime UpdateTime FieldWriters
 	NetworkFromProto(*configv1.Network) (store.Network, error)
 
 	// The shared secret is input-only: it is never returned.
@@ -62,7 +62,7 @@ type Converter interface {
 	// goverter:map Etag Revision | ParseEtag
 	// goverter:map AuthPort AuthPort | PortFromProto
 	// goverter:map AccountingPort AccountingPort | PortFromProto
-	// goverter:ignore CreateTime UpdateTime SecretVersion
+	// goverter:ignore CreateTime UpdateTime SecretVersion FieldWriters
 	RadiusFromProto(*configv1.RadiusServer) (store.RadiusServer, error)
 
 	// goverter:map Revision Etag | Etag
@@ -70,7 +70,7 @@ type Converter interface {
 	SwitchPortToProto(store.SwitchPort) *configv1.SwitchPort
 	// goverter:map Etag Revision | ParseEtag
 	// goverter:map PortIndex PortIndex | PortFromProto
-	// goverter:ignore CreateTime UpdateTime
+	// goverter:ignore CreateTime UpdateTime FieldWriters
 	SwitchPortFromProto(*configv1.SwitchPort) (store.SwitchPort, error)
 
 	// goverter:map LastSeen LastSeenTime

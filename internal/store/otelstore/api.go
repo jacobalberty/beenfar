@@ -140,3 +140,21 @@ func (s *Store) TouchAdapterToken(ctx context.Context, id string, at time.Time) 
 func (s *Store) DeleteAdapterToken(ctx context.Context, id string) error {
 	return run0(ctx, s, "DeleteAdapterToken", func(ctx context.Context) error { return s.next.DeleteAdapterToken(ctx, id) })
 }
+
+func (s *Store) RecordFieldWriters(ctx context.Context, resource store.FieldResource, id string, fields []string, w store.FieldWriter) error {
+	return run0(ctx, s, "RecordFieldWriters", func(ctx context.Context) error {
+		return s.next.RecordFieldWriters(ctx, resource, id, fields, w)
+	})
+}
+
+func (s *Store) GetFieldWriters(ctx context.Context, resource store.FieldResource, id string) ([]store.FieldWriter, error) {
+	return run(ctx, s, "GetFieldWriters", func(ctx context.Context) ([]store.FieldWriter, error) {
+		return s.next.GetFieldWriters(ctx, resource, id)
+	})
+}
+
+func (s *Store) ListFieldWriters(ctx context.Context, resource store.FieldResource) (map[string][]store.FieldWriter, error) {
+	return run(ctx, s, "ListFieldWriters", func(ctx context.Context) (map[string][]store.FieldWriter, error) {
+		return s.next.ListFieldWriters(ctx, resource)
+	})
+}
