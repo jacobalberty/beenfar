@@ -35,7 +35,7 @@ services:
       - beenfar-data:/data
 
   ui:
-    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:edge}
+    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:latest}
     restart: unless-stopped
     environment:
       # beenfard is reached at the root of the same origin.

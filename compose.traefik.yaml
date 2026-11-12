@@ -41,7 +41,7 @@ services:
       traefik.http.routers.beenfar.tls.certresolver: letsencrypt
 
   ui:
-    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:edge}
+    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:latest}
     restart: unless-stopped
     environment:
       LOOKMORELIKE_API_BASE: /

@@ -56,6 +56,10 @@ Things to know:
   marked `Secure`.
 - **`:8080` is open to the LAN** (devices need it). The API still requires a
   token or a session, but firewall it from networks you do not trust.
+- **Versions.** `latest` follows the UI's `main` branch; releases are also tagged
+  `0.1.0`, `0.1` and `0`. To stay on one, set
+  `LOOKMORELIKE_IMAGE=ghcr.io/jacobalberty/lookmorelike:0.1` in `.env`; the
+  controller is pinned with `BEENFAR_VERSION`.
 - **Data** is in the `beenfar-data` volume (a SQLite database). Back it up with
   the controller stopped. Upgrade with `docker compose pull && docker compose up -d`;
   pin `BEENFAR_VERSION` to stay put.
