@@ -69,6 +69,38 @@ call for it (`feat` minor, `fix`/`perf` patch, breaking changes minor while
 must therefore follow [Conventional Commits](https://www.conventionalcommits.org/),
 which a pull request check enforces.
 
+**TypeScript client.** The same release also publishes the generated
+TypeScript client (messages and service descriptors, for
+`@connectrpc/connect-web`) as the npm package `@jacobalberty/beenfar-api` to
+the [GitHub Packages npm registry](https://docs.github.com/packages/working-with-a-github-packages-registry/working-with-the-npm-registry),
+at the same version as the Go module. GitHub's registry asks for a token with
+`read:packages` even for public packages; see `api/ts/README.md` for the
+`.npmrc` and an example. The sources are generated into `api/gen/ts` by
+`go generate` in `api/` (which runs `npm clean-install` for the pinned
+`protoc-gen-es`, so it needs Node) and CI checks them like the Go output.
+
+## Web UI
+
+beenfard serves only the API; the web UI is a separate project and container,
+[LookMoreLike](https://github.com/jacobalberty/LookMoreLike), which talks to the
+same RPCs as Terraform. Browsers authenticate with the session cookie, and
+beenfar refuses cookie, Basic and proxy-authenticated requests whose `Origin`
+is not the request's `Host`. The UI and the API must therefore be served from
+**one origin**, by a reverse proxy that **keeps the `Host` header** (Traefik
+and Caddy do by default; set `X-Forwarded-Proto` when it terminates TLS).
+Route these paths to beenfard and everything else to the UI:
+
+| Path | Why |
+|---|---|
+| `/beenfar.` prefix (e.g. `/beenfar.config.v1.WifiNetworkService/...`) | Connect, gRPC and gRPC-Web, which the UI uses |
+| `/api/` | the REST binding of the same RPCs |
+| `/auth/` | OpenID Connect login and callback (browser navigations) |
+| `/openapi.json`, `/healthz` | the API description and health check |
+| `/inform` | UniFi devices (usually reached directly on beenfard's port, not through the UI's hostname) |
+
+A cross-origin API URL is not supported: it would need CORS and cookies
+that cross sites, which beenfar does not offer.
+
 ## Authentication
 
 API tokens (`Authorization: Bearer`) and the password login form are always
