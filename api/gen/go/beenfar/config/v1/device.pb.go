@@ -150,7 +150,10 @@ type Device struct {
 	// locked the next time it is seen.
 	Locked bool `protobuf:"varint,9,opt,name=locked,proto3" json:"locked,omitempty"`
 	// Set while an adopted device that was reset is being adopted again.
-	Readoption    ReadoptionState        `protobuf:"varint,10,opt,name=readoption,proto3,enum=beenfar.config.v1.ReadoptionState" json:"readoption,omitempty"`
+	Readoption ReadoptionState `protobuf:"varint,10,opt,name=readoption,proto3,enum=beenfar.config.v1.ReadoptionState" json:"readoption,omitempty"`
+	// Set while the device is being forgotten and the controller is waiting for
+	// it to reset itself (see ForgetDevice). The device is removed once it has.
+	Forgetting    bool                   `protobuf:"varint,11,opt,name=forgetting,proto3" json:"forgetting,omitempty"`
 	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -255,6 +258,13 @@ func (x *Device) GetReadoption() ReadoptionState {
 		return x.Readoption
 	}
 	return ReadoptionState_READOPTION_STATE_UNSPECIFIED
+}
+
+func (x *Device) GetForgetting() bool {
+	if x != nil {
+		return x.Forgetting
+	}
+	return false
 }
 
 func (x *Device) GetCreateTime() *timestamppb.Timestamp {
@@ -675,8 +685,11 @@ func (x *AdoptDeviceResponse) GetDevice() *Device {
 }
 
 type ForgetDeviceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Remove the device now instead of waiting for it to reset itself. Over REST:
+	// DELETE /api/v1/devices/{id}?force=true.
+	Force         bool `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -718,8 +731,18 @@ func (x *ForgetDeviceRequest) GetId() string {
 	return ""
 }
 
+func (x *ForgetDeviceRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
 type ForgetDeviceResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The device while it is still being forgotten (forgetting is set): it is
+	// waiting to be reset. Unset once the device has been removed.
+	Device        *Device `protobuf:"bytes,1,opt,name=device,proto3" json:"device,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -754,11 +777,18 @@ func (*ForgetDeviceResponse) Descriptor() ([]byte, []int) {
 	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{10}
 }
 
+func (x *ForgetDeviceResponse) GetDevice() *Device {
+	if x != nil {
+		return x.Device
+	}
+	return nil
+}
+
 var File_beenfar_config_v1_device_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"\x1ebeenfar/config/v1/device.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x04\n" +
+	"\x1ebeenfar/config/v1/device.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc2\x04\n" +
 	"\x06Device\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x16\n" +
 	"\x03mac\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x03mac\x12\x1e\n" +
@@ -772,7 +802,10 @@ const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\n" +
 	"readoption\x18\n" +
 	" \x01(\x0e2\".beenfar.config.v1.ReadoptionStateB\x04\xe2A\x01\x03R\n" +
-	"readoption\x12A\n" +
+	"readoption\x12$\n" +
+	"\n" +
+	"forgetting\x18\v \x01(\bB\x04\xe2A\x01\x03R\n" +
+	"forgetting\x12A\n" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
 	"\vupdate_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
@@ -795,10 +828,12 @@ const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\x03mac\x18\x02 \x01(\tH\x00R\x03macB\b\n" +
 	"\x06device\"H\n" +
 	"\x13AdoptDeviceResponse\x121\n" +
-	"\x06device\x18\x01 \x01(\v2\x19.beenfar.config.v1.DeviceR\x06device\"+\n" +
+	"\x06device\x18\x01 \x01(\v2\x19.beenfar.config.v1.DeviceR\x06device\"A\n" +
 	"\x13ForgetDeviceRequest\x12\x14\n" +
-	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\"\x16\n" +
-	"\x14ForgetDeviceResponse*_\n" +
+	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\x12\x14\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force\"I\n" +
+	"\x14ForgetDeviceResponse\x121\n" +
+	"\x06device\x18\x01 \x01(\v2\x19.beenfar.config.v1.DeviceR\x06device*_\n" +
 	"\vDeviceState\x12\x1c\n" +
 	"\x18DEVICE_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14DEVICE_STATE_PENDING\x10\x01\x12\x18\n" +
@@ -856,21 +891,22 @@ var file_beenfar_config_v1_device_proto_depIdxs = []int32{
 	2,  // 7: beenfar.config.v1.ListDevicesResponse.devices:type_name -> beenfar.config.v1.Device
 	2,  // 8: beenfar.config.v1.ListPendingDevicesResponse.devices:type_name -> beenfar.config.v1.Device
 	2,  // 9: beenfar.config.v1.AdoptDeviceResponse.device:type_name -> beenfar.config.v1.Device
-	3,  // 10: beenfar.config.v1.DeviceService.GetDevice:input_type -> beenfar.config.v1.GetDeviceRequest
-	5,  // 11: beenfar.config.v1.DeviceService.ListDevices:input_type -> beenfar.config.v1.ListDevicesRequest
-	7,  // 12: beenfar.config.v1.DeviceService.ListPendingDevices:input_type -> beenfar.config.v1.ListPendingDevicesRequest
-	9,  // 13: beenfar.config.v1.DeviceService.AdoptDevice:input_type -> beenfar.config.v1.AdoptDeviceRequest
-	11, // 14: beenfar.config.v1.DeviceService.ForgetDevice:input_type -> beenfar.config.v1.ForgetDeviceRequest
-	4,  // 15: beenfar.config.v1.DeviceService.GetDevice:output_type -> beenfar.config.v1.GetDeviceResponse
-	6,  // 16: beenfar.config.v1.DeviceService.ListDevices:output_type -> beenfar.config.v1.ListDevicesResponse
-	8,  // 17: beenfar.config.v1.DeviceService.ListPendingDevices:output_type -> beenfar.config.v1.ListPendingDevicesResponse
-	10, // 18: beenfar.config.v1.DeviceService.AdoptDevice:output_type -> beenfar.config.v1.AdoptDeviceResponse
-	12, // 19: beenfar.config.v1.DeviceService.ForgetDevice:output_type -> beenfar.config.v1.ForgetDeviceResponse
-	15, // [15:20] is the sub-list for method output_type
-	10, // [10:15] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	2,  // 10: beenfar.config.v1.ForgetDeviceResponse.device:type_name -> beenfar.config.v1.Device
+	3,  // 11: beenfar.config.v1.DeviceService.GetDevice:input_type -> beenfar.config.v1.GetDeviceRequest
+	5,  // 12: beenfar.config.v1.DeviceService.ListDevices:input_type -> beenfar.config.v1.ListDevicesRequest
+	7,  // 13: beenfar.config.v1.DeviceService.ListPendingDevices:input_type -> beenfar.config.v1.ListPendingDevicesRequest
+	9,  // 14: beenfar.config.v1.DeviceService.AdoptDevice:input_type -> beenfar.config.v1.AdoptDeviceRequest
+	11, // 15: beenfar.config.v1.DeviceService.ForgetDevice:input_type -> beenfar.config.v1.ForgetDeviceRequest
+	4,  // 16: beenfar.config.v1.DeviceService.GetDevice:output_type -> beenfar.config.v1.GetDeviceResponse
+	6,  // 17: beenfar.config.v1.DeviceService.ListDevices:output_type -> beenfar.config.v1.ListDevicesResponse
+	8,  // 18: beenfar.config.v1.DeviceService.ListPendingDevices:output_type -> beenfar.config.v1.ListPendingDevicesResponse
+	10, // 19: beenfar.config.v1.DeviceService.AdoptDevice:output_type -> beenfar.config.v1.AdoptDeviceResponse
+	12, // 20: beenfar.config.v1.DeviceService.ForgetDevice:output_type -> beenfar.config.v1.ForgetDeviceResponse
+	16, // [16:21] is the sub-list for method output_type
+	11, // [11:16] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_config_v1_device_proto_init() }

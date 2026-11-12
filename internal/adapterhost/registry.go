@@ -196,14 +196,22 @@ func (r *Registry) AdoptDevice(ctx context.Context, d store.Device) (err error) 
 	return drv.Adopt(ctx, toDevice(d))
 }
 
-func (r *Registry) ForgetDevice(ctx context.Context, d store.Device) error {
+// ForgetDevice tells the device's adapter the controller no longer manages the
+// device. deferred is true when the adapter will finish later, by resetting the
+// device on its next contact (adapter.ErrForgetDeferred); the device is then
+// kept until the adapter reports it released.
+func (r *Registry) ForgetDevice(ctx context.Context, d store.Device) (deferred bool, err error) {
 	drv, err := r.driver(d.Adapter)
 	if err != nil {
-		return err
+		return false, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
-	return drv.Forget(ctx, toDevice(d))
+	err = drv.Forget(ctx, toDevice(d))
+	if errors.Is(err, adapter.ErrForgetDeferred) {
+		return true, nil
+	}
+	return false, err
 }
 
 // driver returns the driver of a connected adapter.
@@ -300,9 +308,10 @@ func (s *Session) Close() {
 }
 
 // CompleteCommand records an external adapter's answer to a command. An
-// empty errMsg means success. Only the adapter that was sent the command may
-// answer it.
-func (r *Registry) CompleteCommand(adapterName, id, errMsg string) error {
+// empty errMsg means success; deferred means a Forget the adapter will finish
+// when the device next contacts it (adapter.ErrForgetDeferred). Only the
+// adapter that was sent the command may answer it.
+func (r *Registry) CompleteCommand(adapterName, id, errMsg string, deferred bool) error {
 	r.mu.Lock()
 	p, ok := r.pending[id]
 	if !ok || p.adapter != adapterName {
@@ -311,9 +320,12 @@ func (r *Registry) CompleteCommand(adapterName, id, errMsg string) error {
 	}
 	delete(r.pending, id)
 	r.mu.Unlock()
-	if errMsg != "" {
+	switch {
+	case errMsg != "":
 		p.done <- errors.New(errMsg)
-	} else {
+	case deferred:
+		p.done <- adapter.ErrForgetDeferred
+	default:
 		p.done <- nil
 	}
 	return nil

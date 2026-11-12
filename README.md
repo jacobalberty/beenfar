@@ -248,6 +248,19 @@ inform with it for any MAC. Only a device that has been silent for
 a spoofed inform. With that set to `0` a reset device stays locked, and has to
 be forgotten and adopted again.
 
+**Forgetting a device.** `ForgetDevice` factory resets an adopted device, so it
+comes back as a new, pending device that can be adopted again. The reset is a
+message the controller sends in reply to the device's next inform (the one a UniFi
+controller sends when you forget a device), so the device stays listed with
+`forgetting: true` until it has reset, and is removed once it informs on the
+default key. A device that is switched off stays in that state; `force` (REST:
+`DELETE /api/v1/devices/{id}?force=true`) gives up waiting and removes it now,
+but the device then still holds the key beenfar discarded, so it shows as locked
+until it is reset by hand (or its key is imported again). A pending or locked
+device has nothing to reset and is removed at once. Only one captured controller
+reply backs the message, so which models and firmware honour it is not
+verified; see [go-unifi](https://github.com/jacobalberty/go-unifi).
+
 **Device settings (experimental).** With `BEENFAR_UNIFI_SYSTEM_CFG=true`,
 adopted devices are sent their wifi networks (WPA-PSK, and WPA-enterprise
 with a RADIUS server for authentication and optional accounting), the VLANs

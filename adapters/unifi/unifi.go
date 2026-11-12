@@ -30,6 +30,18 @@
 // meant for it. Only a device silent for Options.ReadoptAfter is considered,
 // so a live device is never flagged by a spoofed inform.
 //
+// # Forgetting devices
+//
+// Forgetting an adopted device factory resets it. Forget answers
+// adapter.ErrForgetDeferred, and the controller keeps the device, marked as
+// forgetting, so that its keys stay. The device's next inform, on its own key,
+// is answered with a SetDefault, which makes it reset itself; it then informs
+// on the default key, which is taken for confirmation (the controller is told
+// to drop the device, so it comes back as a new, pending one). Until then it is
+// sent the SetDefault on every inform. A device that never comes back stays as
+// it is until the controller gives up (Forget with Device.Forgetting set,
+// which drops the keys: the device is then locked until it is reset by hand).
+//
 // # Taking over devices
 //
 // Keys taken from another controller are stored as imported keys (see
@@ -134,7 +146,7 @@ func New(opts Options) (*Adapter, error) {
 		return nil, err
 	}
 	if a.pushes, err = m.Int64Counter("beenfar.unifi.config_pushes",
-		metric.WithDescription("SetParam replies sent to adopted devices, by reason."), metric.WithUnit("{push}")); err != nil {
+		metric.WithDescription("SetParam and SetDefault replies sent to adopted devices, by reason."), metric.WithUnit("{push}")); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -172,13 +184,20 @@ func (a *Adapter) Rekey(ctx context.Context, d adapter.Device) error {
 	return h.SetDeviceSecret(ctx, d.ID, SecretPending, inform.NewKey())
 }
 
-// Forget drops all of a device's keys.
+// Forget resets an adopted device: it answers adapter.ErrForgetDeferred and,
+// on the device's next inform, tells it to factory reset itself (see
+// forgetting). The device's keys stay until then, since the command is sealed
+// with them. When the controller gives up waiting (d.Forgetting is already
+// set) or there is nothing to reset, Forget drops all of the device's keys.
 func (a *Adapter) Forget(ctx context.Context, d adapter.Device) error {
 	h, err := a.hostOrErr()
 	if err != nil {
 		return err
 	}
-	for _, name := range keyOrder {
+	if d.State == adapter.DeviceAdopted && !d.Forgetting {
+		return adapter.ErrForgetDeferred
+	}
+	for _, name := range secretNames {
 		if err := h.SetDeviceSecret(ctx, d.ID, name, nil); err != nil && !errors.Is(err, adapter.ErrNotFound) {
 			return err
 		}
@@ -291,8 +310,11 @@ func (a *Adapter) serve(ctx context.Context, p *inform.Packet, in *inform.Inform
 		span.SetAttributes(attribute.String("unifi.response", "not_found"))
 	case err == nil:
 		kind := "noop"
-		if _, ok := resp.(inform.SetParam); ok {
+		switch resp.(type) {
+		case inform.SetParam:
 			kind = "setparam"
+		case inform.SetDefault:
+			kind = "setdefault"
 		}
 		span.SetAttributes(attribute.String("unifi.response", kind))
 	}
@@ -327,6 +349,9 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 
 	// Adopted from here on.
 	ctx = telemetry.WithAttrs(ctx, slog.String("device.id", dev.ID))
+	if dev.Forgetting {
+		return a.forgetting(ctx, h, dev, used)
+	}
 	pending, err := h.DeviceSecret(ctx, dev.ID, SecretPending)
 	switch {
 	case errors.Is(err, adapter.ErrNoSecret):
@@ -418,6 +443,39 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	}
 	a.pushes.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", reason)))
 	return a.setParam(authKey, version, desired)
+}
+
+// forgetting answers a device the controller is forgetting (see Forget). On a
+// key of its own it is sent a SetDefault, every time it informs until it has
+// switched, so a lost reply is harmless. Once it speaks the default key it has
+// reset: the controller is told to drop it, and it is answered 404, so that its
+// next inform makes it a new, pending device. A default-key inform only counts
+// as the reset if the device was told to reset (the mark in SecretReset) or was
+// already awaiting re-adoption: anybody can send one, and acting on it would let
+// them make the controller drop a device that has not reset.
+func (a *Adapter) forgetting(ctx context.Context, h adapter.Host, dev adapter.Device, used inform.Key) (inform.Response, error) {
+	if used.Name == keyDefault || len(used.Bytes) == 0 {
+		_, err := h.DeviceSecret(ctx, dev.ID, SecretReset)
+		told := err == nil
+		if err != nil && !errors.Is(err, adapter.ErrNoSecret) {
+			return nil, err
+		}
+		if !told && dev.Readoption == adapter.ReadoptionNone {
+			slog.InfoContext(ctx, "ignored a default-key inform from a device being forgotten that was not told to reset")
+			return nil, inform.ErrUnknownDevice
+		}
+		if err := h.ReportState(ctx, dev.ID, adapter.State{Released: true}); err != nil {
+			return nil, err
+		}
+		slog.InfoContext(ctx, "device was reset and released")
+		return nil, inform.ErrUnknownDevice
+	}
+	if err := h.SetDeviceSecret(ctx, dev.ID, SecretReset, []byte(time.Now().UTC().Format(time.RFC3339))); err != nil {
+		return nil, err
+	}
+	a.pushes.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", "reset")))
+	slog.InfoContext(ctx, "telling the device to factory reset")
+	return inform.SetDefault{}, nil
 }
 
 // setParam builds the reply that gives the device authKey and the desired

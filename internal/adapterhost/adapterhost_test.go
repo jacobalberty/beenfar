@@ -27,9 +27,11 @@ func openStore(t *testing.T) *sqlite.Store {
 
 // fake is a built-in adapter that records the commands it gets.
 type fake struct {
-	name      string
-	started   chan adapter.Host
-	adoptErr  error
+	name     string
+	started  chan adapter.Host
+	adoptErr error
+	// forgetErr is what Forget returns, e.g. adapter.ErrForgetDeferred.
+	forgetErr error
 	mu        sync.Mutex
 	adopted   []adapter.Device
 	forgotten []adapter.Device
@@ -53,7 +55,7 @@ func (f *fake) Forget(_ context.Context, d adapter.Device) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.forgotten = append(f.forgotten, d)
-	return nil
+	return f.forgetErr
 }
 func (f *fake) HTTPHandlers() map[string]http.Handler {
 	return map[string]http.Handler{"POST /" + f.name: http.NotFoundHandler()}
@@ -99,7 +101,7 @@ func TestRegistryListsAndRoutes(t *testing.T) {
 	if err := reg.AdoptDevice(t.Context(), d); err != nil {
 		t.Fatal(err)
 	}
-	if err := reg.ForgetDevice(t.Context(), d); err != nil {
+	if _, err := reg.ForgetDevice(t.Context(), d); err != nil {
 		t.Fatal(err)
 	}
 	if len(fa.adopted) != 1 || fa.adopted[0].ID != d.ID || len(fa.forgotten) != 1 {

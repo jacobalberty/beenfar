@@ -247,6 +247,25 @@ func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error
 	return out, err
 }
 
+func (s *Store) MarkDeviceForgetting(ctx context.Context, id string) (store.Device, error) {
+	var out store.Device
+	err := s.inTx(ctx, func(txs *Store) error {
+		row, err := txs.q.MarkDeviceForgetting(ctx, db.MarkDeviceForgettingParams{ID: id, Now: txs.nowMilli()})
+		if err == nil {
+			out = dbconvgen.Device(row)
+			return nil
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return mapErr(err)
+		}
+		if _, err := txs.q.GetDevice(ctx, id); err != nil {
+			return mapErr(err)
+		}
+		return fmt.Errorf("%w: device %s is not adopted, so there is nothing to reset", store.ErrFailedPrecondition, id)
+	})
+	return out, err
+}
+
 func (s *Store) DeleteDevice(ctx context.Context, id string) error {
 	n, err := s.q.DeleteDevice(ctx, id)
 	if err != nil {

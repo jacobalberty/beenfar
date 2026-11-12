@@ -38,6 +38,7 @@ type Device struct {
 	UpdateTime     int64
 	Locked         bool
 	Readoption     string
+	Forgetting     bool
 }
 
 type DeviceSecret struct {

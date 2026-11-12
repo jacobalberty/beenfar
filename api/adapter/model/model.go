@@ -42,6 +42,9 @@ type Device struct {
 	LastSeen time.Time
 	// Readoption is set while an adopted device is being adopted again.
 	Readoption Readoption
+	// Forgetting is set while the controller is waiting for the adapter to
+	// reset the device (see adapter.ErrForgetDeferred).
+	Forgetting bool
 }
 
 // Discovered is what an adapter reports when it sees a device.
@@ -69,6 +72,10 @@ type State struct {
 	// readoption: awaiting when a reset device showed up, in progress while
 	// it is being given a new key, none once it runs on its key again.
 	Readoption Readoption
+	// Released says that a device the controller is forgetting has been reset
+	// and no longer needs to be managed: the controller drops it. It is
+	// ignored for any other device.
+	Released bool
 }
 
 // DesiredConfig is the configuration for one device.

@@ -121,6 +121,10 @@ func (s *Store) ListDevices(ctx context.Context, f store.DeviceFilter) ([]store.
 	return run(ctx, s, "ListDevices", func(ctx context.Context) ([]store.Device, error) { return s.next.ListDevices(ctx, f) })
 }
 
+func (s *Store) MarkDeviceForgetting(ctx context.Context, id string) (store.Device, error) {
+	return run(ctx, s, "MarkDeviceForgetting", func(ctx context.Context) (store.Device, error) { return s.next.MarkDeviceForgetting(ctx, id) })
+}
+
 func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error) {
 	return run(ctx, s, "AdoptDevice", func(ctx context.Context) (store.Device, error) { return s.next.AdoptDevice(ctx, id) })
 }

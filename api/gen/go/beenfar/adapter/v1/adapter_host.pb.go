@@ -345,8 +345,10 @@ type Device struct {
 	// Revision of the configuration last pushed to the device.
 	ConfigRevision int64 `protobuf:"varint,4,opt,name=config_revision,json=configRevision,proto3" json:"config_revision,omitempty"`
 	// When the controller last heard from the device through its adapter.
-	LastSeenTime  *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
-	Readoption    ReadoptionState        `protobuf:"varint,6,opt,name=readoption,proto3,enum=beenfar.adapter.v1.ReadoptionState" json:"readoption,omitempty"`
+	LastSeenTime *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_seen_time,json=lastSeenTime,proto3" json:"last_seen_time,omitempty"`
+	Readoption   ReadoptionState        `protobuf:"varint,6,opt,name=readoption,proto3,enum=beenfar.adapter.v1.ReadoptionState" json:"readoption,omitempty"`
+	// The controller is waiting for the adapter to reset the device.
+	Forgetting    bool `protobuf:"varint,7,opt,name=forgetting,proto3" json:"forgetting,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -421,6 +423,13 @@ func (x *Device) GetReadoption() ReadoptionState {
 		return x.Readoption
 	}
 	return ReadoptionState_READOPTION_STATE_UNSPECIFIED
+}
+
+func (x *Device) GetForgetting() bool {
+	if x != nil {
+		return x.Forgetting
+	}
+	return false
 }
 
 // Discovered is what an adapter reports when it sees a device.
@@ -513,7 +522,10 @@ type State struct {
 	// Seconds the device has been up.
 	UptimeSeconds int64 `protobuf:"varint,5,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
 	// What the adapter found out about the device's readoption.
-	Readoption    ReadoptionState `protobuf:"varint,6,opt,name=readoption,proto3,enum=beenfar.adapter.v1.ReadoptionState" json:"readoption,omitempty"`
+	Readoption ReadoptionState `protobuf:"varint,6,opt,name=readoption,proto3,enum=beenfar.adapter.v1.ReadoptionState" json:"readoption,omitempty"`
+	// A device the controller is forgetting has been reset: drop it. Ignored for
+	// any other device.
+	Released      bool `protobuf:"varint,7,opt,name=released,proto3" json:"released,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -588,6 +600,13 @@ func (x *State) GetReadoption() ReadoptionState {
 		return x.Readoption
 	}
 	return ReadoptionState_READOPTION_STATE_UNSPECIFIED
+}
+
+func (x *State) GetReleased() bool {
+	if x != nil {
+		return x.Released
+	}
+	return false
 }
 
 // Network is a resolved network.
@@ -1264,7 +1283,10 @@ type CompleteCommandRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	CommandId string                 `protobuf:"bytes,1,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
 	// Empty on success; otherwise why the command failed.
-	Error         string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Error string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	// A Forget that the adapter will finish when the device next contacts it
+	// (adapter.ErrForgetDeferred). Not a failure; error is empty.
+	Deferred      bool `protobuf:"varint,3,opt,name=deferred,proto3" json:"deferred,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1311,6 +1333,13 @@ func (x *CompleteCommandRequest) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *CompleteCommandRequest) GetDeferred() bool {
+	if x != nil {
+		return x.Deferred
+	}
+	return false
 }
 
 type CompleteCommandResponse struct {
@@ -1906,7 +1935,7 @@ var File_beenfar_adapter_v1_adapter_host_proto protoreflect.FileDescriptor
 
 const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\n" +
-	"%beenfar/adapter/v1/adapter_host.proto\x12\x12beenfar.adapter.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x91\x02\n" +
+	"%beenfar/adapter/v1/adapter_host.proto\x12\x12beenfar.adapter.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\x02\n" +
 	"\x06Device\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
 	"\x03mac\x18\x02 \x01(\tR\x03mac\x125\n" +
@@ -1915,14 +1944,17 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\x0elast_seen_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\flastSeenTime\x12C\n" +
 	"\n" +
 	"readoption\x18\x06 \x01(\x0e2#.beenfar.adapter.v1.ReadoptionStateR\n" +
-	"readoption\"x\n" +
+	"readoption\x12\x1e\n" +
+	"\n" +
+	"forgetting\x18\a \x01(\bR\n" +
+	"forgetting\"x\n" +
 	"\n" +
 	"Discovered\x12\x10\n" +
 	"\x03mac\x18\x01 \x01(\tR\x03mac\x12\x14\n" +
 	"\x05model\x18\x02 \x01(\tR\x05model\x12\x0e\n" +
 	"\x02ip\x18\x03 \x01(\tR\x02ip\x12\x1a\n" +
 	"\bfirmware\x18\x04 \x01(\tR\bfirmware\x12\x16\n" +
-	"\x06locked\x18\x05 \x01(\bR\x06locked\"\xde\x01\n" +
+	"\x06locked\x18\x05 \x01(\bR\x06locked\"\xfa\x01\n" +
 	"\x05State\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\tR\x02ip\x12\x1a\n" +
 	"\bfirmware\x18\x02 \x01(\tR\bfirmware\x12\x14\n" +
@@ -1931,7 +1963,8 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\x0euptime_seconds\x18\x05 \x01(\x03R\ruptimeSeconds\x12C\n" +
 	"\n" +
 	"readoption\x18\x06 \x01(\x0e2#.beenfar.adapter.v1.ReadoptionStateR\n" +
-	"readoption\"\xde\x01\n" +
+	"readoption\x12\x1a\n" +
+	"\breleased\x18\a \x01(\bR\breleased\"\xde\x01\n" +
 	"\aNetwork\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
@@ -1992,11 +2025,12 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
 	"\x05event\"\f\n" +
 	"\n" +
-	"Registered\"M\n" +
+	"Registered\"i\n" +
 	"\x16CompleteCommandRequest\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\x19\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12\x1a\n" +
+	"\bdeferred\x18\x03 \x01(\bR\bdeferred\"\x19\n" +
 	"\x17CompleteCommandResponse\"'\n" +
 	"\x13LookupDeviceRequest\x12\x10\n" +
 	"\x03mac\x18\x01 \x01(\tR\x03mac\"J\n" +

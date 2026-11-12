@@ -926,6 +926,12 @@
             "readOnly": true,
             "$ref": "#/components/schemas/beenfar.config.v1.ReadoptionState"
           },
+          "forgetting": {
+            "type": "boolean",
+            "title": "forgetting",
+            "description": "Set while the device is being forgotten and the controller is waiting for\n it to reset itself (see ForgetDevice). The device is removed once it has.",
+            "readOnly": true
+          },
           "createTime": {
             "title": "create_time",
             "readOnly": true,
@@ -993,6 +999,11 @@
           "id": {
             "type": "string",
             "title": "id"
+          },
+          "force": {
+            "type": "boolean",
+            "title": "force",
+            "description": "Remove the device now instead of waiting for it to reset itself. Over REST:\n DELETE /api/v1/devices/{id}?force=true."
           }
         },
         "title": "ForgetDeviceRequest",
@@ -1003,6 +1014,13 @@
       },
       "beenfar.config.v1.ForgetDeviceResponse": {
         "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "description": "The device while it is still being forgotten (forgetting is set): it is\n waiting to be reset. Unset once the device has been removed.",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          }
+        },
         "title": "ForgetDeviceResponse",
         "additionalProperties": false
       },
@@ -2264,7 +2282,7 @@
           "DeviceService"
         ],
         "summary": "ForgetDevice",
-        "description": "ForgetDevice removes a device, adopted or pending. A forgotten device that\n is still on the network shows up again as pending.",
+        "description": "ForgetDevice stops managing a device. An adopted device is factory reset\n (for UniFi: told to reset itself on its next inform), so that it comes back\n as a new, pending device that can be adopted again. The reset can only be\n delivered when the device next contacts the controller, so until then the\n device stays in the list with forgetting set, and is removed once it has\n reset; asking again meanwhile changes nothing, and force gives up waiting\n and removes it at once without resetting it (the device then still holds\n the key beenfar threw away, so it must be reset by hand before it can be\n adopted: it shows as locked). A pending or locked device has nothing to\n reset and is removed at once.",
         "operationId": "beenfar.config.v1.DeviceService.ForgetDevice",
         "parameters": [
           {
@@ -2274,6 +2292,15 @@
             "schema": {
               "type": "string",
               "title": "id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "description": "Remove the device now instead of waiting for it to reset itself. Over REST:\n DELETE /api/v1/devices/{id}?force=true.",
+            "schema": {
+              "type": "boolean",
+              "title": "force"
             }
           }
         ],

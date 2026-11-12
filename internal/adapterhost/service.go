@@ -106,7 +106,7 @@ func (s *Service) CompleteCommand(ctx context.Context, req *adapterv1.CompleteCo
 	if err != nil {
 		return nil, err
 	}
-	if err := s.reg.CompleteCommand(name, req.GetCommandId(), req.GetError()); err != nil {
+	if err := s.reg.CompleteCommand(name, req.GetCommandId(), req.GetError(), req.GetDeferred()); err != nil {
 		return nil, err
 	}
 	return &adapterv1.CompleteCommandResponse{}, nil

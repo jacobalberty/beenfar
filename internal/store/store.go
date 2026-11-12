@@ -95,6 +95,9 @@ type Device struct {
 	Locked bool
 	// Readoption is set while an adopted device is being adopted again.
 	Readoption Readoption
+	// Forgetting is set while the controller waits for the device's adapter to
+	// reset it; the device is dropped once the adapter reports it released.
+	Forgetting bool
 	LastSeen   time.Time
 	CreateTime time.Time
 	UpdateTime time.Time
@@ -138,6 +141,10 @@ type DeviceStore interface {
 	// becomes in progress). It returns
 	// ErrFailedPrecondition if the device is already adopted.
 	AdoptDevice(ctx context.Context, id string) (Device, error)
+	// MarkDeviceForgetting marks an adopted device as being forgotten, for its
+	// adapter to reset on its next contact. It returns ErrFailedPrecondition
+	// for a device that is not adopted.
+	MarkDeviceForgetting(ctx context.Context, id string) (Device, error)
 	// DeleteDevice forgets a device in any state, along with its secrets
 	// and switch port settings.
 	DeleteDevice(ctx context.Context, id string) error
