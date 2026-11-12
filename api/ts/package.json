@@ -1,0 +1,38 @@
+{
+  "name": "@jacobalberty/beenfar-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript client (messages and service descriptors) for the beenfar network controller API, generated from api/proto by protoc-gen-es.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jacobalberty/beenfar.git",
+    "directory": "api"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "exports": {
+    "./*.js": {
+      "types": "./*.d.ts",
+      "default": "./*.js"
+    },
+    "./*": {
+      "types": "./*.d.ts",
+      "default": "./*.js"
+    }
+  },
+  "files": [
+    "beenfar",
+    "google"
+  ],
+  "peerDependencies": {
+    "@bufbuild/protobuf": "^2.17.0"
+  },
+  "devDependencies": {
+    "@bufbuild/protobuf": "2.17.0",
+    "@bufbuild/protoc-gen-es": "2.17.0",
+    "typescript": "5.9.3"
+  }
+}
