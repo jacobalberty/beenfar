@@ -56,14 +56,13 @@ Things to know:
   marked `Secure`.
 - **`:8080` is open to the LAN** (devices need it). The API still requires a
   token or a session, but firewall it from networks you do not trust.
-- **Versions.** The web UI is pinned to a release (`0.1.0`) so that
-  `docker compose pull` does not change it under you. Move to a newer one by
-  editing the tag, or set `LOOKMORELIKE_IMAGE` in `.env`; `0.1` follows patch
-  releases and `latest` follows the UI's `main` branch. beenfard itself follows
-  `latest` until beenfar publishes versioned releases; pin it with `BEENFAR_VERSION`.
+- **Versions.** Both images are pinned to a release (the web UI `0.2.0`, `beenfard`
+  `0.4.0`) so that `docker compose pull` does not change them under you. Move to
+  newer ones by editing the tags, or set `LOOKMORELIKE_IMAGE` and `BEENFAR_VERSION`
+  in `.env`; `0.2` and `0.4` follow patch releases, and `latest` follows `main`.
 - **Data** is in the `beenfar-data` volume (a SQLite database). Back it up with
   the controller stopped. Upgrade with `docker compose pull && docker compose up -d`;
-  pin `BEENFAR_VERSION` to stay put.
+  `BEENFAR_VERSION` is what stays put.
 - **API tokens** for Terraform:
   `docker compose run --rm -T beenfar /beenfard admin token -username admin -name terraform`.
 
