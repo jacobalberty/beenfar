@@ -5,6 +5,7 @@
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
 import type { FieldMask, Timestamp } from "@bufbuild/protobuf/wkt";
+import type { FieldWriter } from "./field_writer_pb.js";
 
 /**
  * Describes the file beenfar/config/v1/switch_port.proto.
@@ -94,6 +95,14 @@ export declare type SwitchPort = Message<"beenfar.config.v1.SwitchPort"> & {
    * @generated from field: google.protobuf.Timestamp update_time = 22;
    */
   updateTime?: Timestamp | undefined;
+
+  /**
+   * Who last set each field, for the fields that have been written since
+   * beenfar started recording. Not part of the etag.
+   *
+   * @generated from field: repeated beenfar.config.v1.FieldWriter field_writers = 23;
+   */
+  fieldWriters: FieldWriter[];
 };
 
 /**

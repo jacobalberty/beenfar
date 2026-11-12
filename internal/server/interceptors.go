@@ -17,6 +17,7 @@ import (
 	"github.com/jacobalberty/beenfar/api/gen/go/beenfar/admin/v1/adminv1connect"
 	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
+	"github.com/jacobalberty/beenfar/internal/core"
 	"github.com/jacobalberty/beenfar/internal/store"
 	"github.com/jacobalberty/beenfar/internal/telemetry"
 )
@@ -145,6 +146,7 @@ func authInterceptor(authn auth.Authenticator, adapters *auth.Service) connect.S
 				return connect.NewError(connect.CodePermissionDenied, "admin role required")
 			}
 			ctx = auth.WithPrincipal(ctx, p)
+			ctx = core.WithWriter(ctx, fieldWriterOf(p))
 			ctx = telemetry.WithAttrs(ctx,
 				slog.String("enduser.id", p.User.ID),
 				slog.String("enduser.name", p.User.Username),
@@ -153,6 +155,15 @@ func authInterceptor(authn auth.Authenticator, adapters *auth.Service) connect.S
 			return next(ctx, spec, stream)
 		}
 	}
+}
+
+// fieldWriterOf says how the caller is recorded as the writer of fields: an
+// API token by its name, anyone else by user name.
+func fieldWriterOf(p *auth.Principal) store.FieldWriter {
+	if p.Method == auth.MethodToken && p.TokenName != "" {
+		return store.FieldWriter{Writer: p.TokenName, Kind: store.FieldWriterAPIToken}
+	}
+	return store.FieldWriter{Writer: p.User.Username, Kind: store.FieldWriterUser}
 }
 
 // sameOrigin reports whether an Origin header (absent for same-origin GETs

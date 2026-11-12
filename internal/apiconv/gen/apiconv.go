@@ -58,6 +58,14 @@ func DevicesToProto(source []store.Device) []*v11.Device {
 	}
 	return pConfigv1DeviceList
 }
+func FieldWriterToProto(source store.FieldWriter) *v11.FieldWriter {
+	var configv1FieldWriter v11.FieldWriter
+	configv1FieldWriter.Field = source.Field
+	configv1FieldWriter.Writer = source.Writer
+	configv1FieldWriter.Kind = apiconv.FieldWriterKindToProto(source.Kind)
+	configv1FieldWriter.WriteTime = apiconv.Timestamp(source.WriteTime)
+	return &configv1FieldWriter
+}
 func NetworkFromProto(source *v11.Network) (store.Network, error) {
 	var storeNetwork store.Network
 	if source != nil {
@@ -94,6 +102,12 @@ func NetworkToProto(source store.Network) *v11.Network {
 	configv1Network.Etag = apiconv.Etag(source.Revision)
 	configv1Network.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1Network.UpdateTime = apiconv.Timestamp(source.UpdateTime)
+	if source.FieldWriters != nil {
+		configv1Network.FieldWriters = make([]*v11.FieldWriter, len(source.FieldWriters))
+		for i := 0; i < len(source.FieldWriters); i++ {
+			configv1Network.FieldWriters[i] = FieldWriterToProto(source.FieldWriters[i])
+		}
+	}
 	return &configv1Network
 }
 func RadiusFromProto(source *v11.RadiusServer) (store.RadiusServer, error) {
@@ -132,6 +146,12 @@ func RadiusToProto(source store.RadiusServer) *v11.RadiusServer {
 	configv1RadiusServer.Etag = apiconv.Etag(source.Revision)
 	configv1RadiusServer.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1RadiusServer.UpdateTime = apiconv.Timestamp(source.UpdateTime)
+	if source.FieldWriters != nil {
+		configv1RadiusServer.FieldWriters = make([]*v11.FieldWriter, len(source.FieldWriters))
+		for i := 0; i < len(source.FieldWriters); i++ {
+			configv1RadiusServer.FieldWriters[i] = FieldWriterToProto(source.FieldWriters[i])
+		}
+	}
 	return &configv1RadiusServer
 }
 func SwitchPortFromProto(source *v11.SwitchPort) (store.SwitchPort, error) {
@@ -190,6 +210,12 @@ func SwitchPortToProto(source store.SwitchPort) *v11.SwitchPort {
 	configv1SwitchPort.Etag = apiconv.Etag(source.Revision)
 	configv1SwitchPort.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1SwitchPort.UpdateTime = apiconv.Timestamp(source.UpdateTime)
+	if source.FieldWriters != nil {
+		configv1SwitchPort.FieldWriters = make([]*v11.FieldWriter, len(source.FieldWriters))
+		for j := 0; j < len(source.FieldWriters); j++ {
+			configv1SwitchPort.FieldWriters[j] = FieldWriterToProto(source.FieldWriters[j])
+		}
+	}
 	return &configv1SwitchPort
 }
 func UserToProto(source store.User) *v1.User {
@@ -261,5 +287,11 @@ func WifiToProto(source store.WifiNetwork) *v11.WifiNetwork {
 	configv1WifiNetwork.Etag = apiconv.Etag(source.Revision)
 	configv1WifiNetwork.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1WifiNetwork.UpdateTime = apiconv.Timestamp(source.UpdateTime)
+	if source.FieldWriters != nil {
+		configv1WifiNetwork.FieldWriters = make([]*v11.FieldWriter, len(source.FieldWriters))
+		for j := 0; j < len(source.FieldWriters); j++ {
+			configv1WifiNetwork.FieldWriters[j] = FieldWriterToProto(source.FieldWriters[j])
+		}
+	}
 	return &configv1WifiNetwork
 }

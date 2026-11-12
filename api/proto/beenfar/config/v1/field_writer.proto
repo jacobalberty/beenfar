@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package beenfar.config.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// FieldWriterKind says what kind of caller wrote a field.
+enum FieldWriterKind {
+  FIELD_WRITER_KIND_UNSPECIFIED = 0;
+  // A person, signed in with a session, Basic auth or through a proxy.
+  FIELD_WRITER_KIND_USER = 1;
+  // A client using an API token, e.g. the Terraform provider.
+  FIELD_WRITER_KIND_API_TOKEN = 2;
+}
+
+// FieldWriter says who last set one field of a resource, and when.
+//
+// It is a record of writes, not a claim of ownership: beenfar cannot know
+// that a client "manages" a field, only that the client named it in a create
+// or in the update_mask of an update. Clients that send only the fields they
+// manage, as the Terraform provider and the UI do, are recorded for exactly
+// those fields. Fields nobody has written since this was recorded have no
+// entry.
+message FieldWriter {
+  // The proto name of the field, as in an update_mask, e.g. "ap_groups".
+  string field = 1;
+  // The user name or, for an API token, the token's name, e.g. "terraform-ci".
+  string writer = 2;
+  FieldWriterKind kind = 3;
+  google.protobuf.Timestamp write_time = 4;
+}

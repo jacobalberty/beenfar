@@ -38,7 +38,7 @@ import (
 // goverter:useZeroValueOnPointerInconsistency
 // goverter:extend Timestamp WifiSecurityToProto WifiSecurityFromProto WifiBandToProto WifiBandFromProto
 // goverter:extend DeviceStateToProto ReadoptionToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
-// goverter:extend SwitchPortTaggingToProto SwitchPortTaggingFromProto PoEModeToProto PoEModeFromProto
+// goverter:extend SwitchPortTaggingToProto SwitchPortTaggingFromProto PoEModeToProto PoEModeFromProto FieldWriterKindToProto
 type Converter interface {
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
@@ -84,6 +84,9 @@ type Converter interface {
 	APITokenToProto(store.APIToken) *adminv1.ApiToken
 
 	AdapterToProto(core.AdapterStatus) *adminv1.Adapter
+
+	// goverter:map WriteTime WriteTime | Timestamp
+	FieldWriterToProto(store.FieldWriter) *configv1.FieldWriter
 }
 
 // Etag renders a store revision. Clients must treat etags as opaque.
@@ -171,6 +174,11 @@ var adapterKind = biMap[adminv1.AdapterKind, core.AdapterKind]{
 	adminv1.AdapterKind_ADAPTER_KIND_EXTERNAL: core.AdapterExternal,
 }
 
+var fieldWriterKind = biMap[configv1.FieldWriterKind, store.FieldWriterKind]{
+	configv1.FieldWriterKind_FIELD_WRITER_KIND_USER:      store.FieldWriterUser,
+	configv1.FieldWriterKind_FIELD_WRITER_KIND_API_TOKEN: store.FieldWriterAPIToken,
+}
+
 var userSource = biMap[adminv1.UserSource, store.UserSource]{
 	adminv1.UserSource_USER_SOURCE_LOCAL: store.UserSourceLocal,
 	adminv1.UserSource_USER_SOURCE_PROXY: store.UserSourceProxy,
@@ -228,6 +236,10 @@ func PoEModeToProto(m store.PoEMode) configv1.PoeMode { return poeMode.toProto(m
 
 func PoEModeFromProto(m configv1.PoeMode) (store.PoEMode, error) {
 	return poeMode.fromProto(m, "poe_mode")
+}
+
+func FieldWriterKindToProto(k store.FieldWriterKind) configv1.FieldWriterKind {
+	return fieldWriterKind.toProto(k)
 }
 
 func DeviceStateToProto(s store.DeviceState) configv1.DeviceState { return deviceState.toProto(s) }

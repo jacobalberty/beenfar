@@ -164,9 +164,12 @@ type WifiNetwork struct {
 	// authenticates against. Must be empty for other security modes.
 	RadiusServerId string `protobuf:"bytes,12,opt,name=radius_server_id,json=radiusServerId,proto3" json:"radius_server_id,omitempty"`
 	// Opaque version of this resource, for optimistic concurrency.
-	Etag          string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
-	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	Etag       string                 `protobuf:"bytes,20,opt,name=etag,proto3" json:"etag,omitempty"`
+	CreateTime *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	// Who last set each field, for the fields that have been written since
+	// beenfar started recording. Not part of the etag.
+	FieldWriters  []*FieldWriter `protobuf:"bytes,23,rep,name=field_writers,json=fieldWriters,proto3" json:"field_writers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -303,6 +306,13 @@ func (x *WifiNetwork) GetCreateTime() *timestamppb.Timestamp {
 func (x *WifiNetwork) GetUpdateTime() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdateTime
+	}
+	return nil
+}
+
+func (x *WifiNetwork) GetFieldWriters() []*FieldWriter {
+	if x != nil {
+		return x.FieldWriters
 	}
 	return nil
 }
@@ -756,7 +766,7 @@ var File_beenfar_config_v1_wifi_network_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_wifi_network_proto_rawDesc = "" +
 	"\n" +
-	"$beenfar/config/v1/wifi_network.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe1\x04\n" +
+	"$beenfar/config/v1/wifi_network.proto\x12\x11beenfar.config.v1\x1a$beenfar/config/v1/field_writer.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xac\x05\n" +
 	"\vWifiNetwork\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x18\n" +
 	"\x04ssid\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04ssid\x12A\n" +
@@ -776,7 +786,8 @@ const file_beenfar_config_v1_wifi_network_proto_rawDesc = "" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
 	"\vupdate_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
-	"updateTime\"c\n" +
+	"updateTime\x12I\n" +
+	"\rfield_writers\x18\x17 \x03(\v2\x1e.beenfar.config.v1.FieldWriterB\x04\xe2A\x01\x03R\ffieldWriters\"c\n" +
 	"\x18CreateWifiNetworkRequest\x12G\n" +
 	"\fwifi_network\x18\x01 \x01(\v2\x1e.beenfar.config.v1.WifiNetworkB\x04\xe2A\x01\x02R\vwifiNetwork\"^\n" +
 	"\x19CreateWifiNetworkResponse\x12A\n" +
@@ -846,35 +857,37 @@ var file_beenfar_config_v1_wifi_network_proto_goTypes = []any{
 	(*DeleteWifiNetworkRequest)(nil),  // 11: beenfar.config.v1.DeleteWifiNetworkRequest
 	(*DeleteWifiNetworkResponse)(nil), // 12: beenfar.config.v1.DeleteWifiNetworkResponse
 	(*timestamppb.Timestamp)(nil),     // 13: google.protobuf.Timestamp
-	(*fieldmaskpb.FieldMask)(nil),     // 14: google.protobuf.FieldMask
+	(*FieldWriter)(nil),               // 14: beenfar.config.v1.FieldWriter
+	(*fieldmaskpb.FieldMask)(nil),     // 15: google.protobuf.FieldMask
 }
 var file_beenfar_config_v1_wifi_network_proto_depIdxs = []int32{
 	0,  // 0: beenfar.config.v1.WifiNetwork.security:type_name -> beenfar.config.v1.WifiSecurity
 	1,  // 1: beenfar.config.v1.WifiNetwork.band:type_name -> beenfar.config.v1.WifiBand
 	13, // 2: beenfar.config.v1.WifiNetwork.create_time:type_name -> google.protobuf.Timestamp
 	13, // 3: beenfar.config.v1.WifiNetwork.update_time:type_name -> google.protobuf.Timestamp
-	2,  // 4: beenfar.config.v1.CreateWifiNetworkRequest.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
-	2,  // 5: beenfar.config.v1.CreateWifiNetworkResponse.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
-	2,  // 6: beenfar.config.v1.GetWifiNetworkResponse.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
-	2,  // 7: beenfar.config.v1.ListWifiNetworksResponse.wifi_networks:type_name -> beenfar.config.v1.WifiNetwork
-	2,  // 8: beenfar.config.v1.UpdateWifiNetworkRequest.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
-	14, // 9: beenfar.config.v1.UpdateWifiNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
-	2,  // 10: beenfar.config.v1.UpdateWifiNetworkResponse.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
-	3,  // 11: beenfar.config.v1.WifiNetworkService.CreateWifiNetwork:input_type -> beenfar.config.v1.CreateWifiNetworkRequest
-	5,  // 12: beenfar.config.v1.WifiNetworkService.GetWifiNetwork:input_type -> beenfar.config.v1.GetWifiNetworkRequest
-	7,  // 13: beenfar.config.v1.WifiNetworkService.ListWifiNetworks:input_type -> beenfar.config.v1.ListWifiNetworksRequest
-	9,  // 14: beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork:input_type -> beenfar.config.v1.UpdateWifiNetworkRequest
-	11, // 15: beenfar.config.v1.WifiNetworkService.DeleteWifiNetwork:input_type -> beenfar.config.v1.DeleteWifiNetworkRequest
-	4,  // 16: beenfar.config.v1.WifiNetworkService.CreateWifiNetwork:output_type -> beenfar.config.v1.CreateWifiNetworkResponse
-	6,  // 17: beenfar.config.v1.WifiNetworkService.GetWifiNetwork:output_type -> beenfar.config.v1.GetWifiNetworkResponse
-	8,  // 18: beenfar.config.v1.WifiNetworkService.ListWifiNetworks:output_type -> beenfar.config.v1.ListWifiNetworksResponse
-	10, // 19: beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork:output_type -> beenfar.config.v1.UpdateWifiNetworkResponse
-	12, // 20: beenfar.config.v1.WifiNetworkService.DeleteWifiNetwork:output_type -> beenfar.config.v1.DeleteWifiNetworkResponse
-	16, // [16:21] is the sub-list for method output_type
-	11, // [11:16] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	14, // 4: beenfar.config.v1.WifiNetwork.field_writers:type_name -> beenfar.config.v1.FieldWriter
+	2,  // 5: beenfar.config.v1.CreateWifiNetworkRequest.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
+	2,  // 6: beenfar.config.v1.CreateWifiNetworkResponse.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
+	2,  // 7: beenfar.config.v1.GetWifiNetworkResponse.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
+	2,  // 8: beenfar.config.v1.ListWifiNetworksResponse.wifi_networks:type_name -> beenfar.config.v1.WifiNetwork
+	2,  // 9: beenfar.config.v1.UpdateWifiNetworkRequest.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
+	15, // 10: beenfar.config.v1.UpdateWifiNetworkRequest.update_mask:type_name -> google.protobuf.FieldMask
+	2,  // 11: beenfar.config.v1.UpdateWifiNetworkResponse.wifi_network:type_name -> beenfar.config.v1.WifiNetwork
+	3,  // 12: beenfar.config.v1.WifiNetworkService.CreateWifiNetwork:input_type -> beenfar.config.v1.CreateWifiNetworkRequest
+	5,  // 13: beenfar.config.v1.WifiNetworkService.GetWifiNetwork:input_type -> beenfar.config.v1.GetWifiNetworkRequest
+	7,  // 14: beenfar.config.v1.WifiNetworkService.ListWifiNetworks:input_type -> beenfar.config.v1.ListWifiNetworksRequest
+	9,  // 15: beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork:input_type -> beenfar.config.v1.UpdateWifiNetworkRequest
+	11, // 16: beenfar.config.v1.WifiNetworkService.DeleteWifiNetwork:input_type -> beenfar.config.v1.DeleteWifiNetworkRequest
+	4,  // 17: beenfar.config.v1.WifiNetworkService.CreateWifiNetwork:output_type -> beenfar.config.v1.CreateWifiNetworkResponse
+	6,  // 18: beenfar.config.v1.WifiNetworkService.GetWifiNetwork:output_type -> beenfar.config.v1.GetWifiNetworkResponse
+	8,  // 19: beenfar.config.v1.WifiNetworkService.ListWifiNetworks:output_type -> beenfar.config.v1.ListWifiNetworksResponse
+	10, // 20: beenfar.config.v1.WifiNetworkService.UpdateWifiNetwork:output_type -> beenfar.config.v1.UpdateWifiNetworkResponse
+	12, // 21: beenfar.config.v1.WifiNetworkService.DeleteWifiNetwork:output_type -> beenfar.config.v1.DeleteWifiNetworkResponse
+	17, // [17:22] is the sub-list for method output_type
+	12, // [12:17] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_config_v1_wifi_network_proto_init() }
@@ -882,6 +895,7 @@ func file_beenfar_config_v1_wifi_network_proto_init() {
 	if File_beenfar_config_v1_wifi_network_proto != nil {
 		return
 	}
+	file_beenfar_config_v1_field_writer_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
