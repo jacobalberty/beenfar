@@ -1,6 +1,7 @@
 # Generate with: go generate ./api  (or `buf generate` from api/)
-# Plugin versions are pinned in api/generate.go; install them with
-# `go generate -run install ./api` before running buf.
+# Go plugin versions are pinned in api/generate.go; install them with
+# `go generate -run install ./api` before running buf. protoc-gen-es is pinned
+# in ts/package.json and ts/package-lock.json; `npm ci --prefix ts` installs it.
 version: v2
 managed:
   enabled: true
@@ -29,3 +30,17 @@ plugins:
       - features=google.api.http
       - trim-unused-types
       - short-service-tags
+  # TypeScript messages and service descriptors, published as the npm package
+  # @jacobalberty/beenfar-api (see .github/scripts/api-npm-package.sh). The
+  # generated code imports the descriptors of google/api/*.proto, so those are
+  # generated too. The adapter API is not for browsers.
+  - local: ts/node_modules/.bin/protoc-gen-es
+    out: gen/ts
+    include_imports: true
+    exclude_types:
+      - beenfar.adapter.v1
+    opt:
+      - target=js+dts
+      # Spell out ".js" in imports, so the output also loads under Node's ESM
+      # resolution, not only through a bundler.
+      - import_extension=js
