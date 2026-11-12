@@ -10,6 +10,12 @@ name: API module release
 # fix/perf = patch, breaking = minor while 0.x). Release notes come from
 # git-cliff, limited to api/.
 #
+# Each release also publishes the TypeScript client (api/gen/ts) as the npm
+# package @jacobalberty/beenfar-api to the GitHub Packages npm registry, at the
+# same version, so front ends get API updates through their package manager
+# (and Dependabot). If only the publish fails, re-run the failed job: the tag
+# and release already exist.
+#
 # Run it by hand (workflow dispatch) with a version to cut a release the
 # script will not, e.g. api/v1.0.0.
 
@@ -40,6 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      # The api/vX.Y.Z tag that was cut; empty when nothing was released.
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -91,3 +100,40 @@ jobs:
           prerelease=()
           [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
           gh release create "$VERSION" --title "$VERSION" --notes-file RELEASE_NOTES.md --verify-tag --latest=false "${prerelease[@]}"
+
+  npm:
+    name: publish the TypeScript client
+    needs: release
+    if: needs.release.outputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # The tag the release job just cut, so the package is exactly what the
+      # Go module tag contains.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.version }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: '@jacobalberty'
+
+      - name: Assemble the package
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: .github/scripts/api-npm-package.sh "$RUNNER_TEMP/pkg" "$VERSION"
+
+      - name: Publish
+        working-directory: ${{ runner.temp }}/pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          # Pre-releases must not become "latest".
+          tag=latest
+          [[ "$VERSION" == *-* ]] && tag=next
+          npm publish --tag "$tag"
