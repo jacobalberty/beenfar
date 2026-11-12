@@ -19,7 +19,7 @@ name: beenfar
 
 services:
   beenfar:
-    image: ghcr.io/jacobalberty/beenfar:${BEENFAR_VERSION:-latest}
+    image: ghcr.io/jacobalberty/beenfar:${BEENFAR_VERSION:-0.4.0}
     restart: unless-stopped
     network_mode: host
     environment:
@@ -35,7 +35,7 @@ services:
       - beenfar-data:/data
 
   ui:
-    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:0.1.0}
+    image: ${LOOKMORELIKE_IMAGE:-ghcr.io/jacobalberty/lookmorelike:0.2.0}
     restart: unless-stopped
     environment:
       # beenfard is reached at the root of the same origin.
