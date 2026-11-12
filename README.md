@@ -29,6 +29,20 @@ beenfard admin token -username admin -name terraform
 or through the API (`ApiTokenService.CreateApiToken`). Send it as
 `Authorization: Bearer <token>`.
 
+### With Docker, and the web UI
+
+`compose.yaml` runs beenfard, the [web UI](https://github.com/jacobalberty/LookMoreLike)
+and a small proxy that puts them on one origin, with host networking so UniFi
+devices inform the machine's own address:
+
+```sh
+cp .env.example .env   # set BEENFAR_ADMIN_PASSWORD
+docker compose up -d   # then open http://<this host>:8000
+```
+
+[deploy/README.md](deploy/README.md) has the details, and how to run it on its own
+LAN address (ipvlan), behind Traefik, or behind Pangolin.
+
 ## Configuration API
 
 Everything that configures the network is a resource in `beenfar.config.v1`,
@@ -108,7 +122,8 @@ Route these paths to beenfard and everything else to the UI:
 | `/inform` | UniFi devices (usually reached directly on beenfard's port, not through the UI's hostname) |
 
 A cross-origin API URL is not supported: it would need CORS and cookies
-that cross sites, which beenfar does not offer.
+that cross sites, which beenfar does not offer. [deploy/README.md](deploy/README.md)
+has ready-made compose files for this.
 
 ## Authentication
 
