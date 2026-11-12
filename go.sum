@@ -35,8 +35,8 @@ github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 h1:/Tnpcb2E0Pz/tN9s3bfEY2Q8ePC
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0/go.mod h1:zOBXOsUaBSjKgmH4OGzV1esUpR3oUSCPYVd2cUBjKYY=
 github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
-github.com/jacobalberty/go-unifi v0.1.0 h1:yoU+Q0rHAEuBMx0Rx/9u6cMPa8h/OHEQoFsJQ7448LQ=
-github.com/jacobalberty/go-unifi v0.1.0/go.mod h1:KQwH/RRaiAufG3rTl4DzUEB+xl1xi5dmPBzwfru5IvY=
+github.com/jacobalberty/go-unifi v0.2.0 h1:XsnUQmL9FNQ10C5vU/fTktkhs6ImPZmXCPOegXpedAw=
+github.com/jacobalberty/go-unifi v0.2.0/go.mod h1:88y+WLRtF8h8zg/EFr+8u5DG0kTa7LqJ1Q56JMKmc5Q=
 github.com/mattn/go-isatty v0.0.24 h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=
 github.com/mattn/go-isatty v0.0.24/go.mod h1:nMCL3Zebbrt45jsMDgnfIwz6ydEQApk5oEI3HqDio6A=
 github.com/mfridman/interpolate v0.0.2 h1:pnuTK7MQIxxFz1Gr+rjSIx9u7qVjf5VOoM/u6BbAxPY=
