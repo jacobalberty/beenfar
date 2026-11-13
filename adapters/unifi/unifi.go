@@ -335,8 +335,10 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	// the model it sent, which, when it decrypted with an imported key, is
 	// its real one.
 	if dev.ID == "" || dev.State == adapter.DevicePending {
+		kind, ports := classify(in)
 		if _, err := h.ReportDevice(ctx, adapter.Discovered{
 			MAC: mac, Model: in.Model, IP: ipFrom(ctx), Firmware: in.Version,
+			Kind: kind, PortCount: ports,
 		}); err != nil {
 			return nil, err
 		}
@@ -398,8 +400,10 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 		}
 	}
 
+	kind, ports := classify(in)
 	if err := h.ReportState(ctx, dev.ID, adapter.State{
 		IP: ipFrom(ctx), Firmware: in.Version, Model: in.Model,
+		Kind: kind, PortCount: ports,
 		ConfigRevision: parseRevision(in.ConfigVersion),
 		Readoption:     readoption,
 	}); err != nil {
