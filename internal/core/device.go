@@ -100,6 +100,12 @@ func (s *DeviceService) Adopt(ctx context.Context, id, mac string) (store.Device
 	if err := s.adapters.AdoptDevice(ctx, d); err != nil {
 		return store.Device{}, fmt.Errorf("adapter %q could not adopt device %s: %w", d.Adapter, d.ID, err)
 	}
+	// The device's settings start from the baseline of its model, which is
+	// what a reset returns to. Stored before the device is marked adopted, so a
+	// failure leaves it pending and adopting again is safe.
+	if err := s.ensureSettings(ctx, d); err != nil {
+		return store.Device{}, fmt.Errorf("storing the settings of device %s: %w", d.ID, err)
+	}
 	return s.store.AdoptDevice(ctx, d.ID)
 }
 

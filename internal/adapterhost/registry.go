@@ -35,7 +35,8 @@ type entry struct {
 	driver Driver
 }
 
-// Registry tracks the connected adapters. It implements core.AdapterRegistry.
+// Registry tracks the connected adapters. It implements core.AdapterRegistry
+// and core.SettingsSchemas.
 type Registry struct {
 	store store.Store
 	prop  propagation.TextMapPropagator
@@ -122,6 +123,28 @@ func (r *Registry) AddBuiltin(a adapter.Adapter) error {
 		driver: a,
 	}
 	return nil
+}
+
+// SettingsSchema implements core.SettingsSchemas for the built-in adapters
+// that have settings (they implement SettingsSchema themselves).
+func (r *Registry) SettingsSchema(adapterName, model string) (core.SettingsSchema, bool) {
+	r.mu.RLock()
+	e, ok := r.adapters[adapterName]
+	r.mu.RUnlock()
+	if !ok {
+		return core.SettingsSchema{}, false
+	}
+	a, ok := e.driver.(interface {
+		SettingsSchema(model string) (map[string]string, func(map[string]string) error, bool)
+	})
+	if !ok {
+		return core.SettingsSchema{}, false
+	}
+	defaults, check, ok := a.SettingsSchema(model)
+	if !ok {
+		return core.SettingsSchema{}, false
+	}
+	return core.SettingsSchema{Defaults: defaults, Check: check}, true
 }
 
 // HTTPHandlers returns the device-facing routes of the built-in adapters,
