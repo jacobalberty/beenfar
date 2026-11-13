@@ -76,6 +76,11 @@ func switchPortsFromModel(model string) int {
 	for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
 		end++
 	}
-	n, _ := strconv.Atoi(rest[:end])
-	return n
+	// 16 bits is far more ports than any switch has, and keeps the count a
+	// bounded value all the way to the wire.
+	n, err := strconv.ParseInt(rest[:end], 10, 16)
+	if err != nil {
+		return 0
+	}
+	return int(n)
 }
