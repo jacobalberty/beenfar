@@ -305,6 +305,94 @@ stream, and reports devices and reads configuration through a Connect-backed
 for it with `beenfard admin adapter-token create -adapter NAME` (also `list`
 and `revoke`); the token lets its holder act as that adapter only.
 
+## End-to-end tests
+
+`e2e/` runs the real `beenfard` binary as a subprocess against a fleet of
+emulated UniFi devices ([unifi-emu](https://github.com/jamesbraid/unifi-emu)),
+and drives it through the public API, the way an operator or the Terraform
+provider would. The devices speak the real inform protocol to `/inform`, so
+adoption, the key handshake, AES-GCM and forgetting a device are exercised
+exactly as hardware would. It needs no containers and no privileges.
+
+```sh
+go test -tags e2e -count=1 -v ./e2e/...
+```
+
+The suite is behind the `e2e` build tag, so `go test ./...` (and the
+Dockerfile's build stage) never run it; CI has an `end-to-end` job. It builds
+`beenfard` from the checkout; set `BEENFAR_E2E_BIN` to test a prebuilt binary
+(for example one copied out of the release image). A failing test prints the
+daemon's log.
+
+### How a test is built
+
+Each test starts its own daemon (random loopback port, fresh SQLite database,
+an admin and an API token, UniFi inform interval of one second) and its own
+fleet, so tests do not share state:
+
+```go
+func TestSomething(t *testing.T) {
+	d := startDaemon(t)                       // add settings: startDaemon(t, "BEENFAR_UNIFI_GCM=true")
+	f := startFleet(t, d, accessPoint)        // devices inform d once a second
+
+	pending := d.pending(t, accessPoint.MAC)  // wait until the daemon lists it as pending
+	d.adopt(t, pending[accessPoint.MAC])      // AdoptDevice through the API
+	connected(t, d, f, accessPoint.MAC)       // device finished the handshake and the daemon says adopted
+
+	// ...then call whatever you are testing and assert on the response.
+	wifi := configv1connect.NewWifiNetworkServiceClient(d.client)
+	_ = wifi
+}
+```
+
+The helpers are at the top of `e2e/e2e_test.go`:
+
+| Helper | Does |
+|---|---|
+| `startDaemon(t, env...)` | Runs `beenfard`; `env` entries (`KEY=value`) are added to the baseline and win over it. Returns a `daemon` with the base `url`, an authenticated Connect `client` and a ready `devices` client. |
+| `startFleet(t, d, specs...)` | Starts emulated devices informing `d`. Returns a `fleet`, which is the emulator's `*emu.Emu`: `State`, `WaitState`, `Stop`. |
+| `d.pending`, `d.adopt`, `d.state`, `connected`, `lastSeen` | Wait for and drive device adoption. |
+| `fleet.tap` | Records the encoding flags of every inform the devices send, by MAC (`count`, `waitInforms`). Use it to assert how devices talk to the daemon, e.g. that they use AES-GCM, rather than only that they keep being answered. |
+| `eventually(t, timeout, what, check)` | Polls `check(ctx)` until it returns nil. Use it for anything asynchronous; do not `time.Sleep`. `ctx` ends at the deadline: pass it to every request `check` makes, so a stalled response cannot outlive the wait. Outside `eventually`, give an API call `callCtx(t)`. |
+
+### Extending them
+
+- **A new scenario**: add a `TestXxx` function in `e2e/` shaped like the one
+  above. Assert on API responses, and on what the device sees through
+  `fleet.State`. Keep every wait bounded with `eventually` or a context.
+- **A new API under test**: build its client from `d.client`. Networks, wifi
+  networks and RADIUS servers can be created through the API with no devices
+  at all, so those tests need only `startDaemon`; switch ports need an adopted
+  switch.
+- **A new daemon setting**: pass it to `startDaemon` as an environment
+  variable, as `TestAdoptionWithAESGCM` does. Settings are `BEENFAR_*`
+  variables, the same as in production (`beenfard -h` lists them).
+- **A different device**: add an `emu.DeviceSpec`. `Model` must be a model the
+  emulator knows (access points, switches, gateways; see
+  `model_profiles.json` in the unifi-emu module). Give each device a fixed,
+  distinct MAC so a failure can be reproduced. `Ports`, `Name` and `SSIDs`
+  shape what it reports.
+- **Different adoption behaviour**: if a setting makes some devices adopt on
+  their own, have the test adopt only the devices that are still pending.
+
+### Limits
+
+- The emulator understands `noop`, `setparam` (the `authkey`, `cfgversion` and
+  `use_aes_gcm` of `mgmt_cfg`), `setstate`, `upgrade`, `reboot` and the
+  `setdefault` factory reset. It does not interpret `system_cfg`, so these
+  tests cannot show that the wifi, VLAN and RADIUS settings pushed with
+  `BEENFAR_UNIFI_SYSTEM_CFG` are correct; that is checked against a real
+  device's key names in `adapters/unifi`.
+- The emulator logs through the global standard logger, so tests that start a
+  fleet must not use `t.Parallel`. The suite is a few seconds long, so that
+  costs little.
+- A daemon behaviour that depends on a reply a real device has not been seen
+  to accept is only as good as the emulator's model of it. Say so in the test
+  comment, as the go-unifi `SetDefault` documentation does.
+- If you need a change in the emulator (a message it ignores), fix it in
+  unifi-emu and bump the dependency; do not work around it in the test. Skip
+  the test with a comment naming the missing support until it is released.
+
 ## Todo
 * Per device command queues
 * Verify the UniFi `system_cfg` push on hardware, and render guest networks and switch ports
