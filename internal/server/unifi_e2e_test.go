@@ -299,7 +299,7 @@ func TestForgetDeviceResetsTheDevice(t *testing.T) {
 
 	// The device's next inform brings the reset command; it keeps coming until the device has reset.
 	for range 2 {
-		if status, reply := d.inform(key, version); status != http.StatusOK || reply["_type"] != "setdefault" {
+		if status, reply := d.inform(key, version); status != http.StatusOK || !isSetDefault(reply) {
 			t.Fatalf("reply to a forgotten device: %d %v, want a setdefault", status, reply)
 		}
 	}
@@ -355,4 +355,9 @@ func TestForceForgetDevice(t *testing.T) {
 	if err != nil || len(pending.GetDevices()) != 1 || !pending.GetDevices()[0].GetLocked() {
 		t.Fatalf("pending = %v, %v, want one locked device", pending, err)
 	}
+}
+
+// isSetDefault reports whether reply is the factory-reset command.
+func isSetDefault(reply map[string]any) bool {
+	return reply["_type"] == "cmd" && reply["cmd"] == "setdefault"
 }

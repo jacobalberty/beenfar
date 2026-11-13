@@ -711,15 +711,15 @@ func TestForgetResetsTheDevice(t *testing.T) {
 	}
 
 	status, reply := e.post(d, key, version)
-	if status != http.StatusOK || reply["_type"] != "setdefault" {
+	if status != http.StatusOK || !isSetDefault(reply) {
 		t.Fatalf("reply = %d %v, want a setdefault", status, reply)
 	}
 	delete(reply, "server_time_in_utc")
-	if len(reply) != 1 {
+	if len(reply) != 2 {
 		t.Fatalf("a setdefault carries nothing else: %v", reply)
 	}
 	// The reply is lost: the device asks again and is told again.
-	if status, again := e.post(d, key, version); status != http.StatusOK || again["_type"] != "setdefault" {
+	if status, again := e.post(d, key, version); status != http.StatusOK || !isSetDefault(again) {
 		t.Fatalf("second reply = %d %v", status, again)
 	}
 	if got := e.deviceByMAC(d); !got.Forgetting || got.State != store.DeviceStateAdopted {
@@ -777,7 +777,7 @@ func TestForgottenDeviceIsNotDroppedByASpoofedInform(t *testing.T) {
 		t.Fatalf("a spoofed inform changed the device: %+v", got)
 	}
 	// The real device, on its own key, is still told to reset.
-	if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "setdefault" {
+	if status, reply := e.post(d, key, version); status != http.StatusOK || !isSetDefault(reply) {
 		t.Fatalf("real device: %d %v", status, reply)
 	}
 }
@@ -852,4 +852,9 @@ func TestForgetAResetDeviceReleasesItAtOnce(t *testing.T) {
 	if _, err := e.st.GetDeviceByMAC(ctx, d.mac.String()); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("the reset device was not released: %v", err)
 	}
+}
+
+// isSetDefault reports whether reply is the factory-reset command.
+func isSetDefault(reply map[string]any) bool {
+	return reply["_type"] == "cmd" && reply["cmd"] == "setdefault"
 }

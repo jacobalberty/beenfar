@@ -8,7 +8,7 @@ require (
 	connectrpc.com/vanguard v0.5.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/jacobalberty/beenfar/api v0.0.0
-	github.com/jacobalberty/go-unifi v0.2.0
+	github.com/jacobalberty/go-unifi v0.3.1
 	github.com/pressly/goose/v3 v3.30.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
