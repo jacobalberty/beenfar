@@ -346,16 +346,24 @@ func connected(t *testing.T, d *daemon, f *fleet, mac string) {
 	})
 }
 
-// A mixed fleet shows up as pending with the identity each device reports,
-// stays pending (nothing is adopted by itself), and is adopted through the
-// API: every device then completes the real key handshake and keeps informing.
+// A mixed fleet shows up with the identity each device reports. The access
+// point adopts itself (BEENFAR_AUTO_ADOPT is on by default); the switch and the
+// gateway stay pending until they are adopted through the API. Every device
+// then completes the real key handshake and keeps informing.
 func TestFleetAdoption(t *testing.T) {
 	d := startDaemon(t)
 	f := startFleet(t, d, accessPoint, switchDev, gateway)
 
-	pending := d.pending(t, accessPoint.MAC, switchDev.MAC, gateway.MAC)
+	pending := d.pending(t, switchDev.MAC, gateway.MAC)
+	connected(t, d, f, accessPoint.MAC) // adopted without anybody asking
 	for _, spec := range f.specs {
 		dev := pending[spec.MAC]
+		if spec.MAC == accessPoint.MAC {
+			if dev != nil {
+				t.Errorf("%s is pending: access points are adopted on their own", spec.MAC)
+			}
+			continue
+		}
 		if dev.GetAdapter() != "unifi" {
 			t.Errorf("%s adapter = %q, want unifi", spec.MAC, dev.GetAdapter())
 		}
@@ -370,9 +378,8 @@ func TestFleetAdoption(t *testing.T) {
 		}
 	}
 
-	for _, spec := range f.specs {
-		d.adopt(t, pending[spec.MAC])
-	}
+	d.adopt(t, pending[switchDev.MAC])
+	d.adopt(t, pending[gateway.MAC])
 	for _, spec := range f.specs {
 		connected(t, d, f, spec.MAC)
 	}
@@ -400,17 +407,14 @@ func TestAdoptionWithAESGCM(t *testing.T) {
 	d := startDaemon(t, "BEENFAR_UNIFI_GCM=true")
 	f := startFleet(t, d, accessPoint, switchDev)
 
-	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
-	for _, spec := range f.specs {
-		// A pending device is on the default key, and uses CBC with it.
-		f.tap.waitInforms(t, spec.MAC, inform.FlagEncrypted, 1)
-		if n := f.tap.count(spec.MAC, inform.FlagGCM); n != 0 {
-			t.Fatalf("%s sent %d informs with GCM before it was adopted", spec.MAC, n)
-		}
+	// The switch waits to be adopted, so it can be seen on the default key
+	// first. The access point adopts itself, too quickly to catch it there.
+	pending := d.pending(t, switchDev.MAC)
+	f.tap.waitInforms(t, switchDev.MAC, inform.FlagEncrypted, 1)
+	if n := f.tap.count(switchDev.MAC, inform.FlagGCM); n != 0 {
+		t.Fatalf("%s sent %d informs with GCM before it was adopted", switchDev.MAC, n)
 	}
-	for _, spec := range f.specs {
-		d.adopt(t, pending[spec.MAC])
-	}
+	d.adopt(t, pending[switchDev.MAC])
 	for _, spec := range f.specs {
 		connected(t, d, f, spec.MAC)
 	}
@@ -457,6 +461,157 @@ func TestForgetResetsAndReadopts(t *testing.T) {
 	// It can be adopted all over again.
 	d.adopt(t, again)
 	connected(t, d, f, switchDev.MAC)
+}
+
+// device returns the daemon's record of the device with the given MAC.
+func (d *daemon) device(ctx context.Context, mac string) (*configv1.Device, error) {
+	resp, err := d.devices.ListDevices(ctx, &configv1.ListDevicesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for _, dev := range resp.GetDevices() {
+		if dev.GetMac() == mac {
+			return dev, nil
+		}
+	}
+	return nil, fmt.Errorf("%s is not listed", mac)
+}
+
+// The daemon works out what each device is from its inform: the access point
+// and the switch are told apart and the switch reports its ports, which is
+// what a client uses to decide whether port settings apply.
+func TestDevicesReportKindAndPorts(t *testing.T) {
+	d := startDaemon(t, "BEENFAR_AUTO_ADOPT=false")
+	startFleet(t, d, accessPoint, switchDev, gateway)
+	d.pending(t, accessPoint.MAC, switchDev.MAC, gateway.MAC)
+
+	for _, want := range []struct {
+		mac       string
+		kind      configv1.DeviceKind
+		wantPorts bool
+	}{
+		{accessPoint.MAC, configv1.DeviceKind_DEVICE_KIND_ACCESS_POINT, false},
+		{switchDev.MAC, configv1.DeviceKind_DEVICE_KIND_SWITCH, true},
+		{gateway.MAC, configv1.DeviceKind_DEVICE_KIND_GATEWAY, false},
+	} {
+		dev, err := d.device(callCtx(t), want.mac)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dev.GetKind() != want.kind {
+			t.Errorf("%s kind = %s, want %s", want.mac, dev.GetKind(), want.kind)
+		}
+		if (dev.GetPortCount() > 0) != want.wantPorts {
+			t.Errorf("%s port_count = %d, want ports: %v", want.mac, dev.GetPortCount(), want.wantPorts)
+		}
+	}
+}
+
+// With BEENFAR_AUTO_ADOPT off, an access point waits to be adopted like any
+// other device, and adopting it by hand still works.
+func TestAutoAdoptCanBeTurnedOff(t *testing.T) {
+	d := startDaemon(t, "BEENFAR_AUTO_ADOPT=false")
+	f := startFleet(t, d, accessPoint)
+
+	pending := d.pending(t, accessPoint.MAC)
+	// Several informs, so a late automatic adoption would have happened.
+	f.tap.waitInforms(t, accessPoint.MAC, inform.FlagEncrypted, 3)
+	if st, err := d.state(callCtx(t), accessPoint.MAC); err != nil || st != configv1.DeviceState_DEVICE_STATE_PENDING {
+		t.Fatalf("state = %s, %v; want it still pending", st, err)
+	}
+	d.adopt(t, pending[accessPoint.MAC])
+	connected(t, d, f, accessPoint.MAC)
+}
+
+// Port settings only exist for devices with ports: the API refuses them on an
+// access point and accepts them on a switch, within its port count.
+func TestSwitchPortsOnlyOnDevicesWithPorts(t *testing.T) {
+	d := startDaemon(t)
+	f := startFleet(t, d, accessPoint, switchDev)
+	pending := d.pending(t, switchDev.MAC)
+	d.adopt(t, pending[switchDev.MAC])
+	connected(t, d, f, accessPoint.MAC)
+	connected(t, d, f, switchDev.MAC)
+
+	ports := configv1connect.NewSwitchPortServiceClient(d.client)
+	create := func(mac string, index uint32) error {
+		dev, err := d.device(callCtx(t), mac)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ports.CreateSwitchPort(callCtx(t), &configv1.CreateSwitchPortRequest{
+			SwitchPort: &configv1.SwitchPort{DeviceId: dev.GetId(), PortIndex: index, Name: "e2e"},
+		})
+		return err
+	}
+
+	if err := create(accessPoint.MAC, 1); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("port on an access point: %v, want FailedPrecondition", err)
+	}
+	if err := create(switchDev.MAC, 1); err != nil {
+		t.Errorf("port 1 of the switch: %v", err)
+	}
+	sw, err := d.device(callCtx(t), switchDev.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := create(switchDev.MAC, sw.GetPortCount()+1); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("port beyond the switch's %d ports: %v, want InvalidArgument", sw.GetPortCount(), err)
+	}
+}
+
+// An access point can be pinned to an AP group and released from it again
+// through the API; a switch cannot be put in one.
+func TestAccessPointGroupOverride(t *testing.T) {
+	d := startDaemon(t)
+	f := startFleet(t, d, accessPoint, switchDev)
+	pending := d.pending(t, switchDev.MAC)
+	d.adopt(t, pending[switchDev.MAC])
+	connected(t, d, f, accessPoint.MAC)
+	connected(t, d, f, switchDev.MAC)
+
+	// A wifi network limited to two groups, which one access point can join.
+	wifi := configv1connect.NewWifiNetworkServiceClient(d.client)
+	if _, err := wifi.CreateWifiNetwork(callCtx(t), &configv1.CreateWifiNetworkRequest{WifiNetwork: &configv1.WifiNetwork{
+		Ssid: "e2e-upstairs", Security: configv1.WifiSecurity_WIFI_SECURITY_WPA_PERSONAL,
+		SecurityKey: "correct horse battery", ApGroups: []string{"upstairs", "attic"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	ap, err := d.device(callCtx(t), accessPoint.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ap.GetApGroup() != "" {
+		t.Fatalf("new access point is in group %q", ap.GetApGroup())
+	}
+	set := func(group string) (*configv1.Device, error) {
+		resp, err := d.devices.UpdateDevice(callCtx(t), &configv1.UpdateDeviceRequest{
+			Device: &configv1.Device{Id: ap.GetId(), ApGroup: group},
+		})
+		return resp.GetDevice(), err
+	}
+	if got, err := set("attic"); err != nil || got.GetApGroup() != "attic" {
+		t.Fatalf("pinning to attic: %v, %v", got, err)
+	}
+	if got, err := d.device(callCtx(t), accessPoint.MAC); err != nil || got.GetApGroup() != "attic" {
+		t.Fatalf("listed after pinning: %v, %v", got, err)
+	}
+	// Moving it away and back to the default keeps it adopted and informing.
+	if got, err := set(""); err != nil || got.GetApGroup() != "" {
+		t.Fatalf("clearing the group: %v, %v", got, err)
+	}
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
+
+	sw, err := d.device(callCtx(t), switchDev.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = d.devices.UpdateDevice(callCtx(t), &configv1.UpdateDeviceRequest{Device: &configv1.Device{Id: sw.GetId(), ApGroup: "attic"}})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("group on a switch: %v, want InvalidArgument", err)
+	}
 }
 
 // lastSeen returns the last_seen_time the daemon reports for the device.
