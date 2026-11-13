@@ -70,8 +70,8 @@ github.com/hashicorp/go-retryablehttp v0.7.8 h1:ylXZWnqa7Lhqpk0L1P1LzDtGcCR0rPVU
 github.com/hashicorp/go-retryablehttp v0.7.8/go.mod h1:rjiScheydd+CxvumBsIrFKlx3iS0jrZ7LvzFGFmuKbw=
 github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
-github.com/jacobalberty/go-unifi v0.3.1 h1:cWy5I42x1Z3s+niEAV5tiZSbPDRkzCj2zvU51odww/c=
-github.com/jacobalberty/go-unifi v0.3.1/go.mod h1:88y+WLRtF8h8zg/EFr+8u5DG0kTa7LqJ1Q56JMKmc5Q=
+github.com/jacobalberty/go-unifi v0.3.2 h1:lNEI9A1f8Uleoh/3CqmzsCsykVPYvx7hj2Vj76dJYMo=
+github.com/jacobalberty/go-unifi v0.3.2/go.mod h1:88y+WLRtF8h8zg/EFr+8u5DG0kTa7LqJ1Q56JMKmc5Q=
 github.com/jamesbraid/unifi-emu v0.5.5 h1:qwhdIWUBAzeYCQXw3So4bfUQRYugbcxvzBkq9hYcWXE=
 github.com/jamesbraid/unifi-emu v0.5.5/go.mod h1:ovSviwOP8dG16GBOaxWbZYzWzl1xcYPdUsof5n9oSuE=
 github.com/klauspost/compress v1.20.4 h1:dD0v/bvxtjCBqQu6sx1TNWkalEY5lNTIe+HY9w8TeNI=
