@@ -85,7 +85,7 @@ func parseFlags(args []string) (config, error) {
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
-	for _, srv := range strings.Split(*ntp, ",") {
+	for srv := range strings.SplitSeq(*ntp, ",") {
 		if srv = strings.TrimSpace(srv); srv != "" {
 			cfg.unifiSite.NTPServers = append(cfg.unifiSite.NTPServers, srv)
 		}
