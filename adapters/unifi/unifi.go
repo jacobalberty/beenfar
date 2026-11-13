@@ -493,22 +493,15 @@ func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, 
 		return nil, fmt.Errorf("rendering mgmt_cfg: %w", err)
 	}
 	sp := inform.SetParam{ManagementConfig: mgmt.String(), ConfigVersion: version}
-	// Access points are provisioned with their wifi, VLAN and RADIUS settings
-	// once they are adopted and on their own key. Other devices have none to
-	// receive.
-	if !provision || !secure {
-		return sp, nil
-	}
-	system, err := renderSystemConfig(desired)
-	if err != nil {
-		// A configuration that cannot be rendered (an open network, say) must
-		// not keep the device from finishing its adoption: it still gets its
-		// key and revision, and the error is logged on every push.
-		slog.WarnContext(ctx, "not sending the access point its settings: the configuration cannot be rendered", slog.Any("error", err))
-		return sp, nil
-	}
-	if system.Len() > 0 {
-		sp.SystemConfig = system.String()
+	// A device REPLACES its whole configuration with system_cfg (a real
+	// controller's document and the device's /tmp/system.cfg were identical
+	// key for key in a capture), so a partial document would leave an access
+	// point with almost no configuration. system_cfg is therefore sent only
+	// when a complete document was built for a model that has a profile. None
+	// does yet: the fragment renderer in systemcfg.go is not used here, and an
+	// access point is sent its key and revision only, so adoption completes.
+	if provision && secure {
+		slog.WarnContext(ctx, "not sending the access point its settings: no complete system.cfg can be built for it yet")
 	}
 	return sp, nil
 }

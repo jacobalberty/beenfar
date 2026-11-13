@@ -271,30 +271,16 @@ device has nothing to reset and is removed at once. Only one captured controller
 reply backs the message, so which models and firmware honour it is not
 verified; see [go-unifi](https://github.com/jacobalberty/go-unifi).
 
-**Device settings.** Adopted access points are sent their wifi networks
-(WPA-PSK, and WPA-enterprise with a RADIUS server for authentication and
-optional accounting, filtered by the access point's `ap_group`), the VLANs those
-networks use, and the matching bridges, as a `system_cfg` document
-(`renderSystemConfig` in `adapters/unifi/systemcfg.go`). The key names come
-from a `system.cfg` captured from a dual-radio access point with the madwifi
-driver, and the tests check every rendered key against that capture. What is
-not verified:
-
-- the document only holds those sections, not radio channels, SSH users,
-  NTP and the other settings beenfar does not manage, and whether a device
-  merges it into its configuration or replaces its configuration with it has
-  not been tried on hardware;
-- other radio layouts (newer models use other interface names);
-- open, WEP and guest networks are not rendered, nor is more than one RADIUS
-  server per network. A configuration containing one cannot be rendered: the
-  access point is still adopted and keeps tracking the config revision, but is
-  sent no settings, and the daemon logs a warning on each inform;
-- an access point left with no networks to run (every network was deleted, or
-  it was moved to a group no network lists) is sent no settings: the capture does
-  not show how to remove a WLAN, so the networks it already runs keep running
-  until the device is reset or re-adopted;
-- switch port settings are stored and handed to the adapter, but not sent to
-  devices: the capture has no port VLAN or PoE keys.
+**Device settings.** Access points are adopted and tracked, but are not yet
+sent their wifi settings. A device replaces its whole configuration with the
+`system_cfg` of a `setparam` (a real controller's document and the device's
+`/tmp/system.cfg` were identical in a capture), so beenfar sends one only when it
+can build the complete document for the device's model, and it cannot for any
+model yet: sending a fragment would leave an access point with almost no
+configuration. Until then an access point is given its key and the revision of
+the configuration, adoption completes, and the daemon logs a warning when it
+pushes. The wifi, VLAN and RADIUS rendering in `adapters/unifi/systemcfg.go`
+is not used.
 
 Switches and gateways are re-keyed and tracked by config revision, but their
 settings are left alone.

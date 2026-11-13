@@ -330,8 +330,10 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	}
 }
 
-// An adopted access point is sent its wifi settings.
-func TestPushSystemConfig(t *testing.T) {
+// An adopted access point is not sent a system_cfg: a device replaces its
+// whole configuration with it, and no complete document can be built yet. It
+// still adopts, and is told the revision of the configuration so it settles.
+func TestNoPartialSystemConfig(t *testing.T) {
 	ctx := t.Context()
 	e := newEnv(t, unifi.Options{})
 	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
@@ -339,61 +341,8 @@ func TestPushSystemConfig(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	d := newDevice(9)
-	d.model = "U7PG2"
-	e.post(d, inform.DefaultKey(), "")
-	if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
-		t.Fatal(err)
-	}
-	// The reply that hands the device its key is sealed with the default key,
-	// which anybody can open: it must not carry the wifi key.
-	_, reply := e.post(d, inform.DefaultKey(), "")
-	if sys, ok := reply["system_cfg"]; ok {
-		t.Fatalf("settings sent under the default key: %v", sys)
-	}
-	key := authKey(t, reply)
-	version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
-	// The device then speaks its own key, reports the version it was given,
-	// and is sent its settings because that version is not the configuration.
-	status, reply := e.post(d, key, version)
-	if status != http.StatusOK {
-		t.Fatalf("status %d", status)
-	}
-	sys, ok := reply["system_cfg"].(string)
-	if !ok {
-		t.Fatalf("no system_cfg in %v", reply)
-	}
-	cfg, err := inform.ParseConfig(sys)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for k, want := range map[string]string{
-		"aaa.1.ssid": "home", "aaa.1.wpa.psk": "hunter2hunter2", "aaa.1.devname": "wifi1ap0", "wireless.1.parent": "wifi1",
-	} {
-		if got, _ := cfg.Get(k); got != want {
-			t.Errorf("%s = %q, want %q", k, got, want)
-		}
-	}
-	// Once it runs the settings' version it is left alone.
-	version, _ = mgmt(t, reply).Get(inform.KeyCfgVersion)
-	if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "noop" {
-		t.Errorf("after the settings: %d %v, want a noop", status, reply)
-	}
-}
-
-// Only access points are provisioned with wifi settings, and a configuration
-// that cannot be rendered does not keep an access point from being adopted.
-func TestSystemConfigOnlyForRenderableAccessPoints(t *testing.T) {
-	ctx := t.Context()
-	e := newEnv(t, unifi.Options{})
-	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
-		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	adopted := func(last byte, model string) map[string]any {
-		t.Helper()
-		d := newDevice(last)
+	for i, model := range []string{"U7PG2", "U7LT"} {
+		d := newDevice(byte(30 + i))
 		d.model = model
 		e.post(d, inform.DefaultKey(), "")
 		if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
@@ -403,31 +352,29 @@ func TestSystemConfigOnlyForRenderableAccessPoints(t *testing.T) {
 		if status != http.StatusOK {
 			t.Fatalf("%s: adoption reply = %d", model, status)
 		}
+		if sys, ok := reply["system_cfg"]; ok {
+			t.Fatalf("%s: settings sent under the default key: %v", model, sys)
+		}
 		key := authKey(t, reply)
 		version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
 		status, reply = e.post(d, key, version) // on its own key now
 		if status != http.StatusOK {
 			t.Fatalf("%s: reply on its own key = %d", model, status)
 		}
-		return reply
-	}
-	if _, ok := adopted(30, "U7PG2")["system_cfg"]; !ok {
-		t.Error("access point was not sent its settings")
-	}
-	if _, ok := adopted(31, "US8P150")["system_cfg"]; ok {
-		t.Error("switch was sent wifi settings")
-	}
-
-	// An open network cannot be rendered. The access point still adopts.
-	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{SSID: "open", Security: store.WifiSecurityOpen, Band: store.WifiBandBoth}); err != nil {
-		t.Fatal(err)
-	}
-	reply := adopted(32, "U7PG2")
-	if _, ok := reply["system_cfg"]; ok {
-		t.Error("an unrenderable configuration was sent")
-	}
-	if len(authKey(t, reply)) == 0 {
-		t.Error("the access point was not given its key")
+		if sys, ok := reply["system_cfg"]; ok {
+			t.Errorf("%s: a partial system_cfg was sent: %v", model, sys)
+		}
+		if len(authKey(t, reply)) == 0 {
+			t.Errorf("%s: the device was not given its key", model)
+		}
+		if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); len(v) != 16 {
+			t.Errorf("%s: cfgversion %q is not a configuration revision", model, v)
+		}
+		// Having been told the revision, the device is left alone.
+		version, _ = mgmt(t, reply).Get(inform.KeyCfgVersion)
+		if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "noop" {
+			t.Errorf("%s: after the revision: %d %v, want a noop", model, status, reply)
+		}
 	}
 }
 
