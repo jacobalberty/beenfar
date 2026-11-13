@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacobalberty/beenfar/adapters/unifi"
+	"github.com/jacobalberty/beenfar/internal/unifisettings"
 )
 
 func TestAdminCreateAndToken(t *testing.T) {
@@ -105,5 +108,32 @@ func TestAdminImportUnifi(t *testing.T) {
 		if err := runAdmin([]string{"import-unifi", "-db", db}, strings.NewReader(bad), &out); err == nil {
 			t.Errorf("%s: import succeeded", name)
 		}
+	}
+}
+
+func TestAdminUnifiDevicePassword(t *testing.T) {
+	ctx := t.Context()
+	db := "sqlite://" + filepath.Join(t.TempDir(), "beenfar.db")
+
+	// Before the daemon has generated the site settings there is nothing to show.
+	if err := runAdmin([]string{"unifi-device-password", "-db", db}, nil, &bytes.Buffer{}); err == nil {
+		t.Fatal("printed a password that does not exist")
+	}
+	st, _, err := openStore(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unifisettings.Ensure(ctx, st, unifi.SiteOptions{Country: 840}); err != nil {
+		t.Fatal(err)
+	}
+	site, _ := unifisettings.Load(ctx, st)
+	_ = st.Close()
+
+	var out bytes.Buffer
+	if err := runAdmin([]string{"unifi-device-password", "-db", db}, nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "user: admin") || !strings.Contains(out.String(), "password: "+site.AdminPassword) {
+		t.Fatalf("output %q", out.String())
 	}
 }

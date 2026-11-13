@@ -16,6 +16,7 @@ import (
 	"github.com/jacobalberty/beenfar/adapters/unifi"
 	"github.com/jacobalberty/beenfar/internal/adapterhost"
 	"github.com/jacobalberty/beenfar/internal/auth"
+	"github.com/jacobalberty/beenfar/internal/unifisettings"
 )
 
 const adminUsage = `usage:
@@ -36,7 +37,11 @@ const adminUsage = `usage:
       from JSON [{"mac": "...", "authkey": "32 hex digits", "gcm": false}] in
       PATH or on standard input. Once such a device is pointed at beenfar
       (DNS or set-inform) it appears as pending with its real model, and
-      adopting it re-keys it. The keys are never shown by any API.`
+      adopting it re-keys it. The keys are never shown by any API.
+  beenfard admin unifi-device-password [-db URL]
+      Print the password of the "admin" account that beenfar sets on UniFi
+      access points it provisions (SSH, console). It is generated at first
+      start and shown by nothing else: treat the output as a secret.`
 
 // runAdmin implements the offline "beenfard admin ..." subcommands, which
 // work directly on the database.
@@ -137,6 +142,22 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer) error {
 			return fmt.Errorf("imported %d of %d devices: %w", n, len(in), err)
 		}
 		_, err = fmt.Fprintf(stdout, "imported keys for %d devices\n", n)
+		return err
+
+	case "unifi-device-password":
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+		st, _, err := openStore(ctx, *dbURL)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = st.Close() }()
+		site, err := unifisettings.Load(ctx, st)
+		if err != nil {
+			return fmt.Errorf("no UniFi site settings yet (start beenfard once): %w", err)
+		}
+		_, err = fmt.Fprintf(stdout, "user: %s\npassword: %s\n", site.AdminUser, site.AdminPassword)
 		return err
 
 	case "adapter-token":
