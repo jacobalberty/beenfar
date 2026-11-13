@@ -23,15 +23,20 @@ import (
 
 // unifiDevice plays a UniFi device against the real server.
 type unifiDevice struct {
-	t   *testing.T
-	f   apiFixture
-	mac net.HardwareAddr
+	t     *testing.T
+	f     apiFixture
+	mac   net.HardwareAddr
+	model string // default US8P150
 }
 
 func (d unifiDevice) inform(key []byte, cfgversion string) (int, map[string]any) {
 	d.t.Helper()
 	flags := inform.FlagEncrypted | inform.FlagSnappy
-	msg, _ := json.Marshal(map[string]any{"mac": d.mac.String(), "model": "US8P150", "version": "4.0.66.10832", "cfgversion": cfgversion})
+	model := d.model
+	if model == "" {
+		model = "US8P150"
+	}
+	msg, _ := json.Marshal(map[string]any{"mac": d.mac.String(), "model": model, "version": "4.0.66.10832", "cfgversion": cfgversion})
 	p, err := inform.Seal(d.mac, flags, key, msg)
 	if err != nil {
 		d.t.Fatal(err)

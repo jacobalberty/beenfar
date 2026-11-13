@@ -39,6 +39,22 @@ func DeviceFromProto(source *v11.Device) store.Device {
 	}
 	return storeDevice
 }
+func DeviceSettingsToProto(source store.DeviceSettings) *v11.DeviceSettings {
+	var configv1DeviceSettings v11.DeviceSettings
+	if source.Original != nil {
+		configv1DeviceSettings.Original = make(map[string]string, len(source.Original))
+		for key, value := range source.Original {
+			configv1DeviceSettings.Original[key] = value
+		}
+	}
+	if source.Current != nil {
+		configv1DeviceSettings.Current = make(map[string]string, len(source.Current))
+		for key2, value2 := range source.Current {
+			configv1DeviceSettings.Current[key2] = value2
+		}
+	}
+	return &configv1DeviceSettings
+}
 func DeviceToProto(source store.Device) *v11.Device {
 	var configv1Device v11.Device
 	configv1Device.Id = source.ID

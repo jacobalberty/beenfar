@@ -40,6 +40,8 @@ import (
 // goverter:extend DeviceStateToProto DeviceKindToProto DeviceKindFromProto ReadoptionToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
 // goverter:extend SwitchPortTaggingToProto SwitchPortTaggingFromProto PoEModeToProto PoEModeFromProto FieldWriterKindToProto
 type Converter interface {
+	DeviceSettingsToProto(store.DeviceSettings) *configv1.DeviceSettings
+
 	// goverter:map Revision Etag | Etag
 	WifiToProto(store.WifiNetwork) *configv1.WifiNetwork
 	// goverter:map Etag Revision | ParseEtag

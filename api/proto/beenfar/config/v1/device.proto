@@ -65,6 +65,45 @@ service DeviceService {
     };
   }
 
+  // GetDeviceSettings returns the settings an operator can change on a device,
+  // both the original ones and the current ones. The names and meaning of the
+  // settings belong to the device's adapter; for a UniFi access point of a
+  // supported model they are its radio settings (channel, width, power, ...).
+  // A device whose model has none returns both maps empty.
+  rpc GetDeviceSettings(GetDeviceSettingsRequest) returns (GetDeviceSettingsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/api/v1/devices/{id}/settings"
+      response_body: "settings"
+    };
+  }
+
+  // UpdateDeviceSettings sets some of a device's current settings: the keys in
+  // the request replace the current values and the other keys are kept. A key
+  // the device's model does not have, or a value it does not accept, fails
+  // with INVALID_ARGUMENT and changes nothing. It fails with
+  // FAILED_PRECONDITION for a device that is not adopted or whose model has no
+  // settings. The device is sent the new settings the next time it informs.
+  rpc UpdateDeviceSettings(UpdateDeviceSettingsRequest) returns (UpdateDeviceSettingsResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {
+      patch: "/api/v1/devices/{id}/settings"
+      body: "*"
+      response_body: "settings"
+    };
+  }
+
+  // ResetDeviceSettings returns a device's current settings to its original
+  // ones.
+  rpc ResetDeviceSettings(ResetDeviceSettingsRequest) returns (ResetDeviceSettingsResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {
+      post: "/api/v1/devices/{id}/settings:reset"
+      body: "*"
+      response_body: "settings"
+    };
+  }
+
   // ForgetDevice stops managing a device. An adopted device is factory reset
   // (for UniFi: told to reset itself on its next inform), so that it comes back
   // as a new, pending device that can be adopted again. The reset can only be
@@ -148,6 +187,42 @@ message Device {
 
   google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// DeviceSettings are the settings of a device an operator can change.
+message DeviceSettings {
+  // The baseline built when the device was adopted (for UniFi: its model's
+  // defaults). It does not change, and is what ResetDeviceSettings returns to.
+  map<string, string> original = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // What the device should run: the original settings with the operator's
+  // changes.
+  map<string, string> current = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message GetDeviceSettingsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetDeviceSettingsResponse {
+  DeviceSettings settings = 1;
+}
+
+message UpdateDeviceSettingsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // The settings to set, by key. Keys not listed keep their current value.
+  map<string, string> current = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateDeviceSettingsResponse {
+  DeviceSettings settings = 1;
+}
+
+message ResetDeviceSettingsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message ResetDeviceSettingsResponse {
+  DeviceSettings settings = 1;
 }
 
 message GetDeviceRequest {

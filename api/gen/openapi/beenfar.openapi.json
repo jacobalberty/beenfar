@@ -975,6 +975,34 @@
         ],
         "description": "DeviceKind says what a device is."
       },
+      "beenfar.config.v1.DeviceSettings": {
+        "type": "object",
+        "properties": {
+          "original": {
+            "type": "object",
+            "title": "original",
+            "additionalProperties": {
+              "type": "string",
+              "title": "value"
+            },
+            "description": "The baseline built when the device was adopted (for UniFi: its model's\n defaults). It does not change, and is what ResetDeviceSettings returns to.",
+            "readOnly": true
+          },
+          "current": {
+            "type": "object",
+            "title": "current",
+            "additionalProperties": {
+              "type": "string",
+              "title": "value"
+            },
+            "description": "What the device should run: the original settings with the operator's\n changes.",
+            "readOnly": true
+          }
+        },
+        "title": "DeviceSettings",
+        "additionalProperties": false,
+        "description": "DeviceSettings are the settings of a device an operator can change."
+      },
       "beenfar.config.v1.DeviceState": {
         "type": "string",
         "title": "DeviceState",
@@ -1075,6 +1103,31 @@
           }
         },
         "title": "GetDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetDeviceSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetDeviceSettingsRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetDeviceSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "title": "settings",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+          }
+        },
+        "title": "GetDeviceSettingsResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.GetNetworkRequest": {
@@ -1485,6 +1538,31 @@
         ],
         "description": "ReadoptionState says where an adopted device that came back without its\n key stands. It is the same managed device throughout, not a new one."
       },
+      "beenfar.config.v1.ResetDeviceSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "ResetDeviceSettingsRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ResetDeviceSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "title": "settings",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+          }
+        },
+        "title": "ResetDeviceSettingsResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.SwitchPort": {
         "type": "object",
         "properties": {
@@ -1608,6 +1686,41 @@
           }
         },
         "title": "UpdateDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateDeviceSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "current": {
+            "type": "object",
+            "title": "current",
+            "additionalProperties": {
+              "type": "string",
+              "title": "value"
+            },
+            "description": "The settings to set, by key. Keys not listed keep their current value."
+          }
+        },
+        "title": "UpdateDeviceSettingsRequest",
+        "required": [
+          "id",
+          "current"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateDeviceSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "title": "settings",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+          }
+        },
+        "title": "UpdateDeviceSettingsResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.UpdateNetworkRequest": {
@@ -2508,6 +2621,162 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/beenfar.config.v1.ForgetDeviceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{id}/settings": {
+      "get": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "GetDeviceSettings",
+        "description": "GetDeviceSettings returns the settings an operator can change on a device,\n both the original ones and the current ones. The names and meaning of the\n settings belong to the device's adapter; for a UniFi access point of a\n supported model they are its radio settings (channel, width, power, ...).\n A device whose model has none returns both maps empty.",
+        "operationId": "beenfar.config.v1.DeviceService.GetDeviceSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "settings",
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "UpdateDeviceSettings",
+        "description": "UpdateDeviceSettings sets some of a device's current settings: the keys in\n the request replace the current values and the other keys are kept. A key\n the device's model does not have, or a value it does not accept, fails\n with INVALID_ARGUMENT and changes nothing. It fails with\n FAILED_PRECONDITION for a device that is not adopted or whose model has no\n settings. The device is sent the new settings the next time it informs.",
+        "operationId": "beenfar.config.v1.DeviceService.UpdateDeviceSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "current": {
+                    "type": "object",
+                    "title": "current",
+                    "additionalProperties": {
+                      "type": "string",
+                      "title": "value"
+                    },
+                    "description": "The settings to set, by key. Keys not listed keep their current value."
+                  }
+                },
+                "title": "UpdateDeviceSettingsRequest",
+                "required": [
+                  "current"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "settings",
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{id}/settings:reset": {
+      "post": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "ResetDeviceSettings",
+        "description": "ResetDeviceSettings returns a device's current settings to its original\n ones.",
+        "operationId": "beenfar.config.v1.DeviceService.ResetDeviceSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "settings",
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
                 }
               }
             }
