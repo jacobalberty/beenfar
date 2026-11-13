@@ -9,6 +9,14 @@ This is a work in progress network controller to support centralized provisionin
 
 This is still very early on and so far only contains the backend code.
 
+> [!WARNING]
+> **Pre-release testing software.** While the version is `v0.x.x`, beenfar is
+> pre-release software intended for testing and is expected to break regularly.
+>
+> The `1.0.0` release will ship with a simpler schema for the initial release.
+> If you choose to use beenfar before then, expect to back up your data and
+> restore it on the latest `0.x.x` release before migrating to `1.0.0`.
+
 ## Running
 
 ```sh
