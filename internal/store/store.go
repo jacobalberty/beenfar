@@ -79,6 +79,16 @@ const (
 	ReadoptionInProgress Readoption = "in_progress"
 )
 
+// DeviceKind says what a device is.
+type DeviceKind string
+
+const (
+	DeviceKindUnknown     DeviceKind = ""
+	DeviceKindAccessPoint DeviceKind = "access_point"
+	DeviceKindSwitch      DeviceKind = "switch"
+	DeviceKindGateway     DeviceKind = "gateway"
+)
+
 // Device is a piece of network gear known to the controller.
 type Device struct {
 	ID       string
@@ -98,6 +108,14 @@ type Device struct {
 	// Forgetting is set while the controller waits for the device's adapter to
 	// reset it; the device is dropped once the adapter reports it released.
 	Forgetting bool
+	// Kind is what the adapter says the device is; empty when it cannot tell.
+	Kind DeviceKind
+	// PortCount is how many ports beyond the uplink can be configured. Most
+	// access points have none. It is meaningful once Kind is known.
+	PortCount int
+	// APGroup pins an access point to one AP group. Empty is the default: it
+	// broadcasts every wifi network that is not limited to named groups.
+	APGroup    string
 	LastSeen   time.Time
 	CreateTime time.Time
 	UpdateTime time.Time
@@ -110,7 +128,11 @@ type DiscoveredDevice struct {
 	Model    string
 	IP       string
 	Firmware string
-	Locked   bool
+	Kind     DeviceKind
+	// PortCount is how many ports beyond the uplink can be configured; read
+	// only when Kind is set.
+	PortCount int
+	Locked    bool
 }
 
 // DeviceReport is what an adapter learned from a device it manages. Blank
@@ -119,6 +141,8 @@ type DeviceReport struct {
 	Model          string
 	IP             string
 	Firmware       string
+	Kind           DeviceKind
+	PortCount      int // read only when Kind is set
 	ConfigRevision int64
 	Readoption     Readoption
 }
@@ -145,6 +169,9 @@ type DeviceStore interface {
 	// adapter to reset on its next contact. It returns ErrFailedPrecondition
 	// for a device that is not adopted.
 	MarkDeviceForgetting(ctx context.Context, id string) (Device, error)
+	// SetDeviceAPGroup pins a device to an AP group; empty returns it to the
+	// default. It returns ErrNotFound for an unknown device.
+	SetDeviceAPGroup(ctx context.Context, id, group string) (Device, error)
 	// DeleteDevice forgets a device in any state, along with its secrets
 	// and switch port settings.
 	DeleteDevice(ctx context.Context, id string) error

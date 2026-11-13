@@ -15,7 +15,7 @@ UPDATE devices SET
     readoption = CASE WHEN readoption = 'awaiting' THEN 'in_progress' ELSE readoption END,
     update_time = ?1
 WHERE id = ?2 AND (state = 'pending' OR readoption = 'awaiting')
-RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group
 `
 
 type AdoptDeviceParams struct {
@@ -43,6 +43,9 @@ func (q *Queries) AdoptDevice(ctx context.Context, arg AdoptDeviceParams) (Devic
 		&i.Locked,
 		&i.Readoption,
 		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
 	)
 	return i, err
 }
@@ -74,7 +77,7 @@ func (q *Queries) DeleteDeviceSecret(ctx context.Context, arg DeleteDeviceSecret
 }
 
 const getDevice = `-- name: GetDevice :one
-SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting FROM devices WHERE id = ?
+SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group FROM devices WHERE id = ?
 `
 
 func (q *Queries) GetDevice(ctx context.Context, id string) (Device, error) {
@@ -95,12 +98,15 @@ func (q *Queries) GetDevice(ctx context.Context, id string) (Device, error) {
 		&i.Locked,
 		&i.Readoption,
 		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
 	)
 	return i, err
 }
 
 const getDeviceByMAC = `-- name: GetDeviceByMAC :one
-SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting FROM devices WHERE mac = ?
+SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group FROM devices WHERE mac = ?
 `
 
 func (q *Queries) GetDeviceByMAC(ctx context.Context, mac string) (Device, error) {
@@ -121,6 +127,9 @@ func (q *Queries) GetDeviceByMAC(ctx context.Context, mac string) (Device, error
 		&i.Locked,
 		&i.Readoption,
 		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
 	)
 	return i, err
 }
@@ -142,7 +151,7 @@ func (q *Queries) GetDeviceSecret(ctx context.Context, arg GetDeviceSecretParams
 }
 
 const listDevices = `-- name: ListDevices :many
-SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting FROM devices
+SELECT id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group FROM devices
 WHERE (CAST(?1 AS TEXT) = '' OR state = ?1)
   AND (CAST(?2 AS TEXT) = '' OR adapter = ?2)
 ORDER BY mac
@@ -177,6 +186,9 @@ func (q *Queries) ListDevices(ctx context.Context, arg ListDevicesParams) ([]Dev
 			&i.Locked,
 			&i.Readoption,
 			&i.Forgetting,
+			&i.Kind,
+			&i.PortCount,
+			&i.ApGroup,
 		); err != nil {
 			return nil, err
 		}
@@ -196,7 +208,7 @@ UPDATE devices SET
     forgetting  = TRUE,
     update_time = ?1
 WHERE id = ?2 AND state = 'adopted'
-RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group
 `
 
 type MarkDeviceForgettingParams struct {
@@ -224,6 +236,9 @@ func (q *Queries) MarkDeviceForgetting(ctx context.Context, arg MarkDeviceForget
 		&i.Locked,
 		&i.Readoption,
 		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
 	)
 	return i, err
 }
@@ -233,19 +248,23 @@ UPDATE devices SET
     model           = CASE WHEN ?1 = '' THEN model ELSE ?1 END,
     ip              = CASE WHEN ?2 = '' THEN ip ELSE ?2 END,
     firmware        = CASE WHEN ?3 = '' THEN firmware ELSE ?3 END,
-    config_revision = ?4,
+    kind            = CASE WHEN ?4 = '' THEN kind ELSE ?4 END,
+    port_count      = CASE WHEN ?4 = '' THEN port_count ELSE ?5 END,
+    config_revision = ?6,
     locked          = FALSE,
-    readoption      = ?5,
-    last_seen       = ?6,
-    update_time     = ?6
-WHERE id = ?7
-RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting
+    readoption      = ?7,
+    last_seen       = ?8,
+    update_time     = ?8
+WHERE id = ?9
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group
 `
 
 type RecordDeviceStateParams struct {
 	Model          interface{}
 	Ip             interface{}
 	Firmware       interface{}
+	Kind           interface{}
+	PortCount      int64
 	ConfigRevision int64
 	Readoption     string
 	Now            int64
@@ -259,6 +278,8 @@ func (q *Queries) RecordDeviceState(ctx context.Context, arg RecordDeviceStatePa
 		arg.Model,
 		arg.Ip,
 		arg.Firmware,
+		arg.Kind,
+		arg.PortCount,
 		arg.ConfigRevision,
 		arg.Readoption,
 		arg.Now,
@@ -280,36 +301,45 @@ func (q *Queries) RecordDeviceState(ctx context.Context, arg RecordDeviceStatePa
 		&i.Locked,
 		&i.Readoption,
 		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
 	)
 	return i, err
 }
 
 const reportDevice = `-- name: ReportDevice :one
-INSERT INTO devices (id, mac, adapter, state, model, ip, firmware, locked, last_seen, create_time, update_time)
+INSERT INTO devices (id, mac, adapter, state, model, ip, firmware, kind, port_count, locked, last_seen, create_time, update_time)
 VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6,
-        ?7, ?8, ?8, ?8)
+        ?7, ?8, ?9, ?10, ?10, ?10)
 ON CONFLICT (mac) DO UPDATE SET
     adapter     = excluded.adapter,
     model       = CASE WHEN excluded.model = '' THEN devices.model ELSE excluded.model END,
     ip          = CASE WHEN excluded.ip = '' THEN devices.ip ELSE excluded.ip END,
     firmware    = CASE WHEN excluded.firmware = '' THEN devices.firmware ELSE excluded.firmware END,
+    -- A blank kind means the adapter could not tell: keep what is known,
+    -- and the port count with it.
+    kind        = CASE WHEN excluded.kind = '' THEN devices.kind ELSE excluded.kind END,
+    port_count  = CASE WHEN excluded.kind = '' THEN devices.port_count ELSE excluded.port_count END,
     locked      = excluded.locked,
     -- A locked report is not authenticated (no key opened the packet), so
     -- it must not count as hearing from the device.
     last_seen   = CASE WHEN excluded.locked THEN devices.last_seen ELSE excluded.last_seen END,
     update_time = excluded.update_time
-RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group
 `
 
 type ReportDeviceParams struct {
-	ID       string
-	Mac      string
-	Adapter  string
-	Model    string
-	Ip       string
-	Firmware string
-	Locked   bool
-	Now      int64
+	ID        string
+	Mac       string
+	Adapter   string
+	Model     string
+	Ip        string
+	Firmware  string
+	Kind      string
+	PortCount int64
+	Locked    bool
+	Now       int64
 }
 
 // Blank details in a report keep the values already known.
@@ -321,6 +351,8 @@ func (q *Queries) ReportDevice(ctx context.Context, arg ReportDeviceParams) (Dev
 		arg.Model,
 		arg.Ip,
 		arg.Firmware,
+		arg.Kind,
+		arg.PortCount,
 		arg.Locked,
 		arg.Now,
 	)
@@ -340,6 +372,48 @@ func (q *Queries) ReportDevice(ctx context.Context, arg ReportDeviceParams) (Dev
 		&i.Locked,
 		&i.Readoption,
 		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
+	)
+	return i, err
+}
+
+const setDeviceAPGroup = `-- name: SetDeviceAPGroup :one
+UPDATE devices SET
+    ap_group    = ?1,
+    update_time = ?2
+WHERE id = ?3
+RETURNING id, mac, adapter, state, model, ip, firmware, config_revision, last_seen, create_time, update_time, locked, readoption, forgetting, kind, port_count, ap_group
+`
+
+type SetDeviceAPGroupParams struct {
+	ApGroup string
+	Now     int64
+	ID      string
+}
+
+func (q *Queries) SetDeviceAPGroup(ctx context.Context, arg SetDeviceAPGroupParams) (Device, error) {
+	row := q.db.QueryRowContext(ctx, setDeviceAPGroup, arg.ApGroup, arg.Now, arg.ID)
+	var i Device
+	err := row.Scan(
+		&i.ID,
+		&i.Mac,
+		&i.Adapter,
+		&i.State,
+		&i.Model,
+		&i.Ip,
+		&i.Firmware,
+		&i.ConfigRevision,
+		&i.LastSeen,
+		&i.CreateTime,
+		&i.UpdateTime,
+		&i.Locked,
+		&i.Readoption,
+		&i.Forgetting,
+		&i.Kind,
+		&i.PortCount,
+		&i.ApGroup,
 	)
 	return i, err
 }

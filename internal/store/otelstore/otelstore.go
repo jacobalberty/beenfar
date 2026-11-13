@@ -125,6 +125,10 @@ func (s *Store) MarkDeviceForgetting(ctx context.Context, id string) (store.Devi
 	return run(ctx, s, "MarkDeviceForgetting", func(ctx context.Context) (store.Device, error) { return s.next.MarkDeviceForgetting(ctx, id) })
 }
 
+func (s *Store) SetDeviceAPGroup(ctx context.Context, id, group string) (store.Device, error) {
+	return run(ctx, s, "SetDeviceAPGroup", func(ctx context.Context) (store.Device, error) { return s.next.SetDeviceAPGroup(ctx, id, group) })
+}
+
 func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error) {
 	return run(ctx, s, "AdoptDevice", func(ctx context.Context) (store.Device, error) { return s.next.AdoptDevice(ctx, id) })
 }

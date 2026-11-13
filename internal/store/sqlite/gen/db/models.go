@@ -39,6 +39,9 @@ type Device struct {
 	Locked         bool
 	Readoption     string
 	Forgetting     bool
+	Kind           string
+	PortCount      int64
+	ApGroup        string
 }
 
 type DeviceSecret struct {

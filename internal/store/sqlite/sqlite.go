@@ -180,14 +180,16 @@ func (s *Store) ReportDevice(ctx context.Context, d store.DiscoveredDevice) (sto
 		return store.Device{}, fmt.Errorf("%w: adapter is required", store.ErrInvalid)
 	}
 	row, err := s.q.ReportDevice(ctx, db.ReportDeviceParams{
-		ID:       newID(),
-		Mac:      mac,
-		Adapter:  d.Adapter,
-		Model:    d.Model,
-		Ip:       d.IP,
-		Firmware: d.Firmware,
-		Locked:   d.Locked,
-		Now:      s.nowMilli(),
+		ID:        newID(),
+		Mac:       mac,
+		Adapter:   d.Adapter,
+		Model:     d.Model,
+		Ip:        d.IP,
+		Firmware:  d.Firmware,
+		Kind:      string(d.Kind),
+		PortCount: int64(d.PortCount),
+		Locked:    d.Locked,
+		Now:       s.nowMilli(),
 	})
 	if err != nil {
 		return store.Device{}, mapErr(err)
@@ -266,6 +268,14 @@ func (s *Store) MarkDeviceForgetting(ctx context.Context, id string) (store.Devi
 	return out, err
 }
 
+func (s *Store) SetDeviceAPGroup(ctx context.Context, id, group string) (store.Device, error) {
+	row, err := s.q.SetDeviceAPGroup(ctx, db.SetDeviceAPGroupParams{ID: id, ApGroup: group, Now: s.nowMilli()})
+	if err != nil {
+		return store.Device{}, mapErr(err)
+	}
+	return dbconvgen.Device(row), nil
+}
+
 func (s *Store) DeleteDevice(ctx context.Context, id string) error {
 	n, err := s.q.DeleteDevice(ctx, id)
 	if err != nil {
@@ -283,6 +293,8 @@ func (s *Store) RecordDeviceState(ctx context.Context, id string, r store.Device
 		Model:          r.Model,
 		Ip:             r.IP,
 		Firmware:       r.Firmware,
+		Kind:           string(r.Kind),
+		PortCount:      int64(r.PortCount),
 		ConfigRevision: r.ConfigRevision,
 		Readoption:     string(r.Readoption),
 		Now:            s.nowMilli(),
