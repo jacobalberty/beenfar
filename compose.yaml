@@ -28,9 +28,9 @@ services:
       #   docker compose run --rm -T beenfar /beenfard admin create -username admin
       # (it reads the password from stdin).
       BEENFAR_ADMIN_PASSWORD: ${BEENFAR_ADMIN_PASSWORD:-}
-      # Uncomment to turn on the experimental UniFi settings push (unverified
-      # on hardware; see the README).
-      # BEENFAR_UNIFI_SYSTEM_CFG: "true"
+      # ISO 3166-1 numeric country code of the access points' radios (840 is the
+      # United States). Access points are sent no settings until it is set.
+      BEENFAR_UNIFI_COUNTRY: ${BEENFAR_UNIFI_COUNTRY:-0}
     volumes:
       - beenfar-data:/data
 

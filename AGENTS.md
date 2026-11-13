@@ -16,10 +16,10 @@ Terraform provider live in separate repositories and use the same API.
 |---|---|
 | `cmd/beenfard` | The daemon, and its `admin` subcommands |
 | `api/` | Its own Go module: protobuf API, generated clients (`api/gen`), TypeScript client, adapter SDK (`api/adapter`). Released as `api/vX.Y.Z` |
-| `adapters/unifi` | The built-in UniFi adapter (inform protocol, adoption, `system_cfg` rendering) |
+| `adapters/unifi` | The built-in UniFi adapter (inform protocol, adoption, mapping beenfar's config onto go-unifi's `system_cfg` renderer) |
 | `internal/core` | Business logic between the API and the store |
 | `internal/server` | HTTP, Connect and REST handlers, auth interceptors |
-| `internal/adapterhost`, `internal/auth`, `internal/store`, `internal/telemetry` | Adapter hosting, authentication, SQLite persistence and queries, OpenTelemetry |
+| `internal/adapterhost`, `internal/auth`, `internal/store`, `internal/telemetry`, `internal/unifisettings` | Adapter hosting, authentication, SQLite persistence and queries, OpenTelemetry |
 | `e2e/` | End-to-end tests (see below) |
 | `deploy/`, `compose*.yaml` | Docker Compose stacks and the proxy |
 

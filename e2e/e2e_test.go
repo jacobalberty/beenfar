@@ -274,6 +274,8 @@ var (
 	accessPoint = emu.DeviceSpec{MAC: "00:27:22:e0:00:01", Model: "U7PRO", Name: "e2e-ap"}
 	switchDev   = emu.DeviceSpec{MAC: "00:27:22:e0:00:02", Model: "USM8P", Name: "e2e-switch"}
 	gateway     = emu.DeviceSpec{MAC: "00:27:22:e0:00:03", Model: "UGW3", Name: "e2e-gateway"}
+	// A model beenfar has a profile for, so it is sent a complete system.cfg.
+	profiledAP = emu.DeviceSpec{MAC: "00:27:22:e0:00:04", Model: "U7LT", Name: "e2e-ap-lite"}
 )
 
 // pending waits until the daemon lists exactly the devices with the given
@@ -457,6 +459,216 @@ func TestForgetResetsAndReadopts(t *testing.T) {
 	// It can be adopted all over again.
 	d.adopt(t, again)
 	connected(t, d, f, switchDev.MAC)
+}
+
+// device returns the daemon's record of the device with the given MAC.
+func (d *daemon) device(ctx context.Context, mac string) (*configv1.Device, error) {
+	resp, err := d.devices.ListDevices(ctx, &configv1.ListDevicesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for _, dev := range resp.GetDevices() {
+		if dev.GetMac() == mac {
+			return dev, nil
+		}
+	}
+	return nil, fmt.Errorf("%s is not listed", mac)
+}
+
+// The daemon works out what each device is from its inform: the access point
+// and the switch are told apart and the switch reports its ports, which is
+// what a client uses to decide whether port settings apply.
+func TestDevicesReportKindAndPorts(t *testing.T) {
+	d := startDaemon(t)
+	startFleet(t, d, accessPoint, switchDev, gateway)
+	d.pending(t, accessPoint.MAC, switchDev.MAC, gateway.MAC)
+
+	for _, want := range []struct {
+		mac       string
+		kind      configv1.DeviceKind
+		wantPorts bool
+	}{
+		{accessPoint.MAC, configv1.DeviceKind_DEVICE_KIND_ACCESS_POINT, false},
+		{switchDev.MAC, configv1.DeviceKind_DEVICE_KIND_SWITCH, true},
+		{gateway.MAC, configv1.DeviceKind_DEVICE_KIND_GATEWAY, false},
+	} {
+		dev, err := d.device(callCtx(t), want.mac)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dev.GetKind() != want.kind {
+			t.Errorf("%s kind = %s, want %s", want.mac, dev.GetKind(), want.kind)
+		}
+		if (dev.GetPortCount() > 0) != want.wantPorts {
+			t.Errorf("%s port_count = %d, want ports: %v", want.mac, dev.GetPortCount(), want.wantPorts)
+		}
+	}
+}
+
+// Port settings only exist for devices with ports: the API refuses them on an
+// access point and accepts them on a switch, within its port count.
+func TestSwitchPortsOnlyOnDevicesWithPorts(t *testing.T) {
+	d := startDaemon(t)
+	f := startFleet(t, d, accessPoint, switchDev)
+	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
+	d.adopt(t, pending[accessPoint.MAC])
+	d.adopt(t, pending[switchDev.MAC])
+	connected(t, d, f, accessPoint.MAC)
+	connected(t, d, f, switchDev.MAC)
+
+	ports := configv1connect.NewSwitchPortServiceClient(d.client)
+	create := func(mac string, index uint32) error {
+		dev, err := d.device(callCtx(t), mac)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = ports.CreateSwitchPort(callCtx(t), &configv1.CreateSwitchPortRequest{
+			SwitchPort: &configv1.SwitchPort{DeviceId: dev.GetId(), PortIndex: index, Name: "e2e"},
+		})
+		return err
+	}
+
+	if err := create(accessPoint.MAC, 1); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("port on an access point: %v, want FailedPrecondition", err)
+	}
+	if err := create(switchDev.MAC, 1); err != nil {
+		t.Errorf("port 1 of the switch: %v", err)
+	}
+	sw, err := d.device(callCtx(t), switchDev.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := create(switchDev.MAC, sw.GetPortCount()+1); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("port beyond the switch's %d ports: %v, want InvalidArgument", sw.GetPortCount(), err)
+	}
+}
+
+// An access point can be pinned to an AP group and released from it again
+// through the API; a switch cannot be put in one.
+func TestAccessPointGroupOverride(t *testing.T) {
+	d := startDaemon(t)
+	f := startFleet(t, d, accessPoint, switchDev)
+	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
+
+	// A wifi network limited to two groups, which exists before the access
+	// point is adopted: the access point is provisioned with it as it adopts
+	// (its group is unset, so it gets every network) and goes on informing.
+	wifi := configv1connect.NewWifiNetworkServiceClient(d.client)
+	if _, err := wifi.CreateWifiNetwork(callCtx(t), &configv1.CreateWifiNetworkRequest{WifiNetwork: &configv1.WifiNetwork{
+		Ssid: "e2e-upstairs", Security: configv1.WifiSecurity_WIFI_SECURITY_WPA_PERSONAL,
+		SecurityKey: "correct horse battery", ApGroups: []string{"upstairs", "attic"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	d.adopt(t, pending[accessPoint.MAC])
+	d.adopt(t, pending[switchDev.MAC])
+	connected(t, d, f, accessPoint.MAC)
+	connected(t, d, f, switchDev.MAC)
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
+
+	ap, err := d.device(callCtx(t), accessPoint.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ap.GetApGroup() != "" {
+		t.Fatalf("new access point is in group %q", ap.GetApGroup())
+	}
+	set := func(group string) (*configv1.Device, error) {
+		resp, err := d.devices.UpdateDevice(callCtx(t), &configv1.UpdateDeviceRequest{
+			Device: &configv1.Device{Id: ap.GetId(), ApGroup: group},
+		})
+		return resp.GetDevice(), err
+	}
+	if got, err := set("attic"); err != nil || got.GetApGroup() != "attic" {
+		t.Fatalf("pinning to attic: %v, %v", got, err)
+	}
+	if got, err := d.device(callCtx(t), accessPoint.MAC); err != nil || got.GetApGroup() != "attic" {
+		t.Fatalf("listed after pinning: %v, %v", got, err)
+	}
+	// Moving it away and back to the default keeps it adopted and informing.
+	if got, err := set(""); err != nil || got.GetApGroup() != "" {
+		t.Fatalf("clearing the group: %v, %v", got, err)
+	}
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
+
+	sw, err := d.device(callCtx(t), switchDev.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = d.devices.UpdateDevice(callCtx(t), &configv1.UpdateDeviceRequest{Device: &configv1.Device{Id: sw.GetId(), ApGroup: "attic"}})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("group on a switch: %v, want InvalidArgument", err)
+	}
+}
+
+// An access point of a model with a profile gets settings it can be changed
+// through the API, and is sent a complete system.cfg; one without a profile has
+// no settings and is sent none. The emulator does not interpret system_cfg, so
+// this only shows that both access points adopt, accept every setparam that
+// follows a change or a reset, and keep informing; the document itself is
+// checked in adapters/unifi and internal/server.
+func TestAccessPointSettings(t *testing.T) {
+	d := startDaemon(t, "BEENFAR_UNIFI_COUNTRY=840")
+	f := startFleet(t, d, profiledAP, accessPoint)
+	pending := d.pending(t, profiledAP.MAC, accessPoint.MAC)
+
+	wifi := configv1connect.NewWifiNetworkServiceClient(d.client)
+	if _, err := wifi.CreateWifiNetwork(callCtx(t), &configv1.CreateWifiNetworkRequest{WifiNetwork: &configv1.WifiNetwork{
+		Ssid: "e2e-settings", Security: configv1.WifiSecurity_WIFI_SECURITY_WPA_PERSONAL, SecurityKey: "correct horse battery",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	d.adopt(t, pending[profiledAP.MAC])
+	d.adopt(t, pending[accessPoint.MAC])
+	connected(t, d, f, profiledAP.MAC)
+	connected(t, d, f, accessPoint.MAC)
+
+	lite := pending[profiledAP.MAC].GetId()
+	other := pending[accessPoint.MAC].GetId()
+	get := func(id string) *configv1.DeviceSettings {
+		t.Helper()
+		r, err := d.devices.GetDeviceSettings(callCtx(t), &configv1.GetDeviceSettingsRequest{Id: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.GetSettings()
+	}
+	s := get(lite)
+	if s.GetOriginal()["radio.1.channel"] != "auto" || s.GetCurrent()["radio.1.channel"] != "auto" {
+		t.Fatalf("settings of the profiled access point: %v", s)
+	}
+	if o := get(other); len(o.GetOriginal())+len(o.GetCurrent()) != 0 {
+		t.Fatalf("an access point without a profile has settings: %v", o)
+	}
+
+	update := func(id string, set map[string]string) (*configv1.UpdateDeviceSettingsResponse, error) {
+		return d.devices.UpdateDeviceSettings(callCtx(t), &configv1.UpdateDeviceSettingsRequest{Id: id, Current: set})
+	}
+	if r, err := update(lite, map[string]string{"radio.1.channel": "6", "radio.2.channel": "36"}); err != nil ||
+		r.GetSettings().GetCurrent()["radio.1.channel"] != "6" || r.GetSettings().GetOriginal()["radio.1.channel"] != "auto" {
+		t.Fatalf("update: %v, %v", r, err)
+	}
+	waitLastSeenAdvances(t, d, profiledAP.MAC) // it took the new settings and carries on
+	if _, err := update(lite, map[string]string{"radio.1.channel": "not-a-channel"}); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("bad value: %v, want InvalidArgument", err)
+	}
+	if _, err := update(lite, map[string]string{"radio.1.cwm.mode": "1"}); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("a model-class key: %v, want InvalidArgument", err)
+	}
+	if _, err := update(other, map[string]string{"radio.1.channel": "6"}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("settings of a model without a profile: %v, want FailedPrecondition", err)
+	}
+	if get(lite).GetCurrent()["radio.1.channel"] != "6" {
+		t.Error("a refused update changed the settings")
+	}
+
+	r, err := d.devices.ResetDeviceSettings(callCtx(t), &configv1.ResetDeviceSettingsRequest{Id: lite})
+	if err != nil || r.GetSettings().GetCurrent()["radio.1.channel"] != "auto" || r.GetSettings().GetCurrent()["radio.2.channel"] != "auto" {
+		t.Fatalf("reset: %v, %v", r, err)
+	}
+	waitLastSeenAdvances(t, d, profiledAP.MAC)
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
+	connected(t, d, f, profiledAP.MAC)
 }
 
 // lastSeen returns the last_seen_time the daemon reports for the device.

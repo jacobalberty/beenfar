@@ -10,6 +10,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -130,6 +131,60 @@ func (ReadoptionState) EnumDescriptor() ([]byte, []int) {
 	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{1}
 }
 
+// DeviceKind says what a device is.
+type DeviceKind int32
+
+const (
+	// The adapter has not said (or cannot tell).
+	DeviceKind_DEVICE_KIND_UNSPECIFIED  DeviceKind = 0
+	DeviceKind_DEVICE_KIND_ACCESS_POINT DeviceKind = 1
+	DeviceKind_DEVICE_KIND_SWITCH       DeviceKind = 2
+	DeviceKind_DEVICE_KIND_GATEWAY      DeviceKind = 3
+)
+
+// Enum value maps for DeviceKind.
+var (
+	DeviceKind_name = map[int32]string{
+		0: "DEVICE_KIND_UNSPECIFIED",
+		1: "DEVICE_KIND_ACCESS_POINT",
+		2: "DEVICE_KIND_SWITCH",
+		3: "DEVICE_KIND_GATEWAY",
+	}
+	DeviceKind_value = map[string]int32{
+		"DEVICE_KIND_UNSPECIFIED":  0,
+		"DEVICE_KIND_ACCESS_POINT": 1,
+		"DEVICE_KIND_SWITCH":       2,
+		"DEVICE_KIND_GATEWAY":      3,
+	}
+)
+
+func (x DeviceKind) Enum() *DeviceKind {
+	p := new(DeviceKind)
+	*p = x
+	return p
+}
+
+func (x DeviceKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_beenfar_config_v1_device_proto_enumTypes[2].Descriptor()
+}
+
+func (DeviceKind) Type() protoreflect.EnumType {
+	return &file_beenfar_config_v1_device_proto_enumTypes[2]
+}
+
+func (x DeviceKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DeviceKind.Descriptor instead.
+func (DeviceKind) EnumDescriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{2}
+}
+
 // Device is a piece of network gear known to the controller.
 type Device struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -153,7 +208,18 @@ type Device struct {
 	Readoption ReadoptionState `protobuf:"varint,10,opt,name=readoption,proto3,enum=beenfar.config.v1.ReadoptionState" json:"readoption,omitempty"`
 	// Set while the device is being forgotten and the controller is waiting for
 	// it to reset itself (see ForgetDevice). The device is removed once it has.
-	Forgetting    bool                   `protobuf:"varint,11,opt,name=forgetting,proto3" json:"forgetting,omitempty"`
+	Forgetting bool `protobuf:"varint,11,opt,name=forgetting,proto3" json:"forgetting,omitempty"`
+	// What the device is, as far as its adapter can tell.
+	Kind DeviceKind `protobuf:"varint,12,opt,name=kind,proto3,enum=beenfar.config.v1.DeviceKind" json:"kind,omitempty"`
+	// How many ports beyond the uplink can be configured with
+	// beenfar.config.v1.SwitchPortService. Most access points have none, so a
+	// client should offer port settings only when this is above zero. Zero for
+	// a device whose kind is unspecified means "not known", and port settings
+	// are accepted.
+	PortCount uint32 `protobuf:"varint,13,opt,name=port_count,json=portCount,proto3" json:"port_count,omitempty"`
+	// The AP group this access point is pinned to. Empty is the default (see
+	// UpdateDevice).
+	ApGroup       string                 `protobuf:"bytes,14,opt,name=ap_group,json=apGroup,proto3" json:"ap_group,omitempty"`
 	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -267,6 +333,27 @@ func (x *Device) GetForgetting() bool {
 	return false
 }
 
+func (x *Device) GetKind() DeviceKind {
+	if x != nil {
+		return x.Kind
+	}
+	return DeviceKind_DEVICE_KIND_UNSPECIFIED
+}
+
+func (x *Device) GetPortCount() uint32 {
+	if x != nil {
+		return x.PortCount
+	}
+	return 0
+}
+
+func (x *Device) GetApGroup() string {
+	if x != nil {
+		return x.ApGroup
+	}
+	return ""
+}
+
 func (x *Device) GetCreateTime() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreateTime
@@ -281,6 +368,336 @@ func (x *Device) GetUpdateTime() *timestamppb.Timestamp {
 	return nil
 }
 
+// DeviceSettings are the settings of a device an operator can change.
+type DeviceSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The baseline built when the device was adopted (for UniFi: its model's
+	// defaults). It does not change, and is what ResetDeviceSettings returns to.
+	Original map[string]string `protobuf:"bytes,1,rep,name=original,proto3" json:"original,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// What the device should run: the original settings with the operator's
+	// changes.
+	Current       map[string]string `protobuf:"bytes,2,rep,name=current,proto3" json:"current,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeviceSettings) Reset() {
+	*x = DeviceSettings{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeviceSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeviceSettings) ProtoMessage() {}
+
+func (x *DeviceSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeviceSettings.ProtoReflect.Descriptor instead.
+func (*DeviceSettings) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DeviceSettings) GetOriginal() map[string]string {
+	if x != nil {
+		return x.Original
+	}
+	return nil
+}
+
+func (x *DeviceSettings) GetCurrent() map[string]string {
+	if x != nil {
+		return x.Current
+	}
+	return nil
+}
+
+type GetDeviceSettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDeviceSettingsRequest) Reset() {
+	*x = GetDeviceSettingsRequest{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDeviceSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDeviceSettingsRequest) ProtoMessage() {}
+
+func (x *GetDeviceSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDeviceSettingsRequest.ProtoReflect.Descriptor instead.
+func (*GetDeviceSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GetDeviceSettingsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetDeviceSettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *DeviceSettings        `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDeviceSettingsResponse) Reset() {
+	*x = GetDeviceSettingsResponse{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDeviceSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDeviceSettingsResponse) ProtoMessage() {}
+
+func (x *GetDeviceSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDeviceSettingsResponse.ProtoReflect.Descriptor instead.
+func (*GetDeviceSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetDeviceSettingsResponse) GetSettings() *DeviceSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type UpdateDeviceSettingsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The settings to set, by key. Keys not listed keep their current value.
+	Current       map[string]string `protobuf:"bytes,2,rep,name=current,proto3" json:"current,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDeviceSettingsRequest) Reset() {
+	*x = UpdateDeviceSettingsRequest{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDeviceSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDeviceSettingsRequest) ProtoMessage() {}
+
+func (x *UpdateDeviceSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDeviceSettingsRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDeviceSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *UpdateDeviceSettingsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateDeviceSettingsRequest) GetCurrent() map[string]string {
+	if x != nil {
+		return x.Current
+	}
+	return nil
+}
+
+type UpdateDeviceSettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *DeviceSettings        `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDeviceSettingsResponse) Reset() {
+	*x = UpdateDeviceSettingsResponse{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDeviceSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDeviceSettingsResponse) ProtoMessage() {}
+
+func (x *UpdateDeviceSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDeviceSettingsResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDeviceSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *UpdateDeviceSettingsResponse) GetSettings() *DeviceSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+type ResetDeviceSettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetDeviceSettingsRequest) Reset() {
+	*x = ResetDeviceSettingsRequest{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetDeviceSettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetDeviceSettingsRequest) ProtoMessage() {}
+
+func (x *ResetDeviceSettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetDeviceSettingsRequest.ProtoReflect.Descriptor instead.
+func (*ResetDeviceSettingsRequest) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ResetDeviceSettingsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ResetDeviceSettingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      *DeviceSettings        `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetDeviceSettingsResponse) Reset() {
+	*x = ResetDeviceSettingsResponse{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetDeviceSettingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetDeviceSettingsResponse) ProtoMessage() {}
+
+func (x *ResetDeviceSettingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetDeviceSettingsResponse.ProtoReflect.Descriptor instead.
+func (*ResetDeviceSettingsResponse) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ResetDeviceSettingsResponse) GetSettings() *DeviceSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
 type GetDeviceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -290,7 +707,7 @@ type GetDeviceRequest struct {
 
 func (x *GetDeviceRequest) Reset() {
 	*x = GetDeviceRequest{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[1]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +719,7 @@ func (x *GetDeviceRequest) String() string {
 func (*GetDeviceRequest) ProtoMessage() {}
 
 func (x *GetDeviceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[1]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +732,7 @@ func (x *GetDeviceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeviceRequest.ProtoReflect.Descriptor instead.
 func (*GetDeviceRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{1}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetDeviceRequest) GetId() string {
@@ -334,7 +751,7 @@ type GetDeviceResponse struct {
 
 func (x *GetDeviceResponse) Reset() {
 	*x = GetDeviceResponse{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[2]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -346,7 +763,7 @@ func (x *GetDeviceResponse) String() string {
 func (*GetDeviceResponse) ProtoMessage() {}
 
 func (x *GetDeviceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[2]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -359,7 +776,7 @@ func (x *GetDeviceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeviceResponse.ProtoReflect.Descriptor instead.
 func (*GetDeviceResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{2}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetDeviceResponse) GetDevice() *Device {
@@ -381,7 +798,7 @@ type ListDevicesRequest struct {
 
 func (x *ListDevicesRequest) Reset() {
 	*x = ListDevicesRequest{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[3]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -393,7 +810,7 @@ func (x *ListDevicesRequest) String() string {
 func (*ListDevicesRequest) ProtoMessage() {}
 
 func (x *ListDevicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[3]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -406,7 +823,7 @@ func (x *ListDevicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDevicesRequest.ProtoReflect.Descriptor instead.
 func (*ListDevicesRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{3}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListDevicesRequest) GetState() DeviceState {
@@ -432,7 +849,7 @@ type ListDevicesResponse struct {
 
 func (x *ListDevicesResponse) Reset() {
 	*x = ListDevicesResponse{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[4]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -444,7 +861,7 @@ func (x *ListDevicesResponse) String() string {
 func (*ListDevicesResponse) ProtoMessage() {}
 
 func (x *ListDevicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[4]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -457,7 +874,7 @@ func (x *ListDevicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDevicesResponse.ProtoReflect.Descriptor instead.
 func (*ListDevicesResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{4}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListDevicesResponse) GetDevices() []*Device {
@@ -477,7 +894,7 @@ type ListPendingDevicesRequest struct {
 
 func (x *ListPendingDevicesRequest) Reset() {
 	*x = ListPendingDevicesRequest{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[5]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +906,7 @@ func (x *ListPendingDevicesRequest) String() string {
 func (*ListPendingDevicesRequest) ProtoMessage() {}
 
 func (x *ListPendingDevicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[5]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +919,7 @@ func (x *ListPendingDevicesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPendingDevicesRequest.ProtoReflect.Descriptor instead.
 func (*ListPendingDevicesRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{5}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListPendingDevicesRequest) GetAdapter() string {
@@ -521,7 +938,7 @@ type ListPendingDevicesResponse struct {
 
 func (x *ListPendingDevicesResponse) Reset() {
 	*x = ListPendingDevicesResponse{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[6]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -533,7 +950,7 @@ func (x *ListPendingDevicesResponse) String() string {
 func (*ListPendingDevicesResponse) ProtoMessage() {}
 
 func (x *ListPendingDevicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[6]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -546,7 +963,7 @@ func (x *ListPendingDevicesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPendingDevicesResponse.ProtoReflect.Descriptor instead.
 func (*ListPendingDevicesResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{6}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListPendingDevicesResponse) GetDevices() []*Device {
@@ -571,7 +988,7 @@ type AdoptDeviceRequest struct {
 
 func (x *AdoptDeviceRequest) Reset() {
 	*x = AdoptDeviceRequest{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[7]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -583,7 +1000,7 @@ func (x *AdoptDeviceRequest) String() string {
 func (*AdoptDeviceRequest) ProtoMessage() {}
 
 func (x *AdoptDeviceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[7]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -596,7 +1013,7 @@ func (x *AdoptDeviceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdoptDeviceRequest.ProtoReflect.Descriptor instead.
 func (*AdoptDeviceRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{7}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *AdoptDeviceRequest) GetDevice() isAdoptDeviceRequest_Device {
@@ -649,7 +1066,7 @@ type AdoptDeviceResponse struct {
 
 func (x *AdoptDeviceResponse) Reset() {
 	*x = AdoptDeviceResponse{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[8]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -661,7 +1078,7 @@ func (x *AdoptDeviceResponse) String() string {
 func (*AdoptDeviceResponse) ProtoMessage() {}
 
 func (x *AdoptDeviceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[8]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -674,10 +1091,109 @@ func (x *AdoptDeviceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdoptDeviceResponse.ProtoReflect.Descriptor instead.
 func (*AdoptDeviceResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{8}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *AdoptDeviceResponse) GetDevice() *Device {
+	if x != nil {
+		return x.Device
+	}
+	return nil
+}
+
+type UpdateDeviceRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id selects the device.
+	Device *Device `protobuf:"bytes,1,opt,name=device,proto3" json:"device,omitempty"`
+	// Fields to update, named by their proto field names (currently only
+	// "ap_group"). When empty or "*", every mutable field is replaced.
+	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDeviceRequest) Reset() {
+	*x = UpdateDeviceRequest{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDeviceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDeviceRequest) ProtoMessage() {}
+
+func (x *UpdateDeviceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDeviceRequest.ProtoReflect.Descriptor instead.
+func (*UpdateDeviceRequest) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *UpdateDeviceRequest) GetDevice() *Device {
+	if x != nil {
+		return x.Device
+	}
+	return nil
+}
+
+func (x *UpdateDeviceRequest) GetUpdateMask() *fieldmaskpb.FieldMask {
+	if x != nil {
+		return x.UpdateMask
+	}
+	return nil
+}
+
+type UpdateDeviceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Device        *Device                `protobuf:"bytes,1,opt,name=device,proto3" json:"device,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateDeviceResponse) Reset() {
+	*x = UpdateDeviceResponse{}
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateDeviceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateDeviceResponse) ProtoMessage() {}
+
+func (x *UpdateDeviceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateDeviceResponse.ProtoReflect.Descriptor instead.
+func (*UpdateDeviceResponse) Descriptor() ([]byte, []int) {
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *UpdateDeviceResponse) GetDevice() *Device {
 	if x != nil {
 		return x.Device
 	}
@@ -696,7 +1212,7 @@ type ForgetDeviceRequest struct {
 
 func (x *ForgetDeviceRequest) Reset() {
 	*x = ForgetDeviceRequest{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[9]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +1224,7 @@ func (x *ForgetDeviceRequest) String() string {
 func (*ForgetDeviceRequest) ProtoMessage() {}
 
 func (x *ForgetDeviceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[9]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +1237,7 @@ func (x *ForgetDeviceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgetDeviceRequest.ProtoReflect.Descriptor instead.
 func (*ForgetDeviceRequest) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{9}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ForgetDeviceRequest) GetId() string {
@@ -749,7 +1265,7 @@ type ForgetDeviceResponse struct {
 
 func (x *ForgetDeviceResponse) Reset() {
 	*x = ForgetDeviceResponse{}
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[10]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -761,7 +1277,7 @@ func (x *ForgetDeviceResponse) String() string {
 func (*ForgetDeviceResponse) ProtoMessage() {}
 
 func (x *ForgetDeviceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_beenfar_config_v1_device_proto_msgTypes[10]
+	mi := &file_beenfar_config_v1_device_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -774,7 +1290,7 @@ func (x *ForgetDeviceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgetDeviceResponse.ProtoReflect.Descriptor instead.
 func (*ForgetDeviceResponse) Descriptor() ([]byte, []int) {
-	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{10}
+	return file_beenfar_config_v1_device_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ForgetDeviceResponse) GetDevice() *Device {
@@ -788,7 +1304,7 @@ var File_beenfar_config_v1_device_proto protoreflect.FileDescriptor
 
 const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"\x1ebeenfar/config/v1/device.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc2\x04\n" +
+	"\x1ebeenfar/config/v1/device.proto\x12\x11beenfar.config.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x05\n" +
 	"\x06Device\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\bR\x02id\x12\x16\n" +
 	"\x03mac\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x03mac\x12\x1e\n" +
@@ -805,11 +1321,40 @@ const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"readoption\x12$\n" +
 	"\n" +
 	"forgetting\x18\v \x01(\bB\x04\xe2A\x01\x03R\n" +
-	"forgetting\x12A\n" +
+	"forgetting\x127\n" +
+	"\x04kind\x18\f \x01(\x0e2\x1d.beenfar.config.v1.DeviceKindB\x04\xe2A\x01\x03R\x04kind\x12#\n" +
+	"\n" +
+	"port_count\x18\r \x01(\rB\x04\xe2A\x01\x03R\tportCount\x12\x19\n" +
+	"\bap_group\x18\x0e \x01(\tR\aapGroup\x12A\n" +
 	"\vcreate_time\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12A\n" +
 	"\vupdate_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
-	"updateTime\"(\n" +
+	"updateTime\"\xac\x02\n" +
+	"\x0eDeviceSettings\x12Q\n" +
+	"\boriginal\x18\x01 \x03(\v2/.beenfar.config.v1.DeviceSettings.OriginalEntryB\x04\xe2A\x01\x03R\boriginal\x12N\n" +
+	"\acurrent\x18\x02 \x03(\v2..beenfar.config.v1.DeviceSettings.CurrentEntryB\x04\xe2A\x01\x03R\acurrent\x1a;\n" +
+	"\rOriginalEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a:\n" +
+	"\fCurrentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"0\n" +
+	"\x18GetDeviceSettingsRequest\x12\x14\n" +
+	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\"Z\n" +
+	"\x19GetDeviceSettingsResponse\x12=\n" +
+	"\bsettings\x18\x01 \x01(\v2!.beenfar.config.v1.DeviceSettingsR\bsettings\"\xcc\x01\n" +
+	"\x1bUpdateDeviceSettingsRequest\x12\x14\n" +
+	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\x12[\n" +
+	"\acurrent\x18\x02 \x03(\v2;.beenfar.config.v1.UpdateDeviceSettingsRequest.CurrentEntryB\x04\xe2A\x01\x02R\acurrent\x1a:\n" +
+	"\fCurrentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"]\n" +
+	"\x1cUpdateDeviceSettingsResponse\x12=\n" +
+	"\bsettings\x18\x01 \x01(\v2!.beenfar.config.v1.DeviceSettingsR\bsettings\"2\n" +
+	"\x1aResetDeviceSettingsRequest\x12\x14\n" +
+	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\"\\\n" +
+	"\x1bResetDeviceSettingsResponse\x12=\n" +
+	"\bsettings\x18\x01 \x01(\v2!.beenfar.config.v1.DeviceSettingsR\bsettings\"(\n" +
 	"\x10GetDeviceRequest\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\"F\n" +
 	"\x11GetDeviceResponse\x121\n" +
@@ -828,6 +1373,12 @@ const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\x03mac\x18\x02 \x01(\tH\x00R\x03macB\b\n" +
 	"\x06device\"H\n" +
 	"\x13AdoptDeviceResponse\x121\n" +
+	"\x06device\x18\x01 \x01(\v2\x19.beenfar.config.v1.DeviceR\x06device\"\x8b\x01\n" +
+	"\x13UpdateDeviceRequest\x127\n" +
+	"\x06device\x18\x01 \x01(\v2\x19.beenfar.config.v1.DeviceB\x04\xe2A\x01\x02R\x06device\x12;\n" +
+	"\vupdate_mask\x18\x02 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
+	"updateMask\"I\n" +
+	"\x14UpdateDeviceResponse\x121\n" +
 	"\x06device\x18\x01 \x01(\v2\x19.beenfar.config.v1.DeviceR\x06device\"A\n" +
 	"\x13ForgetDeviceRequest\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x02id\x12\x14\n" +
@@ -841,12 +1392,23 @@ const file_beenfar_config_v1_device_proto_rawDesc = "" +
 	"\x0fReadoptionState\x12 \n" +
 	"\x1cREADOPTION_STATE_UNSPECIFIED\x10\x00\x12(\n" +
 	"$READOPTION_STATE_AWAITING_ACCEPTANCE\x10\x01\x12 \n" +
-	"\x1cREADOPTION_STATE_IN_PROGRESS\x10\x022\xae\x05\n" +
+	"\x1cREADOPTION_STATE_IN_PROGRESS\x10\x02*x\n" +
+	"\n" +
+	"DeviceKind\x12\x1b\n" +
+	"\x17DEVICE_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18DEVICE_KIND_ACCESS_POINT\x10\x01\x12\x16\n" +
+	"\x12DEVICE_KIND_SWITCH\x10\x02\x12\x17\n" +
+	"\x13DEVICE_KIND_GATEWAY\x10\x032\xfe\n" +
+	"\n" +
 	"\rDeviceService\x12\x7f\n" +
 	"\tGetDevice\x12#.beenfar.config.v1.GetDeviceRequest\x1a$.beenfar.config.v1.GetDeviceResponse\"'\x82\xd3\xe4\x93\x02\x1eb\x06device\x12\x14/api/v1/devices/{id}\x90\x02\x01\x12x\n" +
 	"\vListDevices\x12%.beenfar.config.v1.ListDevicesRequest\x1a&.beenfar.config.v1.ListDevicesResponse\"\x1a\x82\xd3\xe4\x93\x02\x11\x12\x0f/api/v1/devices\x90\x02\x01\x12\x95\x01\n" +
 	"\x12ListPendingDevices\x12,.beenfar.config.v1.ListPendingDevicesRequest\x1a-.beenfar.config.v1.ListPendingDevicesResponse\"\"\x82\xd3\xe4\x93\x02\x19\x12\x17/api/v1/pending-devices\x90\x02\x01\x12\x86\x01\n" +
-	"\vAdoptDevice\x12%.beenfar.config.v1.AdoptDeviceRequest\x1a&.beenfar.config.v1.AdoptDeviceResponse\"(\x82\xd3\xe4\x93\x02\":\x01*b\x06device\"\x15/api/v1/devices:adopt\x12\x80\x01\n" +
+	"\vAdoptDevice\x12%.beenfar.config.v1.AdoptDeviceRequest\x1a&.beenfar.config.v1.AdoptDeviceResponse\"(\x82\xd3\xe4\x93\x02\":\x01*b\x06device\"\x15/api/v1/devices:adopt\x12\xc3\x01\n" +
+	"\fUpdateDevice\x12&.beenfar.config.v1.UpdateDeviceRequest\x1a'.beenfar.config.v1.UpdateDeviceResponse\"b\x82\xd3\xe4\x93\x02\\:\x06deviceZ-:\x06deviceb\x06device\x1a\x1b/api/v1/devices/{device.id}b\x06device2\x1b/api/v1/devices/{device.id}\x12\xa2\x01\n" +
+	"\x11GetDeviceSettings\x12+.beenfar.config.v1.GetDeviceSettingsRequest\x1a,.beenfar.config.v1.GetDeviceSettingsResponse\"2\x82\xd3\xe4\x93\x02)b\bsettings\x12\x1d/api/v1/devices/{id}/settings\x90\x02\x01\x12\xae\x01\n" +
+	"\x14UpdateDeviceSettings\x12..beenfar.config.v1.UpdateDeviceSettingsRequest\x1a/.beenfar.config.v1.UpdateDeviceSettingsResponse\"5\x82\xd3\xe4\x93\x02,:\x01*b\bsettings2\x1d/api/v1/devices/{id}/settings\x90\x02\x02\x12\xb1\x01\n" +
+	"\x13ResetDeviceSettings\x12-.beenfar.config.v1.ResetDeviceSettingsRequest\x1a..beenfar.config.v1.ResetDeviceSettingsResponse\";\x82\xd3\xe4\x93\x022:\x01*b\bsettings\"#/api/v1/devices/{id}/settings:reset\x90\x02\x02\x12\x80\x01\n" +
 	"\fForgetDevice\x12&.beenfar.config.v1.ForgetDeviceRequest\x1a'.beenfar.config.v1.ForgetDeviceResponse\"\x1f\x82\xd3\xe4\x93\x02\x16*\x14/api/v1/devices/{id}\x90\x02\x02B\xd1\x01\n" +
 	"\x15com.beenfar.config.v1B\vDeviceProtoP\x01ZEgithub.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1;configv1\xa2\x02\x03BCX\xaa\x02\x11Beenfar.Config.V1\xca\x02\x11Beenfar\\Config\\V1\xe2\x02\x1dBeenfar\\Config\\V1\\GPBMetadata\xea\x02\x13Beenfar::Config::V1b\x06proto3"
 
@@ -862,51 +1424,83 @@ func file_beenfar_config_v1_device_proto_rawDescGZIP() []byte {
 	return file_beenfar_config_v1_device_proto_rawDescData
 }
 
-var file_beenfar_config_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_beenfar_config_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_beenfar_config_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_beenfar_config_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_beenfar_config_v1_device_proto_goTypes = []any{
-	(DeviceState)(0),                   // 0: beenfar.config.v1.DeviceState
-	(ReadoptionState)(0),               // 1: beenfar.config.v1.ReadoptionState
-	(*Device)(nil),                     // 2: beenfar.config.v1.Device
-	(*GetDeviceRequest)(nil),           // 3: beenfar.config.v1.GetDeviceRequest
-	(*GetDeviceResponse)(nil),          // 4: beenfar.config.v1.GetDeviceResponse
-	(*ListDevicesRequest)(nil),         // 5: beenfar.config.v1.ListDevicesRequest
-	(*ListDevicesResponse)(nil),        // 6: beenfar.config.v1.ListDevicesResponse
-	(*ListPendingDevicesRequest)(nil),  // 7: beenfar.config.v1.ListPendingDevicesRequest
-	(*ListPendingDevicesResponse)(nil), // 8: beenfar.config.v1.ListPendingDevicesResponse
-	(*AdoptDeviceRequest)(nil),         // 9: beenfar.config.v1.AdoptDeviceRequest
-	(*AdoptDeviceResponse)(nil),        // 10: beenfar.config.v1.AdoptDeviceResponse
-	(*ForgetDeviceRequest)(nil),        // 11: beenfar.config.v1.ForgetDeviceRequest
-	(*ForgetDeviceResponse)(nil),       // 12: beenfar.config.v1.ForgetDeviceResponse
-	(*timestamppb.Timestamp)(nil),      // 13: google.protobuf.Timestamp
+	(DeviceState)(0),                     // 0: beenfar.config.v1.DeviceState
+	(ReadoptionState)(0),                 // 1: beenfar.config.v1.ReadoptionState
+	(DeviceKind)(0),                      // 2: beenfar.config.v1.DeviceKind
+	(*Device)(nil),                       // 3: beenfar.config.v1.Device
+	(*DeviceSettings)(nil),               // 4: beenfar.config.v1.DeviceSettings
+	(*GetDeviceSettingsRequest)(nil),     // 5: beenfar.config.v1.GetDeviceSettingsRequest
+	(*GetDeviceSettingsResponse)(nil),    // 6: beenfar.config.v1.GetDeviceSettingsResponse
+	(*UpdateDeviceSettingsRequest)(nil),  // 7: beenfar.config.v1.UpdateDeviceSettingsRequest
+	(*UpdateDeviceSettingsResponse)(nil), // 8: beenfar.config.v1.UpdateDeviceSettingsResponse
+	(*ResetDeviceSettingsRequest)(nil),   // 9: beenfar.config.v1.ResetDeviceSettingsRequest
+	(*ResetDeviceSettingsResponse)(nil),  // 10: beenfar.config.v1.ResetDeviceSettingsResponse
+	(*GetDeviceRequest)(nil),             // 11: beenfar.config.v1.GetDeviceRequest
+	(*GetDeviceResponse)(nil),            // 12: beenfar.config.v1.GetDeviceResponse
+	(*ListDevicesRequest)(nil),           // 13: beenfar.config.v1.ListDevicesRequest
+	(*ListDevicesResponse)(nil),          // 14: beenfar.config.v1.ListDevicesResponse
+	(*ListPendingDevicesRequest)(nil),    // 15: beenfar.config.v1.ListPendingDevicesRequest
+	(*ListPendingDevicesResponse)(nil),   // 16: beenfar.config.v1.ListPendingDevicesResponse
+	(*AdoptDeviceRequest)(nil),           // 17: beenfar.config.v1.AdoptDeviceRequest
+	(*AdoptDeviceResponse)(nil),          // 18: beenfar.config.v1.AdoptDeviceResponse
+	(*UpdateDeviceRequest)(nil),          // 19: beenfar.config.v1.UpdateDeviceRequest
+	(*UpdateDeviceResponse)(nil),         // 20: beenfar.config.v1.UpdateDeviceResponse
+	(*ForgetDeviceRequest)(nil),          // 21: beenfar.config.v1.ForgetDeviceRequest
+	(*ForgetDeviceResponse)(nil),         // 22: beenfar.config.v1.ForgetDeviceResponse
+	nil,                                  // 23: beenfar.config.v1.DeviceSettings.OriginalEntry
+	nil,                                  // 24: beenfar.config.v1.DeviceSettings.CurrentEntry
+	nil,                                  // 25: beenfar.config.v1.UpdateDeviceSettingsRequest.CurrentEntry
+	(*timestamppb.Timestamp)(nil),        // 26: google.protobuf.Timestamp
+	(*fieldmaskpb.FieldMask)(nil),        // 27: google.protobuf.FieldMask
 }
 var file_beenfar_config_v1_device_proto_depIdxs = []int32{
 	0,  // 0: beenfar.config.v1.Device.state:type_name -> beenfar.config.v1.DeviceState
-	13, // 1: beenfar.config.v1.Device.last_seen_time:type_name -> google.protobuf.Timestamp
+	26, // 1: beenfar.config.v1.Device.last_seen_time:type_name -> google.protobuf.Timestamp
 	1,  // 2: beenfar.config.v1.Device.readoption:type_name -> beenfar.config.v1.ReadoptionState
-	13, // 3: beenfar.config.v1.Device.create_time:type_name -> google.protobuf.Timestamp
-	13, // 4: beenfar.config.v1.Device.update_time:type_name -> google.protobuf.Timestamp
-	2,  // 5: beenfar.config.v1.GetDeviceResponse.device:type_name -> beenfar.config.v1.Device
-	0,  // 6: beenfar.config.v1.ListDevicesRequest.state:type_name -> beenfar.config.v1.DeviceState
-	2,  // 7: beenfar.config.v1.ListDevicesResponse.devices:type_name -> beenfar.config.v1.Device
-	2,  // 8: beenfar.config.v1.ListPendingDevicesResponse.devices:type_name -> beenfar.config.v1.Device
-	2,  // 9: beenfar.config.v1.AdoptDeviceResponse.device:type_name -> beenfar.config.v1.Device
-	2,  // 10: beenfar.config.v1.ForgetDeviceResponse.device:type_name -> beenfar.config.v1.Device
-	3,  // 11: beenfar.config.v1.DeviceService.GetDevice:input_type -> beenfar.config.v1.GetDeviceRequest
-	5,  // 12: beenfar.config.v1.DeviceService.ListDevices:input_type -> beenfar.config.v1.ListDevicesRequest
-	7,  // 13: beenfar.config.v1.DeviceService.ListPendingDevices:input_type -> beenfar.config.v1.ListPendingDevicesRequest
-	9,  // 14: beenfar.config.v1.DeviceService.AdoptDevice:input_type -> beenfar.config.v1.AdoptDeviceRequest
-	11, // 15: beenfar.config.v1.DeviceService.ForgetDevice:input_type -> beenfar.config.v1.ForgetDeviceRequest
-	4,  // 16: beenfar.config.v1.DeviceService.GetDevice:output_type -> beenfar.config.v1.GetDeviceResponse
-	6,  // 17: beenfar.config.v1.DeviceService.ListDevices:output_type -> beenfar.config.v1.ListDevicesResponse
-	8,  // 18: beenfar.config.v1.DeviceService.ListPendingDevices:output_type -> beenfar.config.v1.ListPendingDevicesResponse
-	10, // 19: beenfar.config.v1.DeviceService.AdoptDevice:output_type -> beenfar.config.v1.AdoptDeviceResponse
-	12, // 20: beenfar.config.v1.DeviceService.ForgetDevice:output_type -> beenfar.config.v1.ForgetDeviceResponse
-	16, // [16:21] is the sub-list for method output_type
-	11, // [11:16] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	2,  // 3: beenfar.config.v1.Device.kind:type_name -> beenfar.config.v1.DeviceKind
+	26, // 4: beenfar.config.v1.Device.create_time:type_name -> google.protobuf.Timestamp
+	26, // 5: beenfar.config.v1.Device.update_time:type_name -> google.protobuf.Timestamp
+	23, // 6: beenfar.config.v1.DeviceSettings.original:type_name -> beenfar.config.v1.DeviceSettings.OriginalEntry
+	24, // 7: beenfar.config.v1.DeviceSettings.current:type_name -> beenfar.config.v1.DeviceSettings.CurrentEntry
+	4,  // 8: beenfar.config.v1.GetDeviceSettingsResponse.settings:type_name -> beenfar.config.v1.DeviceSettings
+	25, // 9: beenfar.config.v1.UpdateDeviceSettingsRequest.current:type_name -> beenfar.config.v1.UpdateDeviceSettingsRequest.CurrentEntry
+	4,  // 10: beenfar.config.v1.UpdateDeviceSettingsResponse.settings:type_name -> beenfar.config.v1.DeviceSettings
+	4,  // 11: beenfar.config.v1.ResetDeviceSettingsResponse.settings:type_name -> beenfar.config.v1.DeviceSettings
+	3,  // 12: beenfar.config.v1.GetDeviceResponse.device:type_name -> beenfar.config.v1.Device
+	0,  // 13: beenfar.config.v1.ListDevicesRequest.state:type_name -> beenfar.config.v1.DeviceState
+	3,  // 14: beenfar.config.v1.ListDevicesResponse.devices:type_name -> beenfar.config.v1.Device
+	3,  // 15: beenfar.config.v1.ListPendingDevicesResponse.devices:type_name -> beenfar.config.v1.Device
+	3,  // 16: beenfar.config.v1.AdoptDeviceResponse.device:type_name -> beenfar.config.v1.Device
+	3,  // 17: beenfar.config.v1.UpdateDeviceRequest.device:type_name -> beenfar.config.v1.Device
+	27, // 18: beenfar.config.v1.UpdateDeviceRequest.update_mask:type_name -> google.protobuf.FieldMask
+	3,  // 19: beenfar.config.v1.UpdateDeviceResponse.device:type_name -> beenfar.config.v1.Device
+	3,  // 20: beenfar.config.v1.ForgetDeviceResponse.device:type_name -> beenfar.config.v1.Device
+	11, // 21: beenfar.config.v1.DeviceService.GetDevice:input_type -> beenfar.config.v1.GetDeviceRequest
+	13, // 22: beenfar.config.v1.DeviceService.ListDevices:input_type -> beenfar.config.v1.ListDevicesRequest
+	15, // 23: beenfar.config.v1.DeviceService.ListPendingDevices:input_type -> beenfar.config.v1.ListPendingDevicesRequest
+	17, // 24: beenfar.config.v1.DeviceService.AdoptDevice:input_type -> beenfar.config.v1.AdoptDeviceRequest
+	19, // 25: beenfar.config.v1.DeviceService.UpdateDevice:input_type -> beenfar.config.v1.UpdateDeviceRequest
+	5,  // 26: beenfar.config.v1.DeviceService.GetDeviceSettings:input_type -> beenfar.config.v1.GetDeviceSettingsRequest
+	7,  // 27: beenfar.config.v1.DeviceService.UpdateDeviceSettings:input_type -> beenfar.config.v1.UpdateDeviceSettingsRequest
+	9,  // 28: beenfar.config.v1.DeviceService.ResetDeviceSettings:input_type -> beenfar.config.v1.ResetDeviceSettingsRequest
+	21, // 29: beenfar.config.v1.DeviceService.ForgetDevice:input_type -> beenfar.config.v1.ForgetDeviceRequest
+	12, // 30: beenfar.config.v1.DeviceService.GetDevice:output_type -> beenfar.config.v1.GetDeviceResponse
+	14, // 31: beenfar.config.v1.DeviceService.ListDevices:output_type -> beenfar.config.v1.ListDevicesResponse
+	16, // 32: beenfar.config.v1.DeviceService.ListPendingDevices:output_type -> beenfar.config.v1.ListPendingDevicesResponse
+	18, // 33: beenfar.config.v1.DeviceService.AdoptDevice:output_type -> beenfar.config.v1.AdoptDeviceResponse
+	20, // 34: beenfar.config.v1.DeviceService.UpdateDevice:output_type -> beenfar.config.v1.UpdateDeviceResponse
+	6,  // 35: beenfar.config.v1.DeviceService.GetDeviceSettings:output_type -> beenfar.config.v1.GetDeviceSettingsResponse
+	8,  // 36: beenfar.config.v1.DeviceService.UpdateDeviceSettings:output_type -> beenfar.config.v1.UpdateDeviceSettingsResponse
+	10, // 37: beenfar.config.v1.DeviceService.ResetDeviceSettings:output_type -> beenfar.config.v1.ResetDeviceSettingsResponse
+	22, // 38: beenfar.config.v1.DeviceService.ForgetDevice:output_type -> beenfar.config.v1.ForgetDeviceResponse
+	30, // [30:39] is the sub-list for method output_type
+	21, // [21:30] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_config_v1_device_proto_init() }
@@ -914,7 +1508,7 @@ func file_beenfar_config_v1_device_proto_init() {
 	if File_beenfar_config_v1_device_proto != nil {
 		return
 	}
-	file_beenfar_config_v1_device_proto_msgTypes[7].OneofWrappers = []any{
+	file_beenfar_config_v1_device_proto_msgTypes[14].OneofWrappers = []any{
 		(*AdoptDeviceRequest_Id)(nil),
 		(*AdoptDeviceRequest_Mac)(nil),
 	}
@@ -923,8 +1517,8 @@ func file_beenfar_config_v1_device_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beenfar_config_v1_device_proto_rawDesc), len(file_beenfar_config_v1_device_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   11,
+			NumEnums:      3,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

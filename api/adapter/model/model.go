@@ -29,6 +29,17 @@ const (
 	ReadoptionInProgress Readoption = "in_progress"
 )
 
+// DeviceKind says what a device is. The zero value means the adapter cannot
+// tell.
+type DeviceKind string
+
+const (
+	KindUnknown     DeviceKind = ""
+	KindAccessPoint DeviceKind = "access_point"
+	KindSwitch      DeviceKind = "switch"
+	KindGateway     DeviceKind = "gateway"
+)
+
 // Device is a device as the controller knows it.
 type Device struct {
 	ID    string
@@ -53,6 +64,11 @@ type Discovered struct {
 	Model    string
 	IP       string
 	Firmware string
+	// Kind is what the device is, when the adapter can tell (UniFi: from the
+	// model). PortCount is how many ports beyond its uplink can be configured
+	// (most access points have none); it is only read when Kind is set.
+	Kind      DeviceKind
+	PortCount int
 	// Locked marks a device the adapter cannot talk to yet because it lacks
 	// the device's credentials. It clears when the adapter reports the
 	// device again without it.
@@ -64,6 +80,9 @@ type State struct {
 	IP       string
 	Firmware string
 	Model    string
+	// Kind and PortCount are as in Discovered; blank Kind keeps what is known.
+	Kind      DeviceKind
+	PortCount int
 	// ConfigRevision is the revision the device says it is running.
 	ConfigRevision int64
 	// Uptime is how long the device has been up.

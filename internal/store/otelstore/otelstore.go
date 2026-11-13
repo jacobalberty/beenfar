@@ -125,6 +125,10 @@ func (s *Store) MarkDeviceForgetting(ctx context.Context, id string) (store.Devi
 	return run(ctx, s, "MarkDeviceForgetting", func(ctx context.Context) (store.Device, error) { return s.next.MarkDeviceForgetting(ctx, id) })
 }
 
+func (s *Store) SetDeviceAPGroup(ctx context.Context, id, group string) (store.Device, error) {
+	return run(ctx, s, "SetDeviceAPGroup", func(ctx context.Context) (store.Device, error) { return s.next.SetDeviceAPGroup(ctx, id, group) })
+}
+
 func (s *Store) AdoptDevice(ctx context.Context, id string) (store.Device, error) {
 	return run(ctx, s, "AdoptDevice", func(ctx context.Context) (store.Device, error) { return s.next.AdoptDevice(ctx, id) })
 }
@@ -147,6 +151,28 @@ func (s *Store) SetDeviceSecret(ctx context.Context, deviceID, name string, secr
 
 func (s *Store) DeleteDeviceSecret(ctx context.Context, deviceID, name string) error {
 	return run0(ctx, s, "DeleteDeviceSecret", func(ctx context.Context) error { return s.next.DeleteDeviceSecret(ctx, deviceID, name) })
+}
+
+func (s *Store) GetDeviceSettings(ctx context.Context, deviceID string) (store.DeviceSettings, error) {
+	return run(ctx, s, "GetDeviceSettings", func(ctx context.Context) (store.DeviceSettings, error) {
+		return s.next.GetDeviceSettings(ctx, deviceID)
+	})
+}
+
+func (s *Store) SetDeviceSettings(ctx context.Context, deviceID string, v store.DeviceSettings) error {
+	return run0(ctx, s, "SetDeviceSettings", func(ctx context.Context) error { return s.next.SetDeviceSettings(ctx, deviceID, v) })
+}
+
+func (s *Store) GetAdapterSettings(ctx context.Context, adapter string) ([]byte, error) {
+	return run(ctx, s, "GetAdapterSettings", func(ctx context.Context) ([]byte, error) { return s.next.GetAdapterSettings(ctx, adapter) })
+}
+
+func (s *Store) SetAdapterSettings(ctx context.Context, adapter string, doc []byte) error {
+	return run0(ctx, s, "SetAdapterSettings", func(ctx context.Context) error { return s.next.SetAdapterSettings(ctx, adapter, doc) })
+}
+
+func (s *Store) InitAdapterSettings(ctx context.Context, adapter string, doc []byte) (bool, error) {
+	return run(ctx, s, "InitAdapterSettings", func(ctx context.Context) (bool, error) { return s.next.InitAdapterSettings(ctx, adapter, doc) })
 }
 
 func (s *Store) CreateRadiusServer(ctx context.Context, r store.RadiusServer) (store.RadiusServer, error) {

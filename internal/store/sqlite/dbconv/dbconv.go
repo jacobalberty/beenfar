@@ -24,7 +24,7 @@ import (
 // goverter:output:format function
 // goverter:matchIgnoreCase
 // goverter:extend FromMilli Int
-// goverter:extend DeviceState Readoption WifiSecurity WifiBand UserSource SwitchPortTagging PoEMode
+// goverter:extend DeviceState DeviceKind Readoption WifiSecurity WifiBand UserSource SwitchPortTagging PoEMode
 type Converter interface {
 	Device(db.Device) store.Device
 	Devices([]db.Device) []store.Device
@@ -78,6 +78,7 @@ func Int(v int64) int { return int(v) }
 // The enum columns are constrained by CHECKs to the domain values.
 
 func DeviceState(s string) store.DeviceState   { return store.DeviceState(s) }
+func DeviceKind(s string) store.DeviceKind     { return store.DeviceKind(s) }
 func Readoption(s string) store.Readoption     { return store.Readoption(s) }
 func WifiSecurity(s string) store.WifiSecurity { return store.WifiSecurity(s) }
 func WifiBand(s string) store.WifiBand         { return store.WifiBand(s) }

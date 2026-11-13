@@ -4,6 +4,13 @@
 
 package db
 
+type AdapterSetting struct {
+	Adapter    string
+	Settings   string
+	CreateTime int64
+	UpdateTime int64
+}
+
 type AdapterToken struct {
 	ID           string
 	Adapter      string
@@ -39,6 +46,9 @@ type Device struct {
 	Locked         bool
 	Readoption     string
 	Forgetting     bool
+	Kind           string
+	PortCount      int64
+	ApGroup        string
 }
 
 type DeviceSecret struct {
@@ -46,6 +56,14 @@ type DeviceSecret struct {
 	Name       string
 	Secret     []byte
 	UpdateTime int64
+}
+
+type DeviceSetting struct {
+	DeviceID     string
+	OriginalJson string
+	CurrentJson  string
+	CreateTime   int64
+	UpdateTime   int64
 }
 
 type FieldWriter struct {

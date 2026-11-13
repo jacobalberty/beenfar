@@ -107,7 +107,23 @@ func TestAdapterAPIHost(t *testing.T) {
 	if _, err := wifi.CreateWifiNetwork(ctx, &configv1.CreateWifiNetworkRequest{WifiNetwork: wpaNetwork("home")}); err != nil {
 		t.Fatal(err)
 	}
+	// An access point with no group gets every network, limited or not.
 	cfg, err := a.GetDesiredConfig(ctx, &adapterv1.GetDesiredConfigRequest{DeviceId: d.GetId()})
+	if err != nil || len(cfg.GetConfig().GetWifi()) != 1 {
+		t.Fatalf("config of an ungrouped device = %v, %v", cfg, err)
+	}
+	// In another group, the network limited to "upstairs" is left out.
+	if _, err := devs.UpdateDevice(ctx, &configv1.UpdateDeviceRequest{Device: &configv1.Device{Id: d.GetId(), ApGroup: "garage"}}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = a.GetDesiredConfig(ctx, &adapterv1.GetDesiredConfigRequest{DeviceId: d.GetId()})
+	if err != nil || len(cfg.GetConfig().GetWifi()) != 0 {
+		t.Fatalf("config of a device outside the group = %v, %v", cfg, err)
+	}
+	if _, err := devs.UpdateDevice(ctx, &configv1.UpdateDeviceRequest{Device: &configv1.Device{Id: d.GetId(), ApGroup: "upstairs"}}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = a.GetDesiredConfig(ctx, &adapterv1.GetDesiredConfigRequest{DeviceId: d.GetId()})
 	if err != nil || len(cfg.GetConfig().GetWifi()) != 1 || cfg.GetConfig().GetWifi()[0].GetSsid() != "home" ||
 		cfg.GetConfig().GetWifi()[0].GetSecurity() != adapterv1.WifiSecurity_WIFI_SECURITY_WPA_PERSONAL || cfg.GetConfig().GetRevision() <= 0 {
 		t.Fatalf("config = %v, %v", cfg, err)

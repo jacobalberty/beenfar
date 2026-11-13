@@ -932,6 +932,23 @@
             "description": "Set while the device is being forgotten and the controller is waiting for\n it to reset itself (see ForgetDevice). The device is removed once it has.",
             "readOnly": true
           },
+          "kind": {
+            "title": "kind",
+            "description": "What the device is, as far as its adapter can tell.",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceKind"
+          },
+          "portCount": {
+            "type": "integer",
+            "title": "port_count",
+            "description": "How many ports beyond the uplink can be configured with\n beenfar.config.v1.SwitchPortService. Most access points have none, so a\n client should offer port settings only when this is above zero. Zero for\n a device whose kind is unspecified means \"not known\", and port settings\n are accepted.",
+            "readOnly": true
+          },
+          "apGroup": {
+            "type": "string",
+            "title": "ap_group",
+            "description": "The AP group this access point is pinned to. Empty is the default (see\n UpdateDevice)."
+          },
           "createTime": {
             "title": "create_time",
             "readOnly": true,
@@ -946,6 +963,45 @@
         "title": "Device",
         "additionalProperties": false,
         "description": "Device is a piece of network gear known to the controller."
+      },
+      "beenfar.config.v1.DeviceKind": {
+        "type": "string",
+        "title": "DeviceKind",
+        "enum": [
+          "DEVICE_KIND_UNSPECIFIED",
+          "DEVICE_KIND_ACCESS_POINT",
+          "DEVICE_KIND_SWITCH",
+          "DEVICE_KIND_GATEWAY"
+        ],
+        "description": "DeviceKind says what a device is."
+      },
+      "beenfar.config.v1.DeviceSettings": {
+        "type": "object",
+        "properties": {
+          "original": {
+            "type": "object",
+            "title": "original",
+            "additionalProperties": {
+              "type": "string",
+              "title": "value"
+            },
+            "description": "The baseline built when the device was adopted (for UniFi: its model's\n defaults). It does not change, and is what ResetDeviceSettings returns to.",
+            "readOnly": true
+          },
+          "current": {
+            "type": "object",
+            "title": "current",
+            "additionalProperties": {
+              "type": "string",
+              "title": "value"
+            },
+            "description": "What the device should run: the original settings with the operator's\n changes.",
+            "readOnly": true
+          }
+        },
+        "title": "DeviceSettings",
+        "additionalProperties": false,
+        "description": "DeviceSettings are the settings of a device an operator can change."
       },
       "beenfar.config.v1.DeviceState": {
         "type": "string",
@@ -1047,6 +1103,31 @@
           }
         },
         "title": "GetDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetDeviceSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "GetDeviceSettingsRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.GetDeviceSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "title": "settings",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+          }
+        },
+        "title": "GetDeviceSettingsResponse",
         "additionalProperties": false
       },
       "beenfar.config.v1.GetNetworkRequest": {
@@ -1457,6 +1538,31 @@
         ],
         "description": "ReadoptionState says where an adopted device that came back without its\n key stands. It is the same managed device throughout, not a new one."
       },
+      "beenfar.config.v1.ResetDeviceSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          }
+        },
+        "title": "ResetDeviceSettingsRequest",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.ResetDeviceSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "title": "settings",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+          }
+        },
+        "title": "ResetDeviceSettingsResponse",
+        "additionalProperties": false
+      },
       "beenfar.config.v1.SwitchPort": {
         "type": "object",
         "properties": {
@@ -1550,6 +1656,72 @@
           "SWITCH_PORT_TAGGING_CUSTOM"
         ],
         "description": "SwitchPortTagging says which networks a port carries tagged."
+      },
+      "beenfar.config.v1.UpdateDeviceRequest": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "description": "id selects the device.",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          },
+          "updateMask": {
+            "title": "update_mask",
+            "description": "Fields to update, named by their proto field names (currently only\n \"ap_group\"). When empty or \"*\", every mutable field is replaced.",
+            "$ref": "#/components/schemas/google.protobuf.FieldMask"
+          }
+        },
+        "title": "UpdateDeviceRequest",
+        "required": [
+          "device"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateDeviceResponse": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          }
+        },
+        "title": "UpdateDeviceResponse",
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateDeviceSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "id"
+          },
+          "current": {
+            "type": "object",
+            "title": "current",
+            "additionalProperties": {
+              "type": "string",
+              "title": "value"
+            },
+            "description": "The settings to set, by key. Keys not listed keep their current value."
+          }
+        },
+        "title": "UpdateDeviceSettingsRequest",
+        "required": [
+          "id",
+          "current"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateDeviceSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "title": "settings",
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+          }
+        },
+        "title": "UpdateDeviceSettingsResponse",
+        "additionalProperties": false
       },
       "beenfar.config.v1.UpdateNetworkRequest": {
         "type": "object",
@@ -2234,6 +2406,134 @@
         }
       }
     },
+    "/api/v1/devices/{device.id}": {
+      "put": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "UpdateDevice",
+        "description": "UpdateDevice changes the operator-set settings of a device: for now only\n ap_group, which pins an access point to one AP group. The access point\n then broadcasts the wifi networks that are not limited to named groups\n plus those that list its group, and not the ones limited to other groups;\n with no group it broadcasts every network. Only access points take an\n ap_group.\n Fields named by update_mask are replaced; an empty mask replaces all of\n them. All other fields are output only and ignored.",
+        "operationId": "beenfar.config.v1.DeviceService.UpdateDevice2",
+        "parameters": [
+          {
+            "name": "device.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (currently only\n \"ap_group\"). When empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the device.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "device",
+                "description": "id selects the device.",
+                "$ref": "#/components/schemas/beenfar.config.v1.Device"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "device",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Device"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "UpdateDevice",
+        "description": "UpdateDevice changes the operator-set settings of a device: for now only\n ap_group, which pins an access point to one AP group. The access point\n then broadcasts the wifi networks that are not limited to named groups\n plus those that list its group, and not the ones limited to other groups;\n with no group it broadcasts every network. Only access points take an\n ap_group.\n Fields named by update_mask are replaced; an empty mask replaces all of\n them. All other fields are output only and ignored.",
+        "operationId": "beenfar.config.v1.DeviceService.UpdateDevice",
+        "parameters": [
+          {
+            "name": "device.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (currently only\n \"ap_group\"). When empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the device.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "device",
+                "description": "id selects the device.",
+                "$ref": "#/components/schemas/beenfar.config.v1.Device"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "device",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Device"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/devices/{id}": {
       "get": {
         "tags": [
@@ -2321,6 +2621,162 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/beenfar.config.v1.ForgetDeviceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{id}/settings": {
+      "get": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "GetDeviceSettings",
+        "description": "GetDeviceSettings returns the settings an operator can change on a device,\n both the original ones and the current ones. The names and meaning of the\n settings belong to the device's adapter; for a UniFi access point of a\n supported model they are its radio settings (channel, width, power, ...).\n A device whose model has none returns both maps empty.",
+        "operationId": "beenfar.config.v1.DeviceService.GetDeviceSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "settings",
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "UpdateDeviceSettings",
+        "description": "UpdateDeviceSettings sets some of a device's current settings: the keys in\n the request replace the current values and the other keys are kept. A key\n the device's model does not have, or a value it does not accept, fails\n with INVALID_ARGUMENT and changes nothing. It fails with\n FAILED_PRECONDITION for a device that is not adopted or whose model has no\n settings. The device is sent the new settings the next time it informs.",
+        "operationId": "beenfar.config.v1.DeviceService.UpdateDeviceSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "current": {
+                    "type": "object",
+                    "title": "current",
+                    "additionalProperties": {
+                      "type": "string",
+                      "title": "value"
+                    },
+                    "description": "The settings to set, by key. Keys not listed keep their current value."
+                  }
+                },
+                "title": "UpdateDeviceSettingsRequest",
+                "required": [
+                  "current"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "settings",
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{id}/settings:reset": {
+      "post": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "ResetDeviceSettings",
+        "description": "ResetDeviceSettings returns a device's current settings to its original\n ones.",
+        "operationId": "beenfar.config.v1.DeviceService.ResetDeviceSettings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "settings",
+                  "$ref": "#/components/schemas/beenfar.config.v1.DeviceSettings"
                 }
               }
             }

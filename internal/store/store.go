@@ -37,6 +37,7 @@ type Store interface {
 	NetworkStore
 	RadiusServerStore
 	SwitchPortStore
+	SettingsStore
 	FieldWriterStore
 	UserStore
 	APITokenStore
@@ -79,6 +80,16 @@ const (
 	ReadoptionInProgress Readoption = "in_progress"
 )
 
+// DeviceKind says what a device is.
+type DeviceKind string
+
+const (
+	DeviceKindUnknown     DeviceKind = ""
+	DeviceKindAccessPoint DeviceKind = "access_point"
+	DeviceKindSwitch      DeviceKind = "switch"
+	DeviceKindGateway     DeviceKind = "gateway"
+)
+
 // Device is a piece of network gear known to the controller.
 type Device struct {
 	ID       string
@@ -98,6 +109,14 @@ type Device struct {
 	// Forgetting is set while the controller waits for the device's adapter to
 	// reset it; the device is dropped once the adapter reports it released.
 	Forgetting bool
+	// Kind is what the adapter says the device is; empty when it cannot tell.
+	Kind DeviceKind
+	// PortCount is how many ports beyond the uplink can be configured. Most
+	// access points have none. It is meaningful once Kind is known.
+	PortCount int
+	// APGroup pins an access point to one AP group. Empty is the default: it
+	// broadcasts every wifi network that is not limited to named groups.
+	APGroup    string
 	LastSeen   time.Time
 	CreateTime time.Time
 	UpdateTime time.Time
@@ -110,7 +129,11 @@ type DiscoveredDevice struct {
 	Model    string
 	IP       string
 	Firmware string
-	Locked   bool
+	Kind     DeviceKind
+	// PortCount is how many ports beyond the uplink can be configured; read
+	// only when Kind is set.
+	PortCount int
+	Locked    bool
 }
 
 // DeviceReport is what an adapter learned from a device it manages. Blank
@@ -119,6 +142,8 @@ type DeviceReport struct {
 	Model          string
 	IP             string
 	Firmware       string
+	Kind           DeviceKind
+	PortCount      int // read only when Kind is set
 	ConfigRevision int64
 	Readoption     Readoption
 }
@@ -145,6 +170,9 @@ type DeviceStore interface {
 	// adapter to reset on its next contact. It returns ErrFailedPrecondition
 	// for a device that is not adopted.
 	MarkDeviceForgetting(ctx context.Context, id string) (Device, error)
+	// SetDeviceAPGroup pins a device to an AP group; empty returns it to the
+	// default. It returns ErrNotFound for an unknown device.
+	SetDeviceAPGroup(ctx context.Context, id, group string) (Device, error)
 	// DeleteDevice forgets a device in any state, along with its secrets
 	// and switch port settings.
 	DeleteDevice(ctx context.Context, id string) error
@@ -160,6 +188,33 @@ type DeviceStore interface {
 	// DeleteDeviceSecret removes a secret. Removing one that does not exist
 	// is not an error.
 	DeleteDeviceSecret(ctx context.Context, deviceID, name string) error
+}
+
+// DeviceSettings are the settings of a device an operator can change. Their
+// names and meaning belong to the device's adapter. Original is the baseline
+// built when the device was adopted; Current is what it should run.
+type DeviceSettings struct {
+	Original map[string]string
+	Current  map[string]string
+}
+
+// SettingsStore keeps adapter-defined settings.
+type SettingsStore interface {
+	// GetDeviceSettings returns the settings of a device, or ErrNotFound when
+	// none have been stored (or the device is unknown).
+	GetDeviceSettings(ctx context.Context, deviceID string) (DeviceSettings, error)
+	// SetDeviceSettings replaces the settings of a device. It returns
+	// ErrNotFound for an unknown device.
+	SetDeviceSettings(ctx context.Context, deviceID string, s DeviceSettings) error
+	// GetAdapterSettings returns the JSON document an adapter keeps for
+	// itself, or ErrNotFound. It can hold secrets.
+	GetAdapterSettings(ctx context.Context, adapter string) ([]byte, error)
+	// SetAdapterSettings replaces an adapter's document, which must be a JSON object.
+	SetAdapterSettings(ctx context.Context, adapter string, doc []byte) error
+	// InitAdapterSettings stores doc only if the adapter has none yet, and
+	// reports whether it did. It is how an adapter generates values once, at
+	// first start, even when several daemons start together.
+	InitAdapterSettings(ctx context.Context, adapter string, doc []byte) (bool, error)
 }
 
 type WifiSecurity string

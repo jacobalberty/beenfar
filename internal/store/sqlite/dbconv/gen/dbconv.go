@@ -54,6 +54,9 @@ func Device(source db.Device) store.Device {
 	storeDevice.Locked = source.Locked
 	storeDevice.Readoption = dbconv.Readoption(source.Readoption)
 	storeDevice.Forgetting = source.Forgetting
+	storeDevice.Kind = dbconv.DeviceKind(source.Kind)
+	storeDevice.PortCount = dbconv.Int(source.PortCount)
+	storeDevice.APGroup = source.ApGroup
 	storeDevice.LastSeen = dbconv.FromMilli(source.LastSeen)
 	storeDevice.CreateTime = dbconv.FromMilli(source.CreateTime)
 	storeDevice.UpdateTime = dbconv.FromMilli(source.UpdateTime)

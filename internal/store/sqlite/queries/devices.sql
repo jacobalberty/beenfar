@@ -11,15 +11,19 @@ WHERE (CAST(sqlc.arg(state) AS TEXT) = '' OR state = sqlc.arg(state))
 ORDER BY mac;
 
 -- name: ReportDevice :one
-INSERT INTO devices (id, mac, adapter, state, model, ip, firmware, locked, last_seen, create_time, update_time)
+INSERT INTO devices (id, mac, adapter, state, model, ip, firmware, kind, port_count, locked, last_seen, create_time, update_time)
 VALUES (sqlc.arg(id), sqlc.arg(mac), sqlc.arg(adapter), 'pending', sqlc.arg(model), sqlc.arg(ip), sqlc.arg(firmware),
-        sqlc.arg(locked), sqlc.arg(now), sqlc.arg(now), sqlc.arg(now))
+        sqlc.arg(kind), sqlc.arg(port_count), sqlc.arg(locked), sqlc.arg(now), sqlc.arg(now), sqlc.arg(now))
 -- Blank details in a report keep the values already known.
 ON CONFLICT (mac) DO UPDATE SET
     adapter     = excluded.adapter,
     model       = CASE WHEN excluded.model = '' THEN devices.model ELSE excluded.model END,
     ip          = CASE WHEN excluded.ip = '' THEN devices.ip ELSE excluded.ip END,
     firmware    = CASE WHEN excluded.firmware = '' THEN devices.firmware ELSE excluded.firmware END,
+    -- A blank kind means the adapter could not tell: keep what is known,
+    -- and the port count with it.
+    kind        = CASE WHEN excluded.kind = '' THEN devices.kind ELSE excluded.kind END,
+    port_count  = CASE WHEN excluded.kind = '' THEN devices.port_count ELSE excluded.port_count END,
     locked      = excluded.locked,
     -- A locked report is not authenticated (no key opened the packet), so
     -- it must not count as hearing from the device.
@@ -34,6 +38,8 @@ UPDATE devices SET
     model           = CASE WHEN sqlc.arg(model) = '' THEN model ELSE sqlc.arg(model) END,
     ip              = CASE WHEN sqlc.arg(ip) = '' THEN ip ELSE sqlc.arg(ip) END,
     firmware        = CASE WHEN sqlc.arg(firmware) = '' THEN firmware ELSE sqlc.arg(firmware) END,
+    kind            = CASE WHEN sqlc.arg(kind) = '' THEN kind ELSE sqlc.arg(kind) END,
+    port_count      = CASE WHEN sqlc.arg(kind) = '' THEN port_count ELSE sqlc.arg(port_count) END,
     config_revision = sqlc.arg(config_revision),
     locked          = FALSE,
     readoption      = sqlc.arg(readoption),
@@ -59,6 +65,13 @@ UPDATE devices SET
     forgetting  = TRUE,
     update_time = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND state = 'adopted'
+RETURNING *;
+
+-- name: SetDeviceAPGroup :one
+UPDATE devices SET
+    ap_group    = sqlc.arg(ap_group),
+    update_time = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
 RETURNING *;
 
 -- name: DeleteDevice :execrows

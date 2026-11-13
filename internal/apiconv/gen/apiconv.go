@@ -32,6 +32,29 @@ func AdapterToProto(source core.AdapterStatus) *v1.Adapter {
 	adminv1Adapter.ConnectTime = apiconv.Timestamp(source.ConnectTime)
 	return &adminv1Adapter
 }
+func DeviceFromProto(source *v11.Device) store.Device {
+	var storeDevice store.Device
+	if source != nil {
+		storeDevice.APGroup = (*source).ApGroup
+	}
+	return storeDevice
+}
+func DeviceSettingsToProto(source store.DeviceSettings) *v11.DeviceSettings {
+	var configv1DeviceSettings v11.DeviceSettings
+	if source.Original != nil {
+		configv1DeviceSettings.Original = make(map[string]string, len(source.Original))
+		for key, value := range source.Original {
+			configv1DeviceSettings.Original[key] = value
+		}
+	}
+	if source.Current != nil {
+		configv1DeviceSettings.Current = make(map[string]string, len(source.Current))
+		for key2, value2 := range source.Current {
+			configv1DeviceSettings.Current[key2] = value2
+		}
+	}
+	return &configv1DeviceSettings
+}
 func DeviceToProto(source store.Device) *v11.Device {
 	var configv1Device v11.Device
 	configv1Device.Id = source.ID
@@ -45,6 +68,9 @@ func DeviceToProto(source store.Device) *v11.Device {
 	configv1Device.Locked = source.Locked
 	configv1Device.Readoption = apiconv.ReadoptionToProto(source.Readoption)
 	configv1Device.Forgetting = source.Forgetting
+	configv1Device.Kind = apiconv.DeviceKindToProto(source.Kind)
+	configv1Device.PortCount = apiconv.PortToProto(source.PortCount)
+	configv1Device.ApGroup = source.APGroup
 	configv1Device.CreateTime = apiconv.Timestamp(source.CreateTime)
 	configv1Device.UpdateTime = apiconv.Timestamp(source.UpdateTime)
 	return &configv1Device

@@ -28,6 +28,43 @@ func (s *DeviceService) ListPending(ctx context.Context, adapter string) ([]stor
 	return s.store.ListDevices(ctx, store.DeviceFilter{State: store.DeviceStatePending, Adapter: adapter})
 }
 
+// Update changes the operator-set settings of a device: ap_group, which pins
+// an access point to one AP group. paths names the fields to change (API
+// names); empty or "*" replaces all of them. Anything the adapter reports is
+// left alone.
+func (s *DeviceService) Update(ctx context.Context, in store.Device, paths []string) (store.Device, error) {
+	if in.ID == "" {
+		return store.Device{}, invalid("device id is required")
+	}
+	var out store.Device
+	err := s.store.WithTx(ctx, func(tx store.Store) error {
+		cur, err := tx.GetDevice(ctx, in.ID)
+		if err != nil {
+			return err
+		}
+		next := cur
+		if err := deviceFields.apply(&next, in, paths); err != nil {
+			return err
+		}
+		if next.APGroup != "" {
+			if next.Kind != store.DeviceKindAccessPoint && next.Kind != store.DeviceKindUnknown {
+				return invalid("ap_group only applies to access points; device %s is a %s", cur.ID, next.Kind)
+			}
+		}
+		out = cur
+		if next.APGroup != cur.APGroup {
+			out, err = tx.SetDeviceAPGroup(ctx, cur.ID, next.APGroup)
+		}
+		return err
+	})
+	return out, err
+}
+
+// deviceFields are the mutable fields of a device, by API name.
+var deviceFields = fieldSetters[store.Device]{
+	"ap_group": func(d *store.Device, s store.Device) { d.APGroup = s.APGroup },
+}
+
 // Adopt brings a pending device under management, or accepts the re-adoption
 // of an adopted device that was reset and is awaiting it. Exactly one of id
 // and mac must be set.
@@ -62,6 +99,12 @@ func (s *DeviceService) Adopt(ctx context.Context, id, mac string) (store.Device
 	}
 	if err := s.adapters.AdoptDevice(ctx, d); err != nil {
 		return store.Device{}, fmt.Errorf("adapter %q could not adopt device %s: %w", d.Adapter, d.ID, err)
+	}
+	// The device's settings start from the baseline of its model, which is
+	// what a reset returns to. Stored before the device is marked adopted, so a
+	// failure leaves it pending and adopting again is safe.
+	if err := s.ensureSettings(ctx, d); err != nil {
+		return store.Device{}, fmt.Errorf("storing the settings of device %s: %w", d.ID, err)
 	}
 	return s.store.AdoptDevice(ctx, d.ID)
 }

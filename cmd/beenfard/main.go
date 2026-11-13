@@ -23,6 +23,7 @@ import (
 	"github.com/jacobalberty/beenfar/internal/store/otelstore"
 	"github.com/jacobalberty/beenfar/internal/store/sqlite"
 	"github.com/jacobalberty/beenfar/internal/telemetry"
+	"github.com/jacobalberty/beenfar/internal/unifisettings"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -54,8 +55,9 @@ type config struct {
 	// How long an adopted UniFi device must be silent before one on the
 	// default key is taken for factory reset and offered for re-adoption.
 	unifiReadoptAfter time.Duration
-	// Send UniFi devices their wifi, VLAN and RADIUS settings.
-	unifiSystemCfg bool
+	// Operator-chosen UniFi site settings; see unifi.SiteOptions. Country has
+	// no default.
+	unifiSite unifi.SiteOptions
 }
 
 func parseFlags(args []string) (config, error) {
@@ -74,10 +76,22 @@ func parseFlags(args []string) (config, error) {
 		"silence after which an adopted UniFi device on the default key is offered for re-adoption; 0 turns it off (env BEENFAR_UNIFI_READOPT_AFTER)")
 	fs.BoolVar(&cfg.unifiGCM, "unifi-gcm", cfg.auth.envBool("BEENFAR_UNIFI_GCM", false),
 		"switch UniFi devices to AES-GCM when adopting them (env BEENFAR_UNIFI_GCM)")
-	fs.BoolVar(&cfg.unifiSystemCfg, "unifi-system-cfg", cfg.auth.envBool("BEENFAR_UNIFI_SYSTEM_CFG", false),
-		"send adopted UniFi devices their wifi, VLAN and RADIUS settings (system_cfg); experimental, off by default (env BEENFAR_UNIFI_SYSTEM_CFG)")
+	fs.IntVar(&cfg.unifiSite.Country, "unifi-country", cfg.auth.envInt("BEENFAR_UNIFI_COUNTRY", 0),
+		"ISO 3166-1 numeric country code the access points' radios run under, e.g. 840 for the United States. Access points are sent no settings until it is set (env BEENFAR_UNIFI_COUNTRY)")
+	fs.StringVar(&cfg.unifiSite.LocaleTimezone, "unifi-timezone", envOr("BEENFAR_UNIFI_TIMEZONE", ""),
+		"time zone name given to UniFi devices; empty keeps the stored one, default UTC (env BEENFAR_UNIFI_TIMEZONE)")
+	ntp := fs.String("unifi-ntp", envOr("BEENFAR_UNIFI_NTP", ""),
+		"comma-separated NTP servers given to UniFi devices; empty keeps the stored ones, default pool.ntp.org (env BEENFAR_UNIFI_NTP)")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
+	}
+	for srv := range strings.SplitSeq(*ntp, ",") {
+		if srv = strings.TrimSpace(srv); srv != "" {
+			cfg.unifiSite.NTPServers = append(cfg.unifiSite.NTPServers, srv)
+		}
+	}
+	if c := cfg.unifiSite.Country; c < 0 || c > 999 {
+		return cfg, fmt.Errorf("unifi country %d: want an ISO 3166-1 numeric code (1-999), or 0 for none", c)
 	}
 	if err := cfg.logLevel.UnmarshalText([]byte(*level)); err != nil {
 		return cfg, fmt.Errorf("log level: %w", err)
@@ -139,14 +153,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if err := unifisettings.Ensure(ctx, ost, cfg.unifiSite); err != nil {
+		return fmt.Errorf("unifi site settings: %w", err)
+	}
+	if cfg.unifiSite.Country == 0 {
+		if site, err := unifisettings.Load(ctx, ost); err == nil && site.Country == 0 {
+			slog.WarnContext(ctx, "no country is set for the UniFi radios: access points are adopted but sent no settings until BEENFAR_UNIFI_COUNTRY is set")
+		}
+	}
 	unifiAdapter, err := unifi.New(unifi.Options{
+		Settings: unifisettings.Source{Store: ost},
 		Tracer:   tel.Tracer(),
 		Meter:    tel.Meter(),
 		Interval: cfg.unifiInterval,
 		UseGCM:   cfg.unifiGCM,
 
-		ReadoptAfter:     cfg.unifiReadoptAfter,
-		PushSystemConfig: cfg.unifiSystemCfg,
+		ReadoptAfter: cfg.unifiReadoptAfter,
 	})
 	if err != nil {
 		return err

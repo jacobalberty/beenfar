@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -101,7 +102,10 @@ func newDevice(last byte) *device {
 	return &device{
 		mac:   net.HardwareAddr{0xde, 0xad, 0xbe, 0xef, 0x00, last},
 		flags: inform.FlagEncrypted | inform.FlagSnappy,
-		model: "U7PG2",
+		// A switch, so the key and adoption tests do not see the settings an
+		// access point is sent once it is on its own key; the tests of those
+		// settings set an access point model.
+		model: "US8P150",
 	}
 }
 
@@ -208,7 +212,7 @@ func TestUnknownDeviceIsReportedAndRefused(t *testing.T) {
 		t.Fatalf("status = %d, want 404", status)
 	}
 	got := e.deviceByMAC(d)
-	if got.State != store.DeviceStatePending || got.Adapter != "unifi" || got.Model != "U7PG2" || got.IP != "127.0.0.1" || got.Locked {
+	if got.State != store.DeviceStatePending || got.Adapter != "unifi" || got.Model != d.model || got.Kind != store.DeviceKindSwitch || got.PortCount != 8 || got.IP != "127.0.0.1" || got.Locked {
 		t.Fatalf("device = %+v", got)
 	}
 	// Informing again keeps it pending and refreshes it.
@@ -312,7 +316,7 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); v != version {
 		t.Fatalf("cfgversion %q, want %q", v, version)
 	}
-	// Without PushSystemConfig, no system_cfg is sent.
+	// There are no wifi networks yet, so there is nothing to send.
 	if _, ok := reply["system_cfg"]; ok {
 		t.Errorf("unexpected system_cfg: %v", reply["system_cfg"])
 	}
@@ -327,34 +331,50 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	}
 }
 
-// With PushSystemConfig, the device is sent its wifi settings.
-func TestPushSystemConfig(t *testing.T) {
+// An adapter that was given no settings never sends a system_cfg: a device
+// replaces its whole configuration with it, so a partial one is never sent.
+// The access point still adopts, and is told the revision so it settles.
+func TestNoPartialSystemConfig(t *testing.T) {
 	ctx := t.Context()
-	e := newEnv(t, unifi.Options{PushSystemConfig: true})
+	e := newEnv(t, unifi.Options{})
 	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
 		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	d := newDevice(9)
-	e.post(d, inform.DefaultKey(), "")
-	if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
-		t.Fatal(err)
-	}
-	_, reply := e.post(d, inform.DefaultKey(), "")
-	sys, ok := reply["system_cfg"].(string)
-	if !ok {
-		t.Fatalf("no system_cfg in %v", reply)
-	}
-	cfg, err := inform.ParseConfig(sys)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for k, want := range map[string]string{
-		"aaa.1.ssid": "home", "aaa.1.wpa.psk": "hunter2hunter2", "aaa.1.devname": "wifi1ap0", "wireless.1.parent": "wifi1",
-	} {
-		if got, _ := cfg.Get(k); got != want {
-			t.Errorf("%s = %q, want %q", k, got, want)
+	for i, model := range []string{"U7PG2", "U7LT"} {
+		d := newDevice(byte(30 + i))
+		d.model = model
+		e.post(d, inform.DefaultKey(), "")
+		if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
+			t.Fatal(err)
+		}
+		status, reply := e.post(d, inform.DefaultKey(), "")
+		if status != http.StatusOK {
+			t.Fatalf("%s: adoption reply = %d", model, status)
+		}
+		if sys, ok := reply["system_cfg"]; ok {
+			t.Fatalf("%s: settings sent under the default key: %v", model, sys)
+		}
+		key := authKey(t, reply)
+		version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+		status, reply = e.post(d, key, version) // on its own key now
+		if status != http.StatusOK {
+			t.Fatalf("%s: reply on its own key = %d", model, status)
+		}
+		if sys, ok := reply["system_cfg"]; ok {
+			t.Errorf("%s: a partial system_cfg was sent: %v", model, sys)
+		}
+		if len(authKey(t, reply)) == 0 {
+			t.Errorf("%s: the device was not given its key", model)
+		}
+		if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); len(v) != 16 {
+			t.Errorf("%s: cfgversion %q is not a configuration revision", model, v)
+		}
+		// Having been told the revision, the device is left alone.
+		version, _ = mgmt(t, reply).Get(inform.KeyCfgVersion)
+		if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "noop" {
+			t.Errorf("%s: after the revision: %d %v, want a noop", model, status, reply)
 		}
 	}
 }
@@ -857,4 +877,169 @@ func TestForgetAResetDeviceReleasesItAtOnce(t *testing.T) {
 // isSetDefault reports whether reply is the factory-reset command.
 func isSetDefault(reply map[string]any) bool {
 	return reply["_type"] == "cmd" && reply["cmd"] == "setdefault"
+}
+
+// fakeSettings is a SettingsSource that tests can change.
+type fakeSettings struct {
+	mu   sync.Mutex
+	site unifi.SiteSettings
+	dev  map[string]map[string]string
+}
+
+func newFakeSettings(t *testing.T, country int) *fakeSettings {
+	t.Helper()
+	site, err := unifi.NewSite(unifi.SiteOptions{Country: country})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &fakeSettings{site: site, dev: map[string]map[string]string{}}
+}
+
+func (f *fakeSettings) Site(context.Context) (unifi.SiteSettings, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.site, nil
+}
+
+func (f *fakeSettings) DeviceSettings(_ context.Context, id string) (map[string]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.dev[id], nil
+}
+
+func (f *fakeSettings) setDevice(id string, v map[string]string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.dev[id] = v
+}
+
+// An adopted access point whose model has a profile is sent the complete
+// system.cfg, on its own key only; a model without a profile, a country that is
+// not set, or a configuration that cannot be rendered gets no system_cfg and
+// still adopts. The revision follows everything that affects the document.
+func TestPushCompleteSystemConfig(t *testing.T) {
+	ctx := t.Context()
+	settings := newFakeSettings(t, 840)
+	e := newEnv(t, unifi.Options{Settings: settings})
+	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
+		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	d := newDevice(40)
+	d.model = "U7LT"
+	e.post(d, inform.DefaultKey(), "")
+	dev := e.deviceByMAC(d)
+	if _, err := e.devices.Adopt(ctx, dev.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	// The reply that hands the device its key is sealed with the default key,
+	// which anybody can open: it must not carry the settings.
+	_, reply := e.post(d, inform.DefaultKey(), "")
+	if sys, ok := reply["system_cfg"]; ok {
+		t.Fatalf("settings sent under the default key: %v", sys)
+	}
+	key := authKey(t, reply)
+	version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	status, reply := e.post(d, key, version)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
+	sys, ok := reply["system_cfg"].(string)
+	if !ok {
+		t.Fatalf("no system_cfg in %v", reply)
+	}
+	cfg, err := inform.ParseConfig(sys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Complete: the model's base, the tunables, the site and the network.
+	for k, want := range map[string]string{
+		"radio.status": "enabled", "radio.1.channel": "auto", "radio.countrycode": "840",
+		"users.1.name": "admin", "sshd.status": "enabled", "unifi.mcip": "http://" + e.srv.Listener.Addr().String() + "/inform",
+		"aaa.1.ssid": "home", "aaa.1.wpa.psk": "hunter2hunter2", "wireless.1.parent": "wifi1",
+	} {
+		if got, _ := cfg.Get(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
+	if cfg.Len() < 150 {
+		t.Errorf("only %d keys: not a complete document", cfg.Len())
+	}
+	version1, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	if status, reply := e.post(d, key, version1); status != http.StatusOK || reply["_type"] != "noop" {
+		t.Fatalf("after the settings: %d %v, want a noop", status, reply)
+	}
+
+	// A change of the device's tunables is a new revision and is pushed.
+	settings.setDevice(dev.ID, map[string]string{"radio.1.channel": "6"})
+	_, reply = e.post(d, key, version1)
+	sys, _ = reply["system_cfg"].(string)
+	cfg, _ = inform.ParseConfig(sys)
+	if got, _ := cfg.Get("radio.1.channel"); got != "6" {
+		t.Fatalf("radio.1.channel = %q after the change, want 6", got)
+	}
+	version2, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	if version2 == version1 {
+		t.Error("the revision did not change with the tunables")
+	}
+	// So is a change of the site settings.
+	settings.mu.Lock()
+	settings.site.NTPServers = []string{"ntp.example.test"}
+	settings.mu.Unlock()
+	_, reply = e.post(d, key, version2)
+	if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); v == version2 {
+		t.Error("the revision did not change with the site settings")
+	}
+
+	// A model with no profile is adopted and sent no system_cfg.
+	other := newDevice(41)
+	other.model = "U7PG2"
+	e.post(other, inform.DefaultKey(), "")
+	if _, err := e.devices.Adopt(ctx, e.deviceByMAC(other).ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	_, reply = e.post(other, inform.DefaultKey(), "")
+	okey := authKey(t, reply)
+	ov, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	status, reply = e.post(other, okey, ov)
+	if _, has := reply["system_cfg"]; has || status != http.StatusOK || len(authKey(t, reply)) == 0 {
+		t.Errorf("model without a profile: %d %v", status, reply)
+	}
+
+	// A configuration that cannot be rendered (an open network) is not sent
+	// either, and the device keeps informing.
+	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{SSID: "open", Security: store.WifiSecurityOpen, Band: store.WifiBandBoth}); err != nil {
+		t.Fatal(err)
+	}
+	status, reply = e.post(d, key, version2)
+	if _, has := reply["system_cfg"]; has || status != http.StatusOK {
+		t.Errorf("an unrenderable configuration was sent: %d %v", status, reply)
+	}
+}
+
+// Without a country no access point is sent its settings: a wrong one is a
+// regulatory problem, so there is no default.
+func TestNoSystemConfigWithoutACountry(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{Settings: newFakeSettings(t, 0)})
+	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
+		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	d := newDevice(42)
+	d.model = "U7LT"
+	e.post(d, inform.DefaultKey(), "")
+	if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	_, reply := e.post(d, inform.DefaultKey(), "")
+	key := authKey(t, reply)
+	version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	status, reply := e.post(d, key, version)
+	if _, has := reply["system_cfg"]; has || status != http.StatusOK {
+		t.Errorf("sent without a country: %d %v", status, reply)
+	}
 }

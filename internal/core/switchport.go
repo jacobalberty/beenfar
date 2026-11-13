@@ -32,6 +32,15 @@ func (s *SwitchPortService) Create(ctx context.Context, p store.SwitchPort) (sto
 		if d.State != store.DeviceStateAdopted {
 			return fmt.Errorf("%w: device %s is not adopted; only adopted devices have configurable ports", store.ErrFailedPrecondition, d.ID)
 		}
+		// A device that is known to have no configurable ports (most access
+		// points) has nothing to set; one whose adapter did not say what it
+		// is gets the benefit of the doubt.
+		if d.Kind != store.DeviceKindUnknown && d.PortCount == 0 {
+			return fmt.Errorf("%w: device %s has no configurable ports", store.ErrFailedPrecondition, d.ID)
+		}
+		if d.Kind != store.DeviceKindUnknown && p.PortIndex > d.PortCount {
+			return invalid("port_index %d is out of range: device %s has %d configurable ports", p.PortIndex, d.ID, d.PortCount)
+		}
 		out, err = tx.CreateSwitchPort(ctx, p)
 		if err != nil {
 			return err

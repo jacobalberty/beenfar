@@ -100,6 +100,8 @@ func DiscoveredFromProto(source *v1.Discovered) model.Discovered {
 		modelDiscovered.Model = (*source).Model
 		modelDiscovered.IP = (*source).Ip
 		modelDiscovered.Firmware = (*source).Firmware
+		modelDiscovered.Kind = wire.KindFromProto((*source).Kind)
+		modelDiscovered.PortCount = wire.Int((*source).PortCount)
 		modelDiscovered.Locked = (*source).Locked
 	}
 	return modelDiscovered
@@ -111,6 +113,8 @@ func DiscoveredToProto(source model.Discovered) *v1.Discovered {
 	adapterv1Discovered.Ip = source.IP
 	adapterv1Discovered.Firmware = source.Firmware
 	adapterv1Discovered.Locked = source.Locked
+	adapterv1Discovered.Kind = wire.KindToProto(source.Kind)
+	adapterv1Discovered.PortCount = wire.Int32(source.PortCount)
 	return &adapterv1Discovered
 }
 func StateFromProto(source *v1.State) model.State {
@@ -119,6 +123,8 @@ func StateFromProto(source *v1.State) model.State {
 		modelState.IP = (*source).Ip
 		modelState.Firmware = (*source).Firmware
 		modelState.Model = (*source).Model
+		modelState.Kind = wire.KindFromProto((*source).Kind)
+		modelState.PortCount = wire.Int((*source).PortCount)
 		modelState.ConfigRevision = (*source).ConfigRevision
 		modelState.Uptime = wire.DurationFromSeconds((*source).UptimeSeconds)
 		modelState.Readoption = wire.ReadoptionFromProto((*source).Readoption)
@@ -135,6 +141,8 @@ func StateToProto(source model.State) *v1.State {
 	adapterv1State.UptimeSeconds = wire.SecondsFromDuration(source.Uptime)
 	adapterv1State.Readoption = wire.ReadoptionToProto(source.Readoption)
 	adapterv1State.Released = source.Released
+	adapterv1State.Kind = wire.KindToProto(source.Kind)
+	adapterv1State.PortCount = wire.Int32(source.PortCount)
 	return &adapterv1State
 }
 func modelNetworkToPAdapterv1Network(source model.Network) *v1.Network {

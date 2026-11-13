@@ -33,6 +33,17 @@ const (
 	DeviceServiceListPendingDevicesProcedure = "/beenfar.config.v1.DeviceService/ListPendingDevices"
 	// DeviceServiceAdoptDeviceProcedure is the procedure name of the DeviceService's AdoptDevice RPC.
 	DeviceServiceAdoptDeviceProcedure = "/beenfar.config.v1.DeviceService/AdoptDevice"
+	// DeviceServiceUpdateDeviceProcedure is the procedure name of the DeviceService's UpdateDevice RPC.
+	DeviceServiceUpdateDeviceProcedure = "/beenfar.config.v1.DeviceService/UpdateDevice"
+	// DeviceServiceGetDeviceSettingsProcedure is the procedure name of the DeviceService's
+	// GetDeviceSettings RPC.
+	DeviceServiceGetDeviceSettingsProcedure = "/beenfar.config.v1.DeviceService/GetDeviceSettings"
+	// DeviceServiceUpdateDeviceSettingsProcedure is the procedure name of the DeviceService's
+	// UpdateDeviceSettings RPC.
+	DeviceServiceUpdateDeviceSettingsProcedure = "/beenfar.config.v1.DeviceService/UpdateDeviceSettings"
+	// DeviceServiceResetDeviceSettingsProcedure is the procedure name of the DeviceService's
+	// ResetDeviceSettings RPC.
+	DeviceServiceResetDeviceSettingsProcedure = "/beenfar.config.v1.DeviceService/ResetDeviceSettings"
 	// DeviceServiceForgetDeviceProcedure is the procedure name of the DeviceService's ForgetDevice RPC.
 	DeviceServiceForgetDeviceProcedure = "/beenfar.config.v1.DeviceService/ForgetDevice"
 )
@@ -69,6 +80,37 @@ var (
 			Procedure:  DeviceServiceAdoptDeviceProcedure,
 		}
 	})
+	deviceServiceUpdateDeviceSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_beenfar_config_v1_device_proto.Services().ByName("DeviceService").Methods().ByName("UpdateDevice"),
+			Procedure:  DeviceServiceUpdateDeviceProcedure,
+		}
+	})
+	deviceServiceGetDeviceSettingsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_beenfar_config_v1_device_proto.Services().ByName("DeviceService").Methods().ByName("GetDeviceSettings"),
+			Procedure:        DeviceServiceGetDeviceSettingsProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	deviceServiceUpdateDeviceSettingsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_beenfar_config_v1_device_proto.Services().ByName("DeviceService").Methods().ByName("UpdateDeviceSettings"),
+			Procedure:        DeviceServiceUpdateDeviceSettingsProcedure,
+			IdempotencyLevel: connect.IdempotencyIdempotent,
+		}
+	})
+	deviceServiceResetDeviceSettingsSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1.File_beenfar_config_v1_device_proto.Services().ByName("DeviceService").Methods().ByName("ResetDeviceSettings"),
+			Procedure:        DeviceServiceResetDeviceSettingsProcedure,
+			IdempotencyLevel: connect.IdempotencyIdempotent,
+		}
+	})
 	deviceServiceForgetDeviceSpec = sync.OnceValue(func() connect.Spec {
 		return connect.Spec{
 			StreamType:       connect.StreamTypeUnary,
@@ -92,6 +134,31 @@ type DeviceServiceClient interface {
 	// It fails with NOT_FOUND if no such device has been seen and
 	// FAILED_PRECONDITION if it is already adopted and not awaiting.
 	AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error)
+	// UpdateDevice changes the operator-set settings of a device: for now only
+	// ap_group, which pins an access point to one AP group. The access point
+	// then broadcasts the wifi networks that are not limited to named groups
+	// plus those that list its group, and not the ones limited to other groups;
+	// with no group it broadcasts every network. Only access points take an
+	// ap_group.
+	// Fields named by update_mask are replaced; an empty mask replaces all of
+	// them. All other fields are output only and ignored.
+	UpdateDevice(context.Context, *v1.UpdateDeviceRequest) (*v1.UpdateDeviceResponse, error)
+	// GetDeviceSettings returns the settings an operator can change on a device,
+	// both the original ones and the current ones. The names and meaning of the
+	// settings belong to the device's adapter; for a UniFi access point of a
+	// supported model they are its radio settings (channel, width, power, ...).
+	// A device whose model has none returns both maps empty.
+	GetDeviceSettings(context.Context, *v1.GetDeviceSettingsRequest) (*v1.GetDeviceSettingsResponse, error)
+	// UpdateDeviceSettings sets some of a device's current settings: the keys in
+	// the request replace the current values and the other keys are kept. A key
+	// the device's model does not have, or a value it does not accept, fails
+	// with INVALID_ARGUMENT and changes nothing. It fails with
+	// FAILED_PRECONDITION for a device that is not adopted or whose model has no
+	// settings. The device is sent the new settings the next time it informs.
+	UpdateDeviceSettings(context.Context, *v1.UpdateDeviceSettingsRequest) (*v1.UpdateDeviceSettingsResponse, error)
+	// ResetDeviceSettings returns a device's current settings to its original
+	// ones.
+	ResetDeviceSettings(context.Context, *v1.ResetDeviceSettingsRequest) (*v1.ResetDeviceSettingsResponse, error)
 	// ForgetDevice stops managing a device. An adopted device is factory reset
 	// (for UniFi: told to reset itself on its next inform), so that it comes back
 	// as a new, pending device that can be adopted again. The reset can only be
@@ -124,6 +191,31 @@ type DeviceServiceHandler interface {
 	// It fails with NOT_FOUND if no such device has been seen and
 	// FAILED_PRECONDITION if it is already adopted and not awaiting.
 	AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error)
+	// UpdateDevice changes the operator-set settings of a device: for now only
+	// ap_group, which pins an access point to one AP group. The access point
+	// then broadcasts the wifi networks that are not limited to named groups
+	// plus those that list its group, and not the ones limited to other groups;
+	// with no group it broadcasts every network. Only access points take an
+	// ap_group.
+	// Fields named by update_mask are replaced; an empty mask replaces all of
+	// them. All other fields are output only and ignored.
+	UpdateDevice(context.Context, *v1.UpdateDeviceRequest) (*v1.UpdateDeviceResponse, error)
+	// GetDeviceSettings returns the settings an operator can change on a device,
+	// both the original ones and the current ones. The names and meaning of the
+	// settings belong to the device's adapter; for a UniFi access point of a
+	// supported model they are its radio settings (channel, width, power, ...).
+	// A device whose model has none returns both maps empty.
+	GetDeviceSettings(context.Context, *v1.GetDeviceSettingsRequest) (*v1.GetDeviceSettingsResponse, error)
+	// UpdateDeviceSettings sets some of a device's current settings: the keys in
+	// the request replace the current values and the other keys are kept. A key
+	// the device's model does not have, or a value it does not accept, fails
+	// with INVALID_ARGUMENT and changes nothing. It fails with
+	// FAILED_PRECONDITION for a device that is not adopted or whose model has no
+	// settings. The device is sent the new settings the next time it informs.
+	UpdateDeviceSettings(context.Context, *v1.UpdateDeviceSettingsRequest) (*v1.UpdateDeviceSettingsResponse, error)
+	// ResetDeviceSettings returns a device's current settings to its original
+	// ones.
+	ResetDeviceSettings(context.Context, *v1.ResetDeviceSettingsRequest) (*v1.ResetDeviceSettingsResponse, error)
 	// ForgetDevice stops managing a device. An adopted device is factory reset
 	// (for UniFi: told to reset itself on its next inform), so that it comes back
 	// as a new, pending device that can be adopted again. The reset can only be
@@ -146,6 +238,10 @@ func RegisterDeviceServiceHandler(server *connect.Server, svc DeviceServiceHandl
 		connect.Method{Spec: deviceServiceListDevicesSpec(), Handler: adapter.listDevices},
 		connect.Method{Spec: deviceServiceListPendingDevicesSpec(), Handler: adapter.listPendingDevices},
 		connect.Method{Spec: deviceServiceAdoptDeviceSpec(), Handler: adapter.adoptDevice},
+		connect.Method{Spec: deviceServiceUpdateDeviceSpec(), Handler: adapter.updateDevice},
+		connect.Method{Spec: deviceServiceGetDeviceSettingsSpec(), Handler: adapter.getDeviceSettings},
+		connect.Method{Spec: deviceServiceUpdateDeviceSettingsSpec(), Handler: adapter.updateDeviceSettings},
+		connect.Method{Spec: deviceServiceResetDeviceSettingsSpec(), Handler: adapter.resetDeviceSettings},
 		connect.Method{Spec: deviceServiceForgetDeviceSpec(), Handler: adapter.forgetDevice},
 	)
 }
@@ -167,6 +263,22 @@ func (UnimplementedDeviceServiceHandler) ListPendingDevices(context.Context, *v1
 
 func (UnimplementedDeviceServiceHandler) AdoptDevice(context.Context, *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.config.v1.DeviceService.AdoptDevice is not implemented")
+}
+
+func (UnimplementedDeviceServiceHandler) UpdateDevice(context.Context, *v1.UpdateDeviceRequest) (*v1.UpdateDeviceResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.config.v1.DeviceService.UpdateDevice is not implemented")
+}
+
+func (UnimplementedDeviceServiceHandler) GetDeviceSettings(context.Context, *v1.GetDeviceSettingsRequest) (*v1.GetDeviceSettingsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.config.v1.DeviceService.GetDeviceSettings is not implemented")
+}
+
+func (UnimplementedDeviceServiceHandler) UpdateDeviceSettings(context.Context, *v1.UpdateDeviceSettingsRequest) (*v1.UpdateDeviceSettingsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.config.v1.DeviceService.UpdateDeviceSettings is not implemented")
+}
+
+func (UnimplementedDeviceServiceHandler) ResetDeviceSettings(context.Context, *v1.ResetDeviceSettingsRequest) (*v1.ResetDeviceSettingsResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "beenfar.config.v1.DeviceService.ResetDeviceSettings is not implemented")
 }
 
 func (UnimplementedDeviceServiceHandler) ForgetDevice(context.Context, *v1.ForgetDeviceRequest) (*v1.ForgetDeviceResponse, error) {
@@ -204,6 +316,38 @@ func (c *deviceServiceClient) ListPendingDevices(ctx context.Context, req *v1.Li
 func (c *deviceServiceClient) AdoptDevice(ctx context.Context, req *v1.AdoptDeviceRequest) (*v1.AdoptDeviceResponse, error) {
 	var res v1.AdoptDeviceResponse
 	if err := c.client.CallUnary(ctx, deviceServiceAdoptDeviceSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *deviceServiceClient) UpdateDevice(ctx context.Context, req *v1.UpdateDeviceRequest) (*v1.UpdateDeviceResponse, error) {
+	var res v1.UpdateDeviceResponse
+	if err := c.client.CallUnary(ctx, deviceServiceUpdateDeviceSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *deviceServiceClient) GetDeviceSettings(ctx context.Context, req *v1.GetDeviceSettingsRequest) (*v1.GetDeviceSettingsResponse, error) {
+	var res v1.GetDeviceSettingsResponse
+	if err := c.client.CallUnary(ctx, deviceServiceGetDeviceSettingsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *deviceServiceClient) UpdateDeviceSettings(ctx context.Context, req *v1.UpdateDeviceSettingsRequest) (*v1.UpdateDeviceSettingsResponse, error) {
+	var res v1.UpdateDeviceSettingsResponse
+	if err := c.client.CallUnary(ctx, deviceServiceUpdateDeviceSettingsSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *deviceServiceClient) ResetDeviceSettings(ctx context.Context, req *v1.ResetDeviceSettingsRequest) (*v1.ResetDeviceSettingsResponse, error) {
+	var res v1.ResetDeviceSettingsResponse
+	if err := c.client.CallUnary(ctx, deviceServiceResetDeviceSettingsSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -261,6 +405,54 @@ func (h deviceServiceHandler) adoptDevice(ctx context.Context, _ connect.Spec, s
 		return err
 	}
 	res, err := h.svc.AdoptDevice(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h deviceServiceHandler) updateDevice(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.UpdateDeviceRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.UpdateDevice(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h deviceServiceHandler) getDeviceSettings(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.GetDeviceSettingsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.GetDeviceSettings(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h deviceServiceHandler) updateDeviceSettings(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.UpdateDeviceSettingsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.UpdateDeviceSettings(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h deviceServiceHandler) resetDeviceSettings(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ResetDeviceSettingsRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ResetDeviceSettings(ctx, &req)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import type { FieldMask, Timestamp } from "@bufbuild/protobuf/wkt";
 
 /**
  * Describes the file beenfar/config/v1/device.proto.
@@ -89,6 +89,32 @@ export declare type Device = Message<"beenfar.config.v1.Device"> & {
   forgetting: boolean;
 
   /**
+   * What the device is, as far as its adapter can tell.
+   *
+   * @generated from field: beenfar.config.v1.DeviceKind kind = 12;
+   */
+  kind: DeviceKind;
+
+  /**
+   * How many ports beyond the uplink can be configured with
+   * beenfar.config.v1.SwitchPortService. Most access points have none, so a
+   * client should offer port settings only when this is above zero. Zero for
+   * a device whose kind is unspecified means "not known", and port settings
+   * are accepted.
+   *
+   * @generated from field: uint32 port_count = 13;
+   */
+  portCount: number;
+
+  /**
+   * The AP group this access point is pinned to. Empty is the default (see
+   * UpdateDevice).
+   *
+   * @generated from field: string ap_group = 14;
+   */
+  apGroup: string;
+
+  /**
    * @generated from field: google.protobuf.Timestamp create_time = 21;
    */
   createTime?: Timestamp | undefined;
@@ -104,6 +130,138 @@ export declare type Device = Message<"beenfar.config.v1.Device"> & {
  * Use `create(DeviceSchema)` to create a new message.
  */
 export declare const DeviceSchema: GenMessage<Device>;
+
+/**
+ * DeviceSettings are the settings of a device an operator can change.
+ *
+ * @generated from message beenfar.config.v1.DeviceSettings
+ */
+export declare type DeviceSettings = Message<"beenfar.config.v1.DeviceSettings"> & {
+  /**
+   * The baseline built when the device was adopted (for UniFi: its model's
+   * defaults). It does not change, and is what ResetDeviceSettings returns to.
+   *
+   * @generated from field: map<string, string> original = 1;
+   */
+  original: { [key: string]: string };
+
+  /**
+   * What the device should run: the original settings with the operator's
+   * changes.
+   *
+   * @generated from field: map<string, string> current = 2;
+   */
+  current: { [key: string]: string };
+};
+
+/**
+ * Describes the message beenfar.config.v1.DeviceSettings.
+ * Use `create(DeviceSettingsSchema)` to create a new message.
+ */
+export declare const DeviceSettingsSchema: GenMessage<DeviceSettings>;
+
+/**
+ * @generated from message beenfar.config.v1.GetDeviceSettingsRequest
+ */
+export declare type GetDeviceSettingsRequest = Message<"beenfar.config.v1.GetDeviceSettingsRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message beenfar.config.v1.GetDeviceSettingsRequest.
+ * Use `create(GetDeviceSettingsRequestSchema)` to create a new message.
+ */
+export declare const GetDeviceSettingsRequestSchema: GenMessage<GetDeviceSettingsRequest>;
+
+/**
+ * @generated from message beenfar.config.v1.GetDeviceSettingsResponse
+ */
+export declare type GetDeviceSettingsResponse = Message<"beenfar.config.v1.GetDeviceSettingsResponse"> & {
+  /**
+   * @generated from field: beenfar.config.v1.DeviceSettings settings = 1;
+   */
+  settings?: DeviceSettings | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.GetDeviceSettingsResponse.
+ * Use `create(GetDeviceSettingsResponseSchema)` to create a new message.
+ */
+export declare const GetDeviceSettingsResponseSchema: GenMessage<GetDeviceSettingsResponse>;
+
+/**
+ * @generated from message beenfar.config.v1.UpdateDeviceSettingsRequest
+ */
+export declare type UpdateDeviceSettingsRequest = Message<"beenfar.config.v1.UpdateDeviceSettingsRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * The settings to set, by key. Keys not listed keep their current value.
+   *
+   * @generated from field: map<string, string> current = 2;
+   */
+  current: { [key: string]: string };
+};
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceSettingsRequest.
+ * Use `create(UpdateDeviceSettingsRequestSchema)` to create a new message.
+ */
+export declare const UpdateDeviceSettingsRequestSchema: GenMessage<UpdateDeviceSettingsRequest>;
+
+/**
+ * @generated from message beenfar.config.v1.UpdateDeviceSettingsResponse
+ */
+export declare type UpdateDeviceSettingsResponse = Message<"beenfar.config.v1.UpdateDeviceSettingsResponse"> & {
+  /**
+   * @generated from field: beenfar.config.v1.DeviceSettings settings = 1;
+   */
+  settings?: DeviceSettings | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceSettingsResponse.
+ * Use `create(UpdateDeviceSettingsResponseSchema)` to create a new message.
+ */
+export declare const UpdateDeviceSettingsResponseSchema: GenMessage<UpdateDeviceSettingsResponse>;
+
+/**
+ * @generated from message beenfar.config.v1.ResetDeviceSettingsRequest
+ */
+export declare type ResetDeviceSettingsRequest = Message<"beenfar.config.v1.ResetDeviceSettingsRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message beenfar.config.v1.ResetDeviceSettingsRequest.
+ * Use `create(ResetDeviceSettingsRequestSchema)` to create a new message.
+ */
+export declare const ResetDeviceSettingsRequestSchema: GenMessage<ResetDeviceSettingsRequest>;
+
+/**
+ * @generated from message beenfar.config.v1.ResetDeviceSettingsResponse
+ */
+export declare type ResetDeviceSettingsResponse = Message<"beenfar.config.v1.ResetDeviceSettingsResponse"> & {
+  /**
+   * @generated from field: beenfar.config.v1.DeviceSettings settings = 1;
+   */
+  settings?: DeviceSettings | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.ResetDeviceSettingsResponse.
+ * Use `create(ResetDeviceSettingsResponseSchema)` to create a new message.
+ */
+export declare const ResetDeviceSettingsResponseSchema: GenMessage<ResetDeviceSettingsResponse>;
 
 /**
  * @generated from message beenfar.config.v1.GetDeviceRequest
@@ -259,6 +417,48 @@ export declare type AdoptDeviceResponse = Message<"beenfar.config.v1.AdoptDevice
 export declare const AdoptDeviceResponseSchema: GenMessage<AdoptDeviceResponse>;
 
 /**
+ * @generated from message beenfar.config.v1.UpdateDeviceRequest
+ */
+export declare type UpdateDeviceRequest = Message<"beenfar.config.v1.UpdateDeviceRequest"> & {
+  /**
+   * id selects the device.
+   *
+   * @generated from field: beenfar.config.v1.Device device = 1;
+   */
+  device?: Device | undefined;
+
+  /**
+   * Fields to update, named by their proto field names (currently only
+   * "ap_group"). When empty or "*", every mutable field is replaced.
+   *
+   * @generated from field: google.protobuf.FieldMask update_mask = 2;
+   */
+  updateMask?: FieldMask | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceRequest.
+ * Use `create(UpdateDeviceRequestSchema)` to create a new message.
+ */
+export declare const UpdateDeviceRequestSchema: GenMessage<UpdateDeviceRequest>;
+
+/**
+ * @generated from message beenfar.config.v1.UpdateDeviceResponse
+ */
+export declare type UpdateDeviceResponse = Message<"beenfar.config.v1.UpdateDeviceResponse"> & {
+  /**
+   * @generated from field: beenfar.config.v1.Device device = 1;
+   */
+  device?: Device | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceResponse.
+ * Use `create(UpdateDeviceResponseSchema)` to create a new message.
+ */
+export declare const UpdateDeviceResponseSchema: GenMessage<UpdateDeviceResponse>;
+
+/**
  * @generated from message beenfar.config.v1.ForgetDeviceRequest
  */
 export declare type ForgetDeviceRequest = Message<"beenfar.config.v1.ForgetDeviceRequest"> & {
@@ -366,6 +566,40 @@ export enum ReadoptionState {
 export declare const ReadoptionStateSchema: GenEnum<ReadoptionState>;
 
 /**
+ * DeviceKind says what a device is.
+ *
+ * @generated from enum beenfar.config.v1.DeviceKind
+ */
+export enum DeviceKind {
+  /**
+   * The adapter has not said (or cannot tell).
+   *
+   * @generated from enum value: DEVICE_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: DEVICE_KIND_ACCESS_POINT = 1;
+   */
+  ACCESS_POINT = 1,
+
+  /**
+   * @generated from enum value: DEVICE_KIND_SWITCH = 2;
+   */
+  SWITCH = 2,
+
+  /**
+   * @generated from enum value: DEVICE_KIND_GATEWAY = 3;
+   */
+  GATEWAY = 3,
+}
+
+/**
+ * Describes the enum beenfar.config.v1.DeviceKind.
+ */
+export declare const DeviceKindSchema: GenEnum<DeviceKind>;
+
+/**
  * DeviceService manages network devices: discovery results, adoption and
  * removal. Devices are created by adapters when they are first seen, in the
  * PENDING state; AdoptDevice brings one under management.
@@ -415,6 +649,63 @@ export declare const DeviceService: GenService<{
     methodKind: "unary";
     input: typeof AdoptDeviceRequestSchema;
     output: typeof AdoptDeviceResponseSchema;
+  },
+  /**
+   * UpdateDevice changes the operator-set settings of a device: for now only
+   * ap_group, which pins an access point to one AP group. The access point
+   * then broadcasts the wifi networks that are not limited to named groups
+   * plus those that list its group, and not the ones limited to other groups;
+   * with no group it broadcasts every network. Only access points take an
+   * ap_group.
+   * Fields named by update_mask are replaced; an empty mask replaces all of
+   * them. All other fields are output only and ignored.
+   *
+   * @generated from rpc beenfar.config.v1.DeviceService.UpdateDevice
+   */
+  updateDevice: {
+    methodKind: "unary";
+    input: typeof UpdateDeviceRequestSchema;
+    output: typeof UpdateDeviceResponseSchema;
+  },
+  /**
+   * GetDeviceSettings returns the settings an operator can change on a device,
+   * both the original ones and the current ones. The names and meaning of the
+   * settings belong to the device's adapter; for a UniFi access point of a
+   * supported model they are its radio settings (channel, width, power, ...).
+   * A device whose model has none returns both maps empty.
+   *
+   * @generated from rpc beenfar.config.v1.DeviceService.GetDeviceSettings
+   */
+  getDeviceSettings: {
+    methodKind: "unary";
+    input: typeof GetDeviceSettingsRequestSchema;
+    output: typeof GetDeviceSettingsResponseSchema;
+  },
+  /**
+   * UpdateDeviceSettings sets some of a device's current settings: the keys in
+   * the request replace the current values and the other keys are kept. A key
+   * the device's model does not have, or a value it does not accept, fails
+   * with INVALID_ARGUMENT and changes nothing. It fails with
+   * FAILED_PRECONDITION for a device that is not adopted or whose model has no
+   * settings. The device is sent the new settings the next time it informs.
+   *
+   * @generated from rpc beenfar.config.v1.DeviceService.UpdateDeviceSettings
+   */
+  updateDeviceSettings: {
+    methodKind: "unary";
+    input: typeof UpdateDeviceSettingsRequestSchema;
+    output: typeof UpdateDeviceSettingsResponseSchema;
+  },
+  /**
+   * ResetDeviceSettings returns a device's current settings to its original
+   * ones.
+   *
+   * @generated from rpc beenfar.config.v1.DeviceService.ResetDeviceSettings
+   */
+  resetDeviceSettings: {
+    methodKind: "unary";
+    input: typeof ResetDeviceSettingsRequestSchema;
+    output: typeof ResetDeviceSettingsResponseSchema;
   },
   /**
    * ForgetDevice stops managing a device. An adopted device is factory reset

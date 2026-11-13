@@ -5,6 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacobalberty/beenfar/adapters/unifi"
+	"github.com/jacobalberty/beenfar/internal/store"
+	"github.com/jacobalberty/beenfar/internal/unifisettings"
 )
 
 func TestAdminCreateAndToken(t *testing.T) {
@@ -105,5 +109,71 @@ func TestAdminImportUnifi(t *testing.T) {
 		if err := runAdmin([]string{"import-unifi", "-db", db}, strings.NewReader(bad), &out); err == nil {
 			t.Errorf("%s: import succeeded", name)
 		}
+	}
+}
+
+func TestAdminUnifiDevicePassword(t *testing.T) {
+	ctx := t.Context()
+	db := "sqlite://" + filepath.Join(t.TempDir(), "beenfar.db")
+
+	// Before the daemon has generated the site settings there is nothing to show.
+	if err := runAdmin([]string{"unifi-device-password", "-db", db}, nil, &bytes.Buffer{}); err == nil {
+		t.Fatal("printed a password that does not exist")
+	}
+	st, _, err := openStore(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unifisettings.Ensure(ctx, st, unifi.SiteOptions{Country: 840}); err != nil {
+		t.Fatal(err)
+	}
+	site, _ := unifisettings.Load(ctx, st)
+	_ = st.Close()
+
+	var out bytes.Buffer
+	if err := runAdmin([]string{"unifi-device-password", "-db", db}, nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "user: admin") || !strings.Contains(out.String(), "password: "+site.AdminPassword) {
+		t.Fatalf("output %q", out.String())
+	}
+}
+
+func TestAdminUnifiRender(t *testing.T) {
+	ctx := t.Context()
+	db := "sqlite://" + filepath.Join(t.TempDir(), "beenfar.db")
+	st, _, err := openStore(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unifisettings.Ensure(ctx, st, unifi.SiteOptions{Country: 840}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateWifiNetwork(ctx, store.WifiNetwork{SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBandBoth}); err != nil {
+		t.Fatal(err)
+	}
+	for mac, model := range map[string]string{"de:ad:be:ef:30:01": "U7LT", "de:ad:be:ef:30:02": "U7PG2"} {
+		if _, err := st.ReportDevice(ctx, store.DiscoveredDevice{MAC: mac, Adapter: "unifi", Model: model}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = st.Close()
+
+	var out bytes.Buffer
+	if err := runAdmin([]string{"unifi-render", "-db", db, "-mac", "de:ad:be:ef:30:01", "-host", "ctl.example.test:8080"}, nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"aaa.1.ssid=home\n", "unifi.mcip=http://ctl.example.test:8080/inform\n", "radio.countrycode=840\n", "users.1.name=admin\n"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q", want)
+		}
+	}
+	// A model without a profile has nothing to print, and says why.
+	err = runAdmin([]string{"unifi-render", "-db", db, "-mac", "de:ad:be:ef:30:02", "-host", "h:1"}, nil, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "no profile") {
+		t.Errorf("model without a profile: %v", err)
+	}
+	if err := runAdmin([]string{"unifi-render", "-db", db}, nil, &bytes.Buffer{}); err == nil {
+		t.Error("missing flags accepted")
 	}
 }

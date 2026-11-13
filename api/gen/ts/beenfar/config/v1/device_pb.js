@@ -5,13 +5,13 @@
 import { enumDesc, fileDesc, messageDesc, serviceDesc, tsEnum } from "@bufbuild/protobuf/codegenv2";
 import { file_google_api_annotations } from "../../../google/api/annotations_pb.js";
 import { file_google_api_field_behavior } from "../../../google/api/field_behavior_pb.js";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_field_mask, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 
 /**
  * Describes the file beenfar/config/v1/device.proto.
  */
 export const file_beenfar_config_v1_device = /*@__PURE__*/
-  fileDesc("Ch5iZWVuZmFyL2NvbmZpZy92MS9kZXZpY2UucHJvdG8SEWJlZW5mYXIuY29uZmlnLnYxIs4DCgZEZXZpY2USEAoCaWQYASABKAlCBOJBAQgSEQoDbWFjGAIgASgJQgTiQQEDEhUKB2FkYXB0ZXIYAyABKAlCBOJBAQMSMwoFc3RhdGUYBCABKA4yHi5iZWVuZmFyLmNvbmZpZy52MS5EZXZpY2VTdGF0ZUIE4kEBAxITCgVtb2RlbBgFIAEoCUIE4kEBAxIQCgJpcBgGIAEoCUIE4kEBAxIWCghmaXJtd2FyZRgHIAEoCUIE4kEBAxI4Cg5sYXN0X3NlZW5fdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCBOJBAQMSFAoGbG9ja2VkGAkgASgIQgTiQQEDEjwKCnJlYWRvcHRpb24YCiABKA4yIi5iZWVuZmFyLmNvbmZpZy52MS5SZWFkb3B0aW9uU3RhdGVCBOJBAQMSGAoKZm9yZ2V0dGluZxgLIAEoCEIE4kEBAxI1CgtjcmVhdGVfdGltZRgVIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCBOJBAQMSNQoLdXBkYXRlX3RpbWUYFiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQgTiQQEDIiQKEEdldERldmljZVJlcXVlc3QSEAoCaWQYASABKAlCBOJBAQIiPgoRR2V0RGV2aWNlUmVzcG9uc2USKQoGZGV2aWNlGAEgASgLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIlQKEkxpc3REZXZpY2VzUmVxdWVzdBItCgVzdGF0ZRgBIAEoDjIeLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZVN0YXRlEg8KB2FkYXB0ZXIYAiABKAkiQQoTTGlzdERldmljZXNSZXNwb25zZRIqCgdkZXZpY2VzGAEgAygLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIiwKGUxpc3RQZW5kaW5nRGV2aWNlc1JlcXVlc3QSDwoHYWRhcHRlchgBIAEoCSJIChpMaXN0UGVuZGluZ0RldmljZXNSZXNwb25zZRIqCgdkZXZpY2VzGAEgAygLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIjsKEkFkb3B0RGV2aWNlUmVxdWVzdBIMCgJpZBgBIAEoCUgAEg0KA21hYxgCIAEoCUgAQggKBmRldmljZSJAChNBZG9wdERldmljZVJlc3BvbnNlEikKBmRldmljZRgBIAEoCzIZLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZSI2ChNGb3JnZXREZXZpY2VSZXF1ZXN0EhAKAmlkGAEgASgJQgTiQQECEg0KBWZvcmNlGAIgASgIIkEKFEZvcmdldERldmljZVJlc3BvbnNlEikKBmRldmljZRgBIAEoCzIZLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZSpfCgtEZXZpY2VTdGF0ZRIcChhERVZJQ0VfU1RBVEVfVU5TUEVDSUZJRUQQABIYChRERVZJQ0VfU1RBVEVfUEVORElORxABEhgKFERFVklDRV9TVEFURV9BRE9QVEVEEAIqfwoPUmVhZG9wdGlvblN0YXRlEiAKHFJFQURPUFRJT05fU1RBVEVfVU5TUEVDSUZJRUQQABIoCiRSRUFET1BUSU9OX1NUQVRFX0FXQUlUSU5HX0FDQ0VQVEFOQ0UQARIgChxSRUFET1BUSU9OX1NUQVRFX0lOX1BST0dSRVNTEAIyrgUKDURldmljZVNlcnZpY2USfwoJR2V0RGV2aWNlEiMuYmVlbmZhci5jb25maWcudjEuR2V0RGV2aWNlUmVxdWVzdBokLmJlZW5mYXIuY29uZmlnLnYxLkdldERldmljZVJlc3BvbnNlIieQAgGC0+STAh5iBmRldmljZRIUL2FwaS92MS9kZXZpY2VzL3tpZH0SeAoLTGlzdERldmljZXMSJS5iZWVuZmFyLmNvbmZpZy52MS5MaXN0RGV2aWNlc1JlcXVlc3QaJi5iZWVuZmFyLmNvbmZpZy52MS5MaXN0RGV2aWNlc1Jlc3BvbnNlIhqQAgGC0+STAhESDy9hcGkvdjEvZGV2aWNlcxKVAQoSTGlzdFBlbmRpbmdEZXZpY2VzEiwuYmVlbmZhci5jb25maWcudjEuTGlzdFBlbmRpbmdEZXZpY2VzUmVxdWVzdBotLmJlZW5mYXIuY29uZmlnLnYxLkxpc3RQZW5kaW5nRGV2aWNlc1Jlc3BvbnNlIiKQAgGC0+STAhkSFy9hcGkvdjEvcGVuZGluZy1kZXZpY2VzEoYBCgtBZG9wdERldmljZRIlLmJlZW5mYXIuY29uZmlnLnYxLkFkb3B0RGV2aWNlUmVxdWVzdBomLmJlZW5mYXIuY29uZmlnLnYxLkFkb3B0RGV2aWNlUmVzcG9uc2UiKILT5JMCIjoBKmIGZGV2aWNlIhUvYXBpL3YxL2RldmljZXM6YWRvcHQSgAEKDEZvcmdldERldmljZRImLmJlZW5mYXIuY29uZmlnLnYxLkZvcmdldERldmljZVJlcXVlc3QaJy5iZWVuZmFyLmNvbmZpZy52MS5Gb3JnZXREZXZpY2VSZXNwb25zZSIfkAICgtPkkwIWKhQvYXBpL3YxL2RldmljZXMve2lkfULRAQoVY29tLmJlZW5mYXIuY29uZmlnLnYxQgtEZXZpY2VQcm90b1ABWkVnaXRodWIuY29tL2phY29iYWxiZXJ0eS9iZWVuZmFyL2FwaS9nZW4vZ28vYmVlbmZhci9jb25maWcvdjE7Y29uZmlndjGiAgNCQ1iqAhFCZWVuZmFyLkNvbmZpZy5WMcoCEUJlZW5mYXJcQ29uZmlnXFYx4gIdQmVlbmZhclxDb25maWdcVjFcR1BCTWV0YWRhdGHqAhNCZWVuZmFyOjpDb25maWc6OlYxYgZwcm90bzM", [file_google_api_annotations, file_google_api_field_behavior, file_google_protobuf_timestamp]);
+  fileDesc("Ch5iZWVuZmFyL2NvbmZpZy92MS9kZXZpY2UucHJvdG8SEWJlZW5mYXIuY29uZmlnLnYxIq0ECgZEZXZpY2USEAoCaWQYASABKAlCBOJBAQgSEQoDbWFjGAIgASgJQgTiQQEDEhUKB2FkYXB0ZXIYAyABKAlCBOJBAQMSMwoFc3RhdGUYBCABKA4yHi5iZWVuZmFyLmNvbmZpZy52MS5EZXZpY2VTdGF0ZUIE4kEBAxITCgVtb2RlbBgFIAEoCUIE4kEBAxIQCgJpcBgGIAEoCUIE4kEBAxIWCghmaXJtd2FyZRgHIAEoCUIE4kEBAxI4Cg5sYXN0X3NlZW5fdGltZRgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCBOJBAQMSFAoGbG9ja2VkGAkgASgIQgTiQQEDEjwKCnJlYWRvcHRpb24YCiABKA4yIi5iZWVuZmFyLmNvbmZpZy52MS5SZWFkb3B0aW9uU3RhdGVCBOJBAQMSGAoKZm9yZ2V0dGluZxgLIAEoCEIE4kEBAxIxCgRraW5kGAwgASgOMh0uYmVlbmZhci5jb25maWcudjEuRGV2aWNlS2luZEIE4kEBAxIYCgpwb3J0X2NvdW50GA0gASgNQgTiQQEDEhAKCGFwX2dyb3VwGA4gASgJEjUKC2NyZWF0ZV90aW1lGBUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEIE4kEBAxI1Cgt1cGRhdGVfdGltZRgWIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCBOJBAQMigQIKDkRldmljZVNldHRpbmdzEkcKCG9yaWdpbmFsGAEgAygLMi8uYmVlbmZhci5jb25maWcudjEuRGV2aWNlU2V0dGluZ3MuT3JpZ2luYWxFbnRyeUIE4kEBAxJFCgdjdXJyZW50GAIgAygLMi4uYmVlbmZhci5jb25maWcudjEuRGV2aWNlU2V0dGluZ3MuQ3VycmVudEVudHJ5QgTiQQEDGi8KDU9yaWdpbmFsRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ARouCgxDdXJyZW50RW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASIsChhHZXREZXZpY2VTZXR0aW5nc1JlcXVlc3QSEAoCaWQYASABKAlCBOJBAQIiUAoZR2V0RGV2aWNlU2V0dGluZ3NSZXNwb25zZRIzCghzZXR0aW5ncxgBIAEoCzIhLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZVNldHRpbmdzIrMBChtVcGRhdGVEZXZpY2VTZXR0aW5nc1JlcXVlc3QSEAoCaWQYASABKAlCBOJBAQISUgoHY3VycmVudBgCIAMoCzI7LmJlZW5mYXIuY29uZmlnLnYxLlVwZGF0ZURldmljZVNldHRpbmdzUmVxdWVzdC5DdXJyZW50RW50cnlCBOJBAQIaLgoMQ3VycmVudEVudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiUwocVXBkYXRlRGV2aWNlU2V0dGluZ3NSZXNwb25zZRIzCghzZXR0aW5ncxgBIAEoCzIhLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZVNldHRpbmdzIi4KGlJlc2V0RGV2aWNlU2V0dGluZ3NSZXF1ZXN0EhAKAmlkGAEgASgJQgTiQQECIlIKG1Jlc2V0RGV2aWNlU2V0dGluZ3NSZXNwb25zZRIzCghzZXR0aW5ncxgBIAEoCzIhLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZVNldHRpbmdzIiQKEEdldERldmljZVJlcXVlc3QSEAoCaWQYASABKAlCBOJBAQIiPgoRR2V0RGV2aWNlUmVzcG9uc2USKQoGZGV2aWNlGAEgASgLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIlQKEkxpc3REZXZpY2VzUmVxdWVzdBItCgVzdGF0ZRgBIAEoDjIeLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZVN0YXRlEg8KB2FkYXB0ZXIYAiABKAkiQQoTTGlzdERldmljZXNSZXNwb25zZRIqCgdkZXZpY2VzGAEgAygLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIiwKGUxpc3RQZW5kaW5nRGV2aWNlc1JlcXVlc3QSDwoHYWRhcHRlchgBIAEoCSJIChpMaXN0UGVuZGluZ0RldmljZXNSZXNwb25zZRIqCgdkZXZpY2VzGAEgAygLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIjsKEkFkb3B0RGV2aWNlUmVxdWVzdBIMCgJpZBgBIAEoCUgAEg0KA21hYxgCIAEoCUgAQggKBmRldmljZSJAChNBZG9wdERldmljZVJlc3BvbnNlEikKBmRldmljZRgBIAEoCzIZLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZSJ3ChNVcGRhdGVEZXZpY2VSZXF1ZXN0Ei8KBmRldmljZRgBIAEoCzIZLmJlZW5mYXIuY29uZmlnLnYxLkRldmljZUIE4kEBAhIvCgt1cGRhdGVfbWFzaxgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2siQQoUVXBkYXRlRGV2aWNlUmVzcG9uc2USKQoGZGV2aWNlGAEgASgLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlIjYKE0ZvcmdldERldmljZVJlcXVlc3QSEAoCaWQYASABKAlCBOJBAQISDQoFZm9yY2UYAiABKAgiQQoURm9yZ2V0RGV2aWNlUmVzcG9uc2USKQoGZGV2aWNlGAEgASgLMhkuYmVlbmZhci5jb25maWcudjEuRGV2aWNlKl8KC0RldmljZVN0YXRlEhwKGERFVklDRV9TVEFURV9VTlNQRUNJRklFRBAAEhgKFERFVklDRV9TVEFURV9QRU5ESU5HEAESGAoUREVWSUNFX1NUQVRFX0FET1BURUQQAip/Cg9SZWFkb3B0aW9uU3RhdGUSIAocUkVBRE9QVElPTl9TVEFURV9VTlNQRUNJRklFRBAAEigKJFJFQURPUFRJT05fU1RBVEVfQVdBSVRJTkdfQUNDRVBUQU5DRRABEiAKHFJFQURPUFRJT05fU1RBVEVfSU5fUFJPR1JFU1MQAip4CgpEZXZpY2VLaW5kEhsKF0RFVklDRV9LSU5EX1VOU1BFQ0lGSUVEEAASHAoYREVWSUNFX0tJTkRfQUNDRVNTX1BPSU5UEAESFgoSREVWSUNFX0tJTkRfU1dJVENIEAISFwoTREVWSUNFX0tJTkRfR0FURVdBWRADMv4KCg1EZXZpY2VTZXJ2aWNlEn8KCUdldERldmljZRIjLmJlZW5mYXIuY29uZmlnLnYxLkdldERldmljZVJlcXVlc3QaJC5iZWVuZmFyLmNvbmZpZy52MS5HZXREZXZpY2VSZXNwb25zZSInkAIBgtPkkwIeYgZkZXZpY2USFC9hcGkvdjEvZGV2aWNlcy97aWR9EngKC0xpc3REZXZpY2VzEiUuYmVlbmZhci5jb25maWcudjEuTGlzdERldmljZXNSZXF1ZXN0GiYuYmVlbmZhci5jb25maWcudjEuTGlzdERldmljZXNSZXNwb25zZSIakAIBgtPkkwIREg8vYXBpL3YxL2RldmljZXMSlQEKEkxpc3RQZW5kaW5nRGV2aWNlcxIsLmJlZW5mYXIuY29uZmlnLnYxLkxpc3RQZW5kaW5nRGV2aWNlc1JlcXVlc3QaLS5iZWVuZmFyLmNvbmZpZy52MS5MaXN0UGVuZGluZ0RldmljZXNSZXNwb25zZSIikAIBgtPkkwIZEhcvYXBpL3YxL3BlbmRpbmctZGV2aWNlcxKGAQoLQWRvcHREZXZpY2USJS5iZWVuZmFyLmNvbmZpZy52MS5BZG9wdERldmljZVJlcXVlc3QaJi5iZWVuZmFyLmNvbmZpZy52MS5BZG9wdERldmljZVJlc3BvbnNlIiiC0+STAiI6ASpiBmRldmljZSIVL2FwaS92MS9kZXZpY2VzOmFkb3B0EsMBCgxVcGRhdGVEZXZpY2USJi5iZWVuZmFyLmNvbmZpZy52MS5VcGRhdGVEZXZpY2VSZXF1ZXN0GicuYmVlbmZhci5jb25maWcudjEuVXBkYXRlRGV2aWNlUmVzcG9uc2UiYoLT5JMCXDoGZGV2aWNlWi06BmRldmljZWIGZGV2aWNlGhsvYXBpL3YxL2RldmljZXMve2RldmljZS5pZH1iBmRldmljZTIbL2FwaS92MS9kZXZpY2VzL3tkZXZpY2UuaWR9EqIBChFHZXREZXZpY2VTZXR0aW5ncxIrLmJlZW5mYXIuY29uZmlnLnYxLkdldERldmljZVNldHRpbmdzUmVxdWVzdBosLmJlZW5mYXIuY29uZmlnLnYxLkdldERldmljZVNldHRpbmdzUmVzcG9uc2UiMpACAYLT5JMCKWIIc2V0dGluZ3MSHS9hcGkvdjEvZGV2aWNlcy97aWR9L3NldHRpbmdzEq4BChRVcGRhdGVEZXZpY2VTZXR0aW5ncxIuLmJlZW5mYXIuY29uZmlnLnYxLlVwZGF0ZURldmljZVNldHRpbmdzUmVxdWVzdBovLmJlZW5mYXIuY29uZmlnLnYxLlVwZGF0ZURldmljZVNldHRpbmdzUmVzcG9uc2UiNZACAoLT5JMCLDoBKmIIc2V0dGluZ3MyHS9hcGkvdjEvZGV2aWNlcy97aWR9L3NldHRpbmdzErEBChNSZXNldERldmljZVNldHRpbmdzEi0uYmVlbmZhci5jb25maWcudjEuUmVzZXREZXZpY2VTZXR0aW5nc1JlcXVlc3QaLi5iZWVuZmFyLmNvbmZpZy52MS5SZXNldERldmljZVNldHRpbmdzUmVzcG9uc2UiO5ACAoLT5JMCMjoBKmIIc2V0dGluZ3MiIy9hcGkvdjEvZGV2aWNlcy97aWR9L3NldHRpbmdzOnJlc2V0EoABCgxGb3JnZXREZXZpY2USJi5iZWVuZmFyLmNvbmZpZy52MS5Gb3JnZXREZXZpY2VSZXF1ZXN0GicuYmVlbmZhci5jb25maWcudjEuRm9yZ2V0RGV2aWNlUmVzcG9uc2UiH5ACAoLT5JMCFioUL2FwaS92MS9kZXZpY2VzL3tpZH1C0QEKFWNvbS5iZWVuZmFyLmNvbmZpZy52MUILRGV2aWNlUHJvdG9QAVpFZ2l0aHViLmNvbS9qYWNvYmFsYmVydHkvYmVlbmZhci9hcGkvZ2VuL2dvL2JlZW5mYXIvY29uZmlnL3YxO2NvbmZpZ3YxogIDQkNYqgIRQmVlbmZhci5Db25maWcuVjHKAhFCZWVuZmFyXENvbmZpZ1xWMeICHUJlZW5mYXJcQ29uZmlnXFYxXEdQQk1ldGFkYXRh6gITQmVlbmZhcjo6Q29uZmlnOjpWMWIGcHJvdG8z", [file_google_api_annotations, file_google_api_field_behavior, file_google_protobuf_field_mask, file_google_protobuf_timestamp]);
 
 /**
  * Describes the message beenfar.config.v1.Device.
@@ -21,74 +21,137 @@ export const DeviceSchema = /*@__PURE__*/
   messageDesc(file_beenfar_config_v1_device, 0);
 
 /**
+ * Describes the message beenfar.config.v1.DeviceSettings.
+ * Use `create(DeviceSettingsSchema)` to create a new message.
+ */
+export const DeviceSettingsSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 1);
+
+/**
+ * Describes the message beenfar.config.v1.GetDeviceSettingsRequest.
+ * Use `create(GetDeviceSettingsRequestSchema)` to create a new message.
+ */
+export const GetDeviceSettingsRequestSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 2);
+
+/**
+ * Describes the message beenfar.config.v1.GetDeviceSettingsResponse.
+ * Use `create(GetDeviceSettingsResponseSchema)` to create a new message.
+ */
+export const GetDeviceSettingsResponseSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 3);
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceSettingsRequest.
+ * Use `create(UpdateDeviceSettingsRequestSchema)` to create a new message.
+ */
+export const UpdateDeviceSettingsRequestSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 4);
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceSettingsResponse.
+ * Use `create(UpdateDeviceSettingsResponseSchema)` to create a new message.
+ */
+export const UpdateDeviceSettingsResponseSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 5);
+
+/**
+ * Describes the message beenfar.config.v1.ResetDeviceSettingsRequest.
+ * Use `create(ResetDeviceSettingsRequestSchema)` to create a new message.
+ */
+export const ResetDeviceSettingsRequestSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 6);
+
+/**
+ * Describes the message beenfar.config.v1.ResetDeviceSettingsResponse.
+ * Use `create(ResetDeviceSettingsResponseSchema)` to create a new message.
+ */
+export const ResetDeviceSettingsResponseSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 7);
+
+/**
  * Describes the message beenfar.config.v1.GetDeviceRequest.
  * Use `create(GetDeviceRequestSchema)` to create a new message.
  */
 export const GetDeviceRequestSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 1);
+  messageDesc(file_beenfar_config_v1_device, 8);
 
 /**
  * Describes the message beenfar.config.v1.GetDeviceResponse.
  * Use `create(GetDeviceResponseSchema)` to create a new message.
  */
 export const GetDeviceResponseSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 2);
+  messageDesc(file_beenfar_config_v1_device, 9);
 
 /**
  * Describes the message beenfar.config.v1.ListDevicesRequest.
  * Use `create(ListDevicesRequestSchema)` to create a new message.
  */
 export const ListDevicesRequestSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 3);
+  messageDesc(file_beenfar_config_v1_device, 10);
 
 /**
  * Describes the message beenfar.config.v1.ListDevicesResponse.
  * Use `create(ListDevicesResponseSchema)` to create a new message.
  */
 export const ListDevicesResponseSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 4);
+  messageDesc(file_beenfar_config_v1_device, 11);
 
 /**
  * Describes the message beenfar.config.v1.ListPendingDevicesRequest.
  * Use `create(ListPendingDevicesRequestSchema)` to create a new message.
  */
 export const ListPendingDevicesRequestSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 5);
+  messageDesc(file_beenfar_config_v1_device, 12);
 
 /**
  * Describes the message beenfar.config.v1.ListPendingDevicesResponse.
  * Use `create(ListPendingDevicesResponseSchema)` to create a new message.
  */
 export const ListPendingDevicesResponseSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 6);
+  messageDesc(file_beenfar_config_v1_device, 13);
 
 /**
  * Describes the message beenfar.config.v1.AdoptDeviceRequest.
  * Use `create(AdoptDeviceRequestSchema)` to create a new message.
  */
 export const AdoptDeviceRequestSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 7);
+  messageDesc(file_beenfar_config_v1_device, 14);
 
 /**
  * Describes the message beenfar.config.v1.AdoptDeviceResponse.
  * Use `create(AdoptDeviceResponseSchema)` to create a new message.
  */
 export const AdoptDeviceResponseSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 8);
+  messageDesc(file_beenfar_config_v1_device, 15);
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceRequest.
+ * Use `create(UpdateDeviceRequestSchema)` to create a new message.
+ */
+export const UpdateDeviceRequestSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 16);
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceResponse.
+ * Use `create(UpdateDeviceResponseSchema)` to create a new message.
+ */
+export const UpdateDeviceResponseSchema = /*@__PURE__*/
+  messageDesc(file_beenfar_config_v1_device, 17);
 
 /**
  * Describes the message beenfar.config.v1.ForgetDeviceRequest.
  * Use `create(ForgetDeviceRequestSchema)` to create a new message.
  */
 export const ForgetDeviceRequestSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 9);
+  messageDesc(file_beenfar_config_v1_device, 18);
 
 /**
  * Describes the message beenfar.config.v1.ForgetDeviceResponse.
  * Use `create(ForgetDeviceResponseSchema)` to create a new message.
  */
 export const ForgetDeviceResponseSchema = /*@__PURE__*/
-  messageDesc(file_beenfar_config_v1_device, 10);
+  messageDesc(file_beenfar_config_v1_device, 19);
 
 /**
  * Describes the enum beenfar.config.v1.DeviceState.
@@ -118,6 +181,20 @@ export const ReadoptionStateSchema = /*@__PURE__*/
  */
 export const ReadoptionState = /*@__PURE__*/
   tsEnum(ReadoptionStateSchema);
+
+/**
+ * Describes the enum beenfar.config.v1.DeviceKind.
+ */
+export const DeviceKindSchema = /*@__PURE__*/
+  enumDesc(file_beenfar_config_v1_device, 2);
+
+/**
+ * DeviceKind says what a device is.
+ *
+ * @generated from enum beenfar.config.v1.DeviceKind
+ */
+export const DeviceKind = /*@__PURE__*/
+  tsEnum(DeviceKindSchema);
 
 /**
  * DeviceService manages network devices: discovery results, adoption and

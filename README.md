@@ -86,19 +86,34 @@ without one keeps it. `shared_secret_version` increases whenever it changes.
 **Switch ports.** Ports of adopted devices can be given settings (name,
 disabled, native network, tagged networks, PoE mode) by device id and
 1-based port index. A port without settings runs with the device's
-defaults; deleting them restores the defaults.
+defaults; deleting them restores the defaults. Only devices with ports of their
+own take settings: a device reports `kind` and `port_count`, and most access
+points report none, so a UI should offer port settings only when `port_count`
+is above zero (the API refuses ports on a device that has none, or beyond its
+count; a device whose adapter did not say what it is is not restricted).
 
-## API module
+**Access points.** An adopted access point of a supported model is
+provisioned automatically: it is sent a complete `system.cfg` (see
+[UniFi](#unifi)) with every wifi network (with its VLAN and RADIUS settings) as
+soon as it is adopted and speaking its own key (the replies that hand it that
+key are sealed with the public default key, so they carry no secrets), and again
+whenever anything in the document changes. Adoption itself is still a decision:
+`AdoptDevice`. To change what one access point runs, set its `ap_group` with
+`UpdateDevice`: it then runs the networks that are not limited to groups plus
+those that list its group, and no longer the networks limited to other groups.
+A network can list several groups (`ap_groups`). Clearing `ap_group` returns
+the access point to running everything.
 
-The protobuf API and its generated Go clients, together with the adapter
-SDK, are the module `github.com/jacobalberty/beenfar/api` in `api/`, which
-the Terraform provider and external adapters import. It is released on its
-own, as `api/vX.Y.Z` tags: every push to `main` that touches `api/` runs CI
-and tags a release when the commits that touched `api/` since the last one
-call for it (`feat` minor, `fix`/`perf` patch, breaking changes minor while
-0.x; see `.github/scripts/api-next-version.sh`). Commits that touch `api/`
-must therefore follow [Conventional Commits](https://www.conventionalcommits.org/),
-which a pull request check enforces.
+**Device settings.** The settings an operator can change on a device itself
+(for a supported access point: each radio's channel, width and transmit power)
+are read with `GetDeviceSettings`, which returns the `original` ones and the
+`current` ones, set with `UpdateDeviceSettings` (it merges the keys you send into
+`current`) and put back with `ResetDeviceSettings`. REST: `GET` and `PATCH`
+`/api/v1/devices/{id}/settings`, `POST .../settings:reset`. The keys belong to the
+device's adapter; a key a model does not have, or a value it does not accept, is
+refused (`INVALID_ARGUMENT`), and a device whose model has no settings has none
+(`FAILED_PRECONDITION` to change them). `original` is the baseline beenfar built
+when the device was adopted (its model's defaults) and does not change.
 
 **TypeScript client.** The same release also publishes the generated
 TypeScript client (messages and service descriptors, for
@@ -240,8 +255,10 @@ accepted until it has switched.
 |---|---|---|
 | `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
 | `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
-| `BEENFAR_UNIFI_SYSTEM_CFG` | `false` | Send adopted devices their wifi, VLAN and RADIUS settings (experimental, see below) |
 | `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |
+| `BEENFAR_UNIFI_COUNTRY` | unset | ISO 3166-1 numeric country code of the access points' radios (`840` is the United States). **No default**, because a wrong one is a regulatory problem: until it is set, access points are adopted but sent no settings |
+| `BEENFAR_UNIFI_TIMEZONE` | `UTC` | Time zone name given to access points |
+| `BEENFAR_UNIFI_NTP` | `pool.ntp.org` | Comma-separated NTP servers given to access points |
 
 **Reset devices.** An adopted device that comes back speaking the default key
 was factory reset. It stays the same adopted device and the API reports it
@@ -269,28 +286,68 @@ device has nothing to reset and is removed at once. Only one captured controller
 reply backs the message, so which models and firmware honour it is not
 verified; see [go-unifi](https://github.com/jacobalberty/go-unifi).
 
-**Device settings (experimental).** With `BEENFAR_UNIFI_SYSTEM_CFG=true`,
-adopted devices are sent their wifi networks (WPA-PSK, and WPA-enterprise
-with a RADIUS server for authentication and optional accounting), the VLANs
-those networks use, and the matching bridges, as a `system_cfg` document
-(`renderSystemConfig` in `adapters/unifi/systemcfg.go`). The key names come
-from a `system.cfg` captured from a dual-radio access point with the madwifi
-driver, and the tests check every rendered key against that capture. What is
-not verified, and why it is off by default:
+**Provisioning access points.** A device replaces its whole configuration
+with the `system_cfg` of a `setparam` (in a capture of a real controller, the
+device's `/tmp/system.cfg` was identical to the document, key for key), so beenfar
+sends one only when it can build the *complete* document, with
+[go-unifi's](https://github.com/jacobalberty/go-unifi) model profiles
+(`inform/profile`), and never a fragment. That is the case for a model with a
+profile (only the UAP-AC-Lite, `U7LT`, for now), once a country is set, when the
+access point has at least one wifi network to run. Anything else (another model,
+no country, no networks, an open, WEP or guest network, a network that names a
+missing RADIUS server) is adopted and kept informing but sent no `system_cfg`,
+and the daemon logs a warning when it pushes.
 
-- the document only holds those sections, not radio channels, SSH users,
-  NTP and the other settings beenfar does not manage, and whether a device
-  merges it into its configuration or replaces its configuration with it has
-  not been tried on hardware;
-- other radio layouts (newer models use other interface names);
-- open, WEP and guest networks are not rendered (a config containing one is
-  refused, and the push fails with an error), nor is more than one RADIUS
-  server per network;
-- switch port settings are stored and handed to the adapter, but not sent to
-  devices: the capture has no port VLAN or PoE keys.
+The document is the model's base, its settings (`GetDeviceSettings`), the site
+settings and the networks. Site settings are the device's `admin` login, SSH, NTP,
+time zone, and the identifiers and keys that identify this controller to the
+device. beenfar generates the unique ones (controller key, site and reporter ids,
+mesh name and key, the device admin password and its SHA-512 crypt hash) once at
+first start, stores them in its database and never logs them or returns them
+from the API; `beenfard admin unifi-device-password` prints the device admin
+password (SSH, console). The config revision an access point is told is a digest
+of the document, so it changes when networks, the device's `ap_group`, its
+settings or the site settings change.
 
-Without it, adopted devices are re-keyed and tracked by config revision, but
-their settings are left alone.
+**Not verified.** None of this has been run on hardware. The document's key sets
+are checked against one capture of one site (UAP-AC-Lite, firmware 6.8.2.15592);
+no value was compared with a device, and the e2e suite's emulator does not
+interpret `system_cfg`. Specifically:
+
+- the base was derived by subtraction and never observed with zero networks, so
+  beenfar sends nothing to an access point that has no networks: deleting its last
+  network leaves the old one running until the device is reset;
+- the default settings (go-unifi's `tunables.json` says where each comes from):
+  `auto` channels, power and the rest of an untuned access point, HT20 on 2.4 GHz,
+  and HT40 on 5 GHz, which is the capture's value and not established as UniFi's
+  default;
+- the format of generated values (ids, keys, the admin hash, the mesh name), which
+  were not checked against what a UniFi controller generates; the emulated
+  controller version (`10.6.109`), `cfgcap_info`, SSH on the `br0` interface and
+  password login, and the mesh being off;
+- `unifi.mcip`, where the device is told to inform, is the address its last inform
+  arrived on (`http://<Host>/inform`), so it must be reachable the same way
+  from the device, and a device informing under another name changes the
+  revision;
+- WPA-enterprise (RADIUS) key names are from an earlier capture of another
+  access point, not the U7LT; guest, open and WEP networks, more than one RADIUS
+  server per network, and switch port settings are not rendered;
+- the names of the virtual interfaces (`wifi0ap0`, counted per radio), the
+  numbering of the networks, and at most eight networks per radio.
+
+*Hardware test plan* (on a factory-reset spare UAP-AC-Lite): set
+`BEENFAR_UNIFI_COUNTRY`, create a WPA-personal wifi network, point the access point
+at beenfar and adopt it. When it has informed under its new key, SSH in with the
+`admin` login (`beenfard admin unifi-device-password`) and `cat /tmp/system.cfg`:
+it should be identical to `beenfard admin unifi-render -mac <MAC> -host
+<address the device informs>` (a real controller's document was);
+confirm the access point stays reachable, SSH still works and the SSID comes up.
+Then change a setting (`UpdateDeviceSettings`, say `radio.1.channel`), see the
+file change by exactly that key, and `ResetDeviceSettings`. Until someone has done
+this, treat the renderer as unverified, not as working.
+
+Switches and gateways are re-keyed and tracked by config revision, but their
+settings are left alone.
 
 **Taking over devices from another controller.** Extract each device's
 credentials with an outside tool (the `x_authkey` in the old controller's
@@ -388,9 +445,11 @@ The helpers are at the top of `e2e/e2e_test.go`:
 - The emulator understands `noop`, `setparam` (the `authkey`, `cfgversion` and
   `use_aes_gcm` of `mgmt_cfg`), `setstate`, `upgrade`, `reboot` and the
   `setdefault` factory reset. It does not interpret `system_cfg`, so these
-  tests cannot show that the wifi, VLAN and RADIUS settings pushed with
-  `BEENFAR_UNIFI_SYSTEM_CFG` are correct; that is checked against a real
-  device's key names in `adapters/unifi`.
+  tests cannot show that the document pushed to access points is right; its key
+  sets are checked in go-unifi (against one capture) and the mapping in
+  `adapters/unifi`. They show that an access point of a model with a profile
+  accepts the setparams that follow a change of its settings, keeps informing,
+  and that a model without a profile is adopted and has no settings.
 - The emulator logs through the global standard logger, so tests that start a
   fleet must not use `t.Parallel`. The suite is a few seconds long, so that
   costs little.
@@ -403,7 +462,7 @@ The helpers are at the top of `e2e/e2e_test.go`:
 
 ## Todo
 * Per device command queues
-* Verify the UniFi `system_cfg` push on hardware, and render guest networks and switch ports
+* Verify the UniFi `system_cfg` push on hardware (see the test plan above), more models, and render guest networks and switch ports
 * [Frontend](https://github.com/jacobalberty/LookMoreLike)
 
 ## Supported device types

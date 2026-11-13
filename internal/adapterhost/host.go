@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"slices"
 
 	"github.com/jacobalberty/beenfar/api/adapter"
 	"github.com/jacobalberty/beenfar/internal/store"
@@ -38,12 +39,14 @@ func (h *Host) ReportDevice(ctx context.Context, d adapter.Discovered) (adapter.
 		}
 	}
 	dev, err := h.store.ReportDevice(ctx, store.DiscoveredDevice{
-		MAC:      d.MAC,
-		Adapter:  h.name,
-		Model:    d.Model,
-		IP:       d.IP,
-		Firmware: d.Firmware,
-		Locked:   d.Locked,
+		MAC:       d.MAC,
+		Adapter:   h.name,
+		Model:     d.Model,
+		IP:        d.IP,
+		Firmware:  d.Firmware,
+		Kind:      store.DeviceKind(d.Kind),
+		PortCount: d.PortCount,
+		Locked:    d.Locked,
 	})
 	if err != nil {
 		return adapter.Device{}, hostErr(err)
@@ -63,11 +66,12 @@ func (h *Host) DeviceByMAC(ctx context.Context, mac string) (adapter.Device, err
 }
 
 func (h *Host) DesiredConfig(ctx context.Context, deviceID string) (adapter.DesiredConfig, error) {
-	if _, err := h.device(ctx, deviceID); err != nil {
+	dev, err := h.device(ctx, deviceID)
+	if err != nil {
 		return adapter.DesiredConfig{}, err
 	}
 	var cfg adapter.DesiredConfig
-	err := h.store.WithTx(ctx, func(tx store.Store) error {
+	err = h.store.WithTx(ctx, func(tx store.Store) error {
 		networks, err := tx.ListNetworks(ctx)
 		if err != nil {
 			return err
@@ -84,7 +88,7 @@ func (h *Host) DesiredConfig(ctx context.Context, deviceID string) (adapter.Desi
 		if err != nil {
 			return err
 		}
-		cfg = buildConfig(networks, wifi, radius, ports)
+		cfg = buildConfig(dev, networks, wifi, radius, ports)
 		return nil
 	})
 	if err != nil {
@@ -108,6 +112,8 @@ func (h *Host) ReportState(ctx context.Context, deviceID string, s adapter.State
 		Model:          s.Model,
 		IP:             s.IP,
 		Firmware:       s.Firmware,
+		Kind:           store.DeviceKind(s.Kind),
+		PortCount:      s.PortCount,
 		ConfigRevision: s.ConfigRevision,
 		Readoption:     store.Readoption(s.Readoption),
 	})
@@ -167,7 +173,15 @@ func toDevice(d store.Device) adapter.Device {
 	}
 }
 
-func buildConfig(networks []store.Network, wifi []store.WifiNetwork, radius []store.RadiusServer, ports []store.SwitchPort) adapter.DesiredConfig {
+// broadcasts reports whether an access point pinned to group broadcasts a
+// wifi network limited to apGroups. An access point with no group gets every
+// network. One in a group gets the networks that are not limited (empty
+// apGroups) and those that list its group; a network can list several groups.
+func broadcasts(group string, apGroups []string) bool {
+	return group == "" || len(apGroups) == 0 || slices.Contains(apGroups, group)
+}
+
+func buildConfig(dev store.Device, networks []store.Network, wifi []store.WifiNetwork, radius []store.RadiusServer, ports []store.SwitchPort) adapter.DesiredConfig {
 	// The revision is a digest of every resource's id and revision, so it
 	// changes when anything is added, removed or updated.
 	h := fnv.New64a()
@@ -178,6 +192,10 @@ func buildConfig(networks []store.Network, wifi []store.WifiNetwork, radius []st
 		binary.BigEndian.PutUint64(b[:], uint64(rev))
 		h.Write(b[:])
 	}
+	// The device's group is part of the revision: moving an access point to
+	// another group changes what it should run.
+	h.Write([]byte{'g'})
+	h.Write([]byte(dev.APGroup))
 	cfg := adapter.DesiredConfig{
 		Networks:      make([]adapter.Network, 0, len(networks)),
 		Wifi:          make([]adapter.WifiNetwork, 0, len(wifi)),
@@ -193,6 +211,9 @@ func buildConfig(networks []store.Network, wifi []store.WifiNetwork, radius []st
 		})
 	}
 	for _, w := range wifi {
+		if !broadcasts(dev.APGroup, w.APGroups) {
+			continue
+		}
 		put('w', w.ID, w.Revision)
 		cfg.Wifi = append(cfg.Wifi, adapter.WifiNetwork{
 			ID: w.ID, SSID: w.SSID, Security: adapter.WifiSecurity(w.Security),

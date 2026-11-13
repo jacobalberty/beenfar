@@ -2,345 +2,147 @@ package unifi
 
 import (
 	"cmp"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 
-	"github.com/jacobalberty/go-unifi/inform"
+	"github.com/jacobalberty/go-unifi/inform/profile"
 
 	"github.com/jacobalberty/beenfar/api/adapter"
 )
 
-// renderSystemConfig turns the controller's desired configuration into the
-// system_cfg document of a SetParam reply.
-//
-// This is the only place that knows how networks, wifi networks and RADIUS
-// servers map to device settings. Every key it writes appears, with a value
-// of the same form, in a system.cfg captured from a dual-radio access point
-// (madwifi driver: phy wifi0 is 2.4 GHz, wifi1 is 5 GHz) running a WPA2/3
-// enterprise SSID with RADIUS authentication and accounting, a WPA-PSK SSID
-// and a guest SSID on VLAN 5. testdata/system-cfg-keys.txt lists the
-// captured key names, and the tests check every rendered key against it.
-//
-// The document is a fragment: it holds the WLAN, VLAN, bridge and RADIUS
-// sections and nothing for the settings beenfar does not model (radio
-// channels and power, SSH users, NTP, syslog, ...). Whether a device merges a
-// fragment into its configuration or replaces its configuration with it is
-// not verified, so the adapter sends it only when Options.PushSystemConfig
-// is set.
-//
-// Not rendered, because the capture does not show how:
-//   - open and WEP networks, and guest networks (whose client isolation
-//     needs ebtables rules): these are reported as errors;
-//   - more than one RADIUS server per network;
-//   - switch ports: the capture only has switch.port.1.name and opmode.
-//     DesiredConfig.SwitchPorts is ignored.
-func renderSystemConfig(desired adapter.DesiredConfig) (*inform.Config, error) {
-	r := renderer{
-		desired:  desired,
-		keys:     map[string]string{},
-		networks: map[string]adapter.Network{},
-		radius:   map[string]adapter.RadiusServer{},
-		bridges:  map[int][]string{},
+// errNoDocument means no system_cfg is to be sent, for a reason that is not an
+// error of the configuration: the model has no profile, there is nothing to run,
+// or the adapter was given no settings.
+var errNoDocument = errors.New("no system.cfg is sent")
+
+// SettingsSchema describes the settings an operator can change on a device of
+// the model: their defaults and a check for a set of them. ok is false for a
+// model with no profile, which has no settings and is sent no system.cfg.
+func (a *Adapter) SettingsSchema(model string) (defaults map[string]string, check func(map[string]string) error, ok bool) {
+	p, ok := profile.Lookup(model)
+	if !ok {
+		return nil, nil, false
 	}
-	for _, n := range desired.Networks {
-		r.networks[n.ID] = n
+	return p.Defaults(), p.CheckTunables, true
+}
+
+// renderSystemConfig builds the complete system.cfg of a device, which
+// replaces the device's whole configuration. It returns an error wrapping
+// errNoDocument when nothing should be sent, and another error for a
+// configuration that cannot be rendered; the caller sends no system_cfg in
+// either case, never a partial document.
+//
+// A device with no networks to run is sent nothing, though a document with
+// none is valid: the profile's base was never observed with zero networks, so
+// that document has never been seen on a device. (The consequence is that
+// deleting the last network leaves the device running it.)
+func renderSystemConfig(model string, desired adapter.DesiredConfig, tunables map[string]string, site SiteSettings, informHost string) (profile.Document, error) {
+	p, ok := profile.Lookup(model)
+	if !ok {
+		return nil, fmt.Errorf("%w: model %q has no profile", errNoDocument, model)
 	}
-	for _, s := range desired.RadiusServers {
-		r.radius[s.ID] = s
+	if len(desired.Wifi) == 0 {
+		return nil, fmt.Errorf("%w: the device has no wifi networks to run", errNoDocument)
 	}
-	if err := r.render(); err != nil {
+	ps, err := site.profileSite(informHost)
+	if err != nil {
 		return nil, err
 	}
-	return r.config()
-}
-
-// radio is one physical radio of the device family the capture comes from.
-type radio struct {
-	index int    // radio.N
-	phy   string // wifi0, wifi1
-	band  adapter.WifiBand
-	// Per-radio values the capture shows for user SSIDs.
-	pureg, dtim string
-}
-
-var radios = []radio{
-	{index: 1, phy: "wifi0", band: adapter.Band2G, pureg: "0", dtim: "1"},
-	{index: 2, phy: "wifi1", band: adapter.Band5G, pureg: "1", dtim: "3"},
-}
-
-// vap is one SSID on one radio: a virtual interface such as wifi0ap0.
-type vap struct {
-	n      int // aaa.n and wireless.n
-	dev    string
-	radio  radio
-	bridge string // br0 or br0.<vlan>
-}
-
-type renderer struct {
-	desired  adapter.DesiredConfig
-	keys     map[string]string
-	networks map[string]adapter.Network
-	radius   map[string]adapter.RadiusServer
-	// bridges maps a VLAN id (0: untagged) to the VAPs bridged onto it.
-	bridges map[int][]string
-	vaps    []vap
-}
-
-func (r *renderer) set(key, value string) { r.keys[key] = value }
-
-func (r *renderer) render() error {
-	if len(r.desired.Wifi) == 0 {
-		return nil
+	radius := map[string]adapter.RadiusServer{}
+	for _, r := range desired.RadiusServers {
+		radius[r.ID] = r
 	}
-	wifi := slices.Clone(r.desired.Wifi)
-	slices.SortFunc(wifi, func(a, b adapter.WifiNetwork) int { return cmp.Compare(a.SSID, b.SSID) })
-	r.bridges[0] = nil
-
-	n := 0
+	vlans := map[string]int{}
+	for _, n := range desired.Networks {
+		vlans[n.ID] = n.VLANID
+	}
+	wifi := slices.Clone(desired.Wifi)
+	slices.SortFunc(wifi, func(a, b adapter.WifiNetwork) int {
+		return cmp.Or(cmp.Compare(a.SSID, b.SSID), cmp.Compare(a.ID, b.ID))
+	})
+	nets := make([]profile.Network, 0, len(wifi))
 	for _, w := range wifi {
-		vlan, err := r.vlanOf(w)
+		n, err := toNetwork(w, vlans, radius, site.ControllerKey)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		for _, rad := range radios {
-			if w.Band != adapter.BandBoth && w.Band != "" && w.Band != rad.band {
-				continue
-			}
-			n++
-			v := vap{n: n, dev: rad.phy + "ap" + strconv.Itoa(n-1), radio: rad, bridge: bridgeDev(vlan)}
-			if err := r.renderVAP(v, w); err != nil {
-				return err
-			}
-			r.bridges[vlan] = append(r.bridges[vlan], v.dev)
-			r.vaps = append(r.vaps, v)
+		nets = append(nets, n)
+	}
+	return profile.Render(p, profile.Inputs{Tunables: tunables, Site: ps, Networks: nets})
+}
+
+// RenderSystemConfig renders the system.cfg that would be sent to a device of
+// model, as the key=value text of a system_cfg. It is what `beenfard admin
+// unifi-render` prints so that a device's /tmp/system.cfg can be compared with
+// it. informHost is the address the device informs (host:port) when the site has
+// no inform URL. The text contains the device's secrets.
+func RenderSystemConfig(model string, desired adapter.DesiredConfig, tunables map[string]string, site SiteSettings, informHost string) (string, error) {
+	doc, err := renderSystemConfig(model, desired, tunables, site, informHost)
+	if err != nil {
+		return "", err
+	}
+	return doc.String(), nil
+}
+
+func toNetwork(w adapter.WifiNetwork, vlans map[string]int, radius map[string]adapter.RadiusServer, siteKey string) (profile.Network, error) {
+	n := profile.Network{ID: w.ID, SSID: w.SSID, Hidden: w.Hidden, Guest: w.Guest, IAPPKey: iappKey(siteKey, w.ID)}
+	if w.NetworkID != "" {
+		vlan, ok := vlans[w.NetworkID]
+		if !ok {
+			return n, fmt.Errorf("wifi network %q: network %s is not in the configuration", w.SSID, w.NetworkID)
 		}
+		n.VLAN = vlan
 	}
-	r.renderRadios()
-	r.renderNetworking()
-	return nil
-}
-
-func (r *renderer) vlanOf(w adapter.WifiNetwork) (int, error) {
-	if w.NetworkID == "" {
-		return 0, nil
-	}
-	n, ok := r.networks[w.NetworkID]
-	if !ok {
-		return 0, fmt.Errorf("wifi network %q: network %s is not in the configuration", w.SSID, w.NetworkID)
-	}
-	return n.VLANID, nil
-}
-
-func bridgeDev(vlan int) string {
-	if vlan == 0 {
-		return "br0"
-	}
-	return "br0." + strconv.Itoa(vlan)
-}
-
-func (r *renderer) renderVAP(v vap, w adapter.WifiNetwork) error {
-	if w.Guest {
-		return fmt.Errorf("wifi network %q: guest networks are not supported on UniFi devices yet (client isolation is not verified)", w.SSID)
-	}
-	aaa := "aaa." + strconv.Itoa(v.n) + "."
-	wl := "wireless." + strconv.Itoa(v.n) + "."
-	hidden := strconv.FormatBool(w.Hidden)
-
-	// Settings every SSID in the capture carries.
-	for k, val := range map[string]string{
-		"11k.status":           "disabled",
-		"br.devname":           v.bridge,
-		"bss_transition":       "enabled",
-		"country_beacon":       "disabled",
-		"devname":              v.dev,
-		"driver":               "madwifi",
-		"eapol_version":        "2",
-		"ft.status":            "disabled",
-		"hide_ssid":            hidden,
-		"id":                   w.ID,
-		"is_guest":             "false",
-		"p2p":                  "disabled",
-		"p2p_cross_connect":    "disabled",
-		"pmf.mode":             "0",
-		"pmf.status":           "disabled",
-		"proxy_arp":            "disabled",
-		"radius.macacl.status": "disabled",
-		"ssid":                 w.SSID,
-		"status":               "enabled",
-		"tdls_prohibit":        "disabled",
-		"verbose":              "2",
-		"wpa":                  "2",
-		"wpa.1.pairwise":       "CCMP",
-	} {
-		r.set(aaa+k, val)
+	switch w.Band {
+	case adapter.BandBoth, "":
+	case adapter.Band2G:
+		n.Bands = []profile.Band{profile.Band2G}
+	case adapter.Band5G:
+		n.Bands = []profile.Band{profile.Band5G}
+	default:
+		return n, fmt.Errorf("wifi network %q: band %q is not supported", w.SSID, w.Band)
 	}
 	switch w.Security {
 	case adapter.WifiWPAPersonal:
-		r.set(aaa+"wpa.key.1.mgmt", "WPA-PSK")
-		r.set(aaa+"wpa.psk", w.SecurityKey)
-		r.set(aaa+"wpa.group_rekey", "0")
+		n.Security, n.PSK = profile.WPAPersonal, w.SecurityKey
 	case adapter.WifiWPAEnterprise:
-		srv, ok := r.radius[w.RadiusServerID]
+		srv, ok := radius[w.RadiusServerID]
 		if !ok {
-			return fmt.Errorf("wifi network %q: WPA enterprise needs a RADIUS server (radius_server_id) to be configured on UniFi devices", w.SSID)
+			return n, fmt.Errorf("wifi network %q: WPA enterprise needs a RADIUS server (radius_server_id) to be configured on UniFi devices", w.SSID)
 		}
-		r.set(aaa+"wpa.key.1.mgmt", "WPA-EAP")
-		r.set(aaa+"wpa.group_rekey", "3600")
-		r.set(aaa+"auth_cache", "enabled")
-		r.set(aaa+"dynamic_vlan", "0")
-		r.set(aaa+"radius.auth.1.ip", srv.Address)
-		r.set(aaa+"radius.auth.1.port", strconv.Itoa(srv.AuthPort))
-		r.set(aaa+"radius.auth.1.secret", srv.SharedSecret)
+		n.Security = profile.WPAEnterprise
+		n.Radius = &profile.Radius{Auth: profile.Server{IP: srv.Address, Port: srv.AuthPort, Secret: srv.SharedSecret}}
 		if srv.AccountingPort != 0 {
-			r.set(aaa+"radius.acct.1.ip", srv.Address)
-			r.set(aaa+"radius.acct.1.port", strconv.Itoa(srv.AccountingPort))
-			r.set(aaa+"radius.acct.1.secret", srv.SharedSecret)
+			n.Radius.Acct = &profile.Server{IP: srv.Address, Port: srv.AccountingPort, Secret: srv.SharedSecret}
 		}
 	default:
-		return fmt.Errorf("wifi network %q: %s security is not supported on UniFi devices yet", w.SSID, w.Security)
+		return n, fmt.Errorf("wifi network %q: %s security is not supported on UniFi devices yet", w.SSID, w.Security)
 	}
-
-	for k, val := range map[string]string{
-		"addmtikie":        "disabled",
-		"authmode":         "1",
-		"autowds":          "disabled",
-		"bga_filter":       "enabled",
-		"devname":          v.dev,
-		"dtim_period":      v.radio.dtim,
-		"element_adopt":    "disabled",
-		"hide_ssid":        hidden,
-		"id":               w.ID,
-		"is_guest":         "false",
-		"l2_isolation":     "disabled",
-		"mac_acl.policy":   "deny",
-		"mac_acl.status":   "enabled",
-		"mcast.enhance":    "0",
-		"mcastrate":        "auto",
-		"mode":             "master",
-		"no2ghz_oui":       "disabled",
-		"parent":           v.radio.phy,
-		"pureg":            v.radio.pureg,
-		"puren":            "0",
-		"schedule_enabled": "disabled",
-		"security":         "none",
-		"ssid":             w.SSID,
-		"status":           "enabled",
-		"uapsd":            "disabled",
-		"usage":            "user",
-		"vport":            "disabled",
-		"vwire":            "disabled",
-		"wds":              "disabled",
-		"wmm":              "enabled",
-	} {
-		r.set(wl+k, val)
-	}
-	return nil
+	return n, nil
 }
 
-// renderRadios attaches the VAPs to their radios: the first one is the
-// radio's own devname, the rest are its virtual interfaces.
-func (r *renderer) renderRadios() {
-	for _, rad := range radios {
-		prefix := "radio." + strconv.Itoa(rad.index) + "."
-		virtual := 0
-		for _, v := range r.vaps {
-			if v.radio.phy != rad.phy {
-				continue
-			}
-			if virtual == 0 {
-				r.set(prefix+"devname", v.dev)
-				r.set(prefix+"phyname", rad.phy)
-			} else {
-				vp := prefix + "virtual." + strconv.Itoa(virtual) + "."
-				r.set(vp+"devname", v.dev)
-				r.set(vp+"mode", "master")
-				r.set(vp+"status", "enabled")
-			}
-			virtual++
-		}
-	}
+// iappKey is the per-network secret of the document (aaa.N.iapp_key): 32 hex
+// digits derived from the site's controller key and the network's id, so that
+// it is stable, differs per network, and is not a constant.
+func iappKey(siteKey, networkID string) string {
+	m := hmac.New(sha256.New, []byte(siteKey))
+	m.Write([]byte("iapp:" + networkID))
+	return hex.EncodeToString(m.Sum(nil)[:16])
 }
 
-// renderNetworking writes the bridges (br0 for untagged, br0.<vlan> per
-// VLAN, each with the matching eth0 interface as uplink), the VLAN
-// interfaces, and the interfaces' netconf entries.
-func (r *renderer) renderNetworking() {
-	vlans := make([]int, 0, len(r.bridges))
-	for v := range r.bridges {
-		vlans = append(vlans, v)
+// documentRevision is the config revision of a rendered document: a digest of
+// every key and value, so it changes exactly when the document does. It is
+// positive and never 0 (the revision of "no configuration").
+func documentRevision(doc profile.Document) int64 {
+	sum := sha256.Sum256([]byte(doc.String()))
+	rev := int64(binary.BigEndian.Uint64(sum[:8]) >> 1)
+	if rev == 0 {
+		rev = 1
 	}
-	slices.Sort(vlans) // 0 (br0) first
-
-	netconf := 0
-	addNetconf := func(dev string, up, promisc bool) {
-		netconf++
-		p := "netconf." + strconv.Itoa(netconf) + "."
-		r.set(p+"autoip.status", "disabled")
-		r.set(p+"devname", dev)
-		r.set(p+"ip", "0.0.0.0")
-		r.set(p+"status", "enabled")
-		r.set(p+"up", enabledOrDisabled(up))
-		if promisc {
-			r.set(p+"promisc", "enabled")
-		}
-	}
-
-	addNetconf("br0", true, false)
-	addNetconf("eth0", true, true)
-	for i, vlan := range vlans {
-		b := "bridge." + strconv.Itoa(i+1) + "."
-		dev, uplink := bridgeDev(vlan), "eth0"
-		if vlan != 0 {
-			uplink = "eth0." + strconv.Itoa(vlan)
-			vl := "vlan." + strconv.Itoa(i) + "."
-			r.set(vl+"devname", "eth0")
-			r.set(vl+"id", strconv.Itoa(vlan))
-			addNetconf(dev, true, false)
-			addNetconf(uplink, true, false)
-		}
-		r.set(b+"devname", dev)
-		r.set(b+"fd", "1")
-		r.set(b+"stp.status", "disabled")
-		r.set(b+"port.1.devname", uplink)
-		for j, v := range r.bridges[vlan] {
-			r.set(b+"port."+strconv.Itoa(j+2)+".devname", v)
-		}
-	}
-	for _, v := range r.vaps {
-		addNetconf(v.dev, false, true)
-	}
-
-	// The management address comes from DHCP on br0, as in the capture.
-	r.set("dhcpc.1.devname", "br0")
-	r.set("dhcpc.1.status", "enabled")
-	for _, section := range []string{"aaa", "bridge", "dhcpc", "netconf", "wireless"} {
-		r.set(section+".status", "enabled")
-	}
-	if len(vlans) > 1 {
-		r.set("vlan.status", "enabled")
-	}
-}
-
-func enabledOrDisabled(b bool) string {
-	if b {
-		return "enabled"
-	}
-	return "disabled"
-}
-
-// config writes the keys in sorted order, as the device lists them.
-func (r *renderer) config() (*inform.Config, error) {
-	keys := make([]string, 0, len(r.keys))
-	for k := range r.keys {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	c := inform.NewConfig()
-	for _, k := range keys {
-		if err := c.Set(k, r.keys[k]); err != nil {
-			return nil, err
-		}
-	}
-	return c, nil
+	return rev
 }
