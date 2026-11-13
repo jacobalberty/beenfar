@@ -148,8 +148,10 @@ func (e *env) send(d *device, key, wire []byte) (int, map[string]any) {
 	if err != nil {
 		e.t.Fatalf("parsing reply: %v", err)
 	}
-	if p.Flags != d.flags && d.flags != 0 {
-		e.t.Errorf("reply flags %v, want the device's %v", p.Flags, d.flags)
+	// Like a real controller, replies keep the device's encryption but are
+	// never compressed: a device that sent zlib drops a zlib reply.
+	if want := d.flags &^ (inform.FlagZlib | inform.FlagSnappy); p.Flags != want && d.flags != 0 {
+		e.t.Errorf("reply flags %v, want the device's %v without compression", p.Flags, want)
 	}
 	plain, err := p.Decode(key)
 	if err != nil {
