@@ -274,6 +274,8 @@ var (
 	accessPoint = emu.DeviceSpec{MAC: "00:27:22:e0:00:01", Model: "U7PRO", Name: "e2e-ap"}
 	switchDev   = emu.DeviceSpec{MAC: "00:27:22:e0:00:02", Model: "USM8P", Name: "e2e-switch"}
 	gateway     = emu.DeviceSpec{MAC: "00:27:22:e0:00:03", Model: "UGW3", Name: "e2e-gateway"}
+	// A model beenfar has a profile for, so it is sent a complete system.cfg.
+	profiledAP = emu.DeviceSpec{MAC: "00:27:22:e0:00:04", Model: "U7LT", Name: "e2e-ap-lite"}
 )
 
 // pending waits until the daemon lists exactly the devices with the given
@@ -597,6 +599,76 @@ func TestAccessPointGroupOverride(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("group on a switch: %v, want InvalidArgument", err)
 	}
+}
+
+// An access point of a model with a profile gets settings it can be changed
+// through the API, and is sent a complete system.cfg; one without a profile has
+// no settings and is sent none. The emulator does not interpret system_cfg, so
+// this only shows that both access points adopt, accept every setparam that
+// follows a change or a reset, and keep informing; the document itself is
+// checked in adapters/unifi and internal/server.
+func TestAccessPointSettings(t *testing.T) {
+	d := startDaemon(t, "BEENFAR_UNIFI_COUNTRY=840")
+	f := startFleet(t, d, profiledAP, accessPoint)
+	pending := d.pending(t, profiledAP.MAC, accessPoint.MAC)
+
+	wifi := configv1connect.NewWifiNetworkServiceClient(d.client)
+	if _, err := wifi.CreateWifiNetwork(callCtx(t), &configv1.CreateWifiNetworkRequest{WifiNetwork: &configv1.WifiNetwork{
+		Ssid: "e2e-settings", Security: configv1.WifiSecurity_WIFI_SECURITY_WPA_PERSONAL, SecurityKey: "correct horse battery",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	d.adopt(t, pending[profiledAP.MAC])
+	d.adopt(t, pending[accessPoint.MAC])
+	connected(t, d, f, profiledAP.MAC)
+	connected(t, d, f, accessPoint.MAC)
+
+	lite := pending[profiledAP.MAC].GetId()
+	other := pending[accessPoint.MAC].GetId()
+	get := func(id string) *configv1.DeviceSettings {
+		t.Helper()
+		r, err := d.devices.GetDeviceSettings(callCtx(t), &configv1.GetDeviceSettingsRequest{Id: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.GetSettings()
+	}
+	s := get(lite)
+	if s.GetOriginal()["radio.1.channel"] != "auto" || s.GetCurrent()["radio.1.channel"] != "auto" {
+		t.Fatalf("settings of the profiled access point: %v", s)
+	}
+	if o := get(other); len(o.GetOriginal())+len(o.GetCurrent()) != 0 {
+		t.Fatalf("an access point without a profile has settings: %v", o)
+	}
+
+	update := func(id string, set map[string]string) (*configv1.UpdateDeviceSettingsResponse, error) {
+		return d.devices.UpdateDeviceSettings(callCtx(t), &configv1.UpdateDeviceSettingsRequest{Id: id, Current: set})
+	}
+	if r, err := update(lite, map[string]string{"radio.1.channel": "6", "radio.2.channel": "36"}); err != nil ||
+		r.GetSettings().GetCurrent()["radio.1.channel"] != "6" || r.GetSettings().GetOriginal()["radio.1.channel"] != "auto" {
+		t.Fatalf("update: %v, %v", r, err)
+	}
+	waitLastSeenAdvances(t, d, profiledAP.MAC) // it took the new settings and carries on
+	if _, err := update(lite, map[string]string{"radio.1.channel": "not-a-channel"}); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("bad value: %v, want InvalidArgument", err)
+	}
+	if _, err := update(lite, map[string]string{"radio.1.cwm.mode": "1"}); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("a model-class key: %v, want InvalidArgument", err)
+	}
+	if _, err := update(other, map[string]string{"radio.1.channel": "6"}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("settings of a model without a profile: %v, want FailedPrecondition", err)
+	}
+	if get(lite).GetCurrent()["radio.1.channel"] != "6" {
+		t.Error("a refused update changed the settings")
+	}
+
+	r, err := d.devices.ResetDeviceSettings(callCtx(t), &configv1.ResetDeviceSettingsRequest{Id: lite})
+	if err != nil || r.GetSettings().GetCurrent()["radio.1.channel"] != "auto" || r.GetSettings().GetCurrent()["radio.2.channel"] != "auto" {
+		t.Fatalf("reset: %v, %v", r, err)
+	}
+	waitLastSeenAdvances(t, d, profiledAP.MAC)
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
+	connected(t, d, f, profiledAP.MAC)
 }
 
 // lastSeen returns the last_seen_time the daemon reports for the device.
