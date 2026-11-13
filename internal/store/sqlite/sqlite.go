@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -330,6 +331,81 @@ func (s *Store) SetDeviceSecret(ctx context.Context, deviceID, name string, secr
 
 func (s *Store) DeleteDeviceSecret(ctx context.Context, deviceID, name string) error {
 	return mapErr(s.q.DeleteDeviceSecret(ctx, db.DeleteDeviceSecretParams{DeviceID: deviceID, Name: name}))
+}
+
+// --- settings ---
+
+func (s *Store) GetDeviceSettings(ctx context.Context, deviceID string) (store.DeviceSettings, error) {
+	row, err := s.q.GetDeviceSettings(ctx, deviceID)
+	if err != nil {
+		return store.DeviceSettings{}, mapErr(err)
+	}
+	var out store.DeviceSettings
+	if err := json.Unmarshal([]byte(row.OriginalJson), &out.Original); err != nil {
+		return store.DeviceSettings{}, fmt.Errorf("device %s: stored original settings: %w", deviceID, err)
+	}
+	if err := json.Unmarshal([]byte(row.CurrentJson), &out.Current); err != nil {
+		return store.DeviceSettings{}, fmt.Errorf("device %s: stored current settings: %w", deviceID, err)
+	}
+	return out, nil
+}
+
+func (s *Store) SetDeviceSettings(ctx context.Context, deviceID string, v store.DeviceSettings) error {
+	original, err := json.Marshal(nonNil(v.Original))
+	if err != nil {
+		return err
+	}
+	current, err := json.Marshal(nonNil(v.Current))
+	if err != nil {
+		return err
+	}
+	return s.inTx(ctx, func(txs *Store) error {
+		// The foreign key would report a missing device as invalid input.
+		if _, err := txs.q.GetDevice(ctx, deviceID); err != nil {
+			return mapErr(err)
+		}
+		return mapErr(txs.q.SetDeviceSettings(ctx, db.SetDeviceSettingsParams{
+			DeviceID: deviceID, OriginalJson: string(original), CurrentJson: string(current), Now: txs.nowMilli(),
+		}))
+	})
+}
+
+func nonNil(m map[string]string) map[string]string {
+	if m == nil {
+		return map[string]string{}
+	}
+	return m
+}
+
+func adapterDoc(adapterName string, doc []byte) error {
+	var obj map[string]any
+	if adapterName == "" || json.Unmarshal(doc, &obj) != nil || obj == nil {
+		return fmt.Errorf("%w: an adapter name and a JSON object are required", store.ErrInvalid)
+	}
+	return nil
+}
+
+func (s *Store) GetAdapterSettings(ctx context.Context, adapterName string) ([]byte, error) {
+	doc, err := s.q.GetAdapterSettings(ctx, adapterName)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return []byte(doc), nil
+}
+
+func (s *Store) SetAdapterSettings(ctx context.Context, adapterName string, doc []byte) error {
+	if err := adapterDoc(adapterName, doc); err != nil {
+		return err
+	}
+	return mapErr(s.q.SetAdapterSettings(ctx, db.SetAdapterSettingsParams{Adapter: adapterName, Settings: string(doc), Now: s.nowMilli()}))
+}
+
+func (s *Store) InitAdapterSettings(ctx context.Context, adapterName string, doc []byte) (bool, error) {
+	if err := adapterDoc(adapterName, doc); err != nil {
+		return false, err
+	}
+	n, err := s.q.InitAdapterSettings(ctx, db.InitAdapterSettingsParams{Adapter: adapterName, Settings: string(doc), Now: s.nowMilli()})
+	return n == 1, mapErr(err)
 }
 
 // --- wifi networks ---

@@ -433,3 +433,68 @@ func TestMarkDeviceForgetting(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDeviceSettings(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+	d, err := s.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:10", Adapter: "unifi", Model: "U7LT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetDeviceSettings(ctx, d.ID)
+	wantErr(t, err, store.ErrNotFound)
+	wantErr(t, s.SetDeviceSettings(ctx, "nope", store.DeviceSettings{}), store.ErrNotFound)
+
+	want := store.DeviceSettings{
+		Original: map[string]string{"radio.1.channel": "auto"},
+		Current:  map[string]string{"radio.1.channel": "6"},
+	}
+	if err := s.SetDeviceSettings(ctx, d.ID, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetDeviceSettings(ctx, d.ID)
+	if err != nil || got.Original["radio.1.channel"] != "auto" || got.Current["radio.1.channel"] != "6" {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	// Replacing keeps one row; nil maps are stored as empty objects.
+	if err := s.SetDeviceSettings(ctx, d.ID, store.DeviceSettings{}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ = s.GetDeviceSettings(ctx, d.ID); got.Original == nil || len(got.Current) != 0 {
+		t.Fatalf("after clearing: %+v", got)
+	}
+	// They go with the device.
+	if err := s.DeleteDevice(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.GetDeviceSettings(ctx, d.ID)
+	wantErr(t, err, store.ErrNotFound)
+}
+
+func TestAdapterSettings(t *testing.T) {
+	s, _ := open(t)
+	ctx := t.Context()
+	_, err := s.GetAdapterSettings(ctx, "unifi")
+	wantErr(t, err, store.ErrNotFound)
+
+	first, err := s.InitAdapterSettings(ctx, "unifi", []byte(`{"a":"1"}`))
+	if err != nil || !first {
+		t.Fatalf("first init = %v, %v", first, err)
+	}
+	// A second start does not replace what was generated.
+	again, err := s.InitAdapterSettings(ctx, "unifi", []byte(`{"a":"2"}`))
+	if err != nil || again {
+		t.Fatalf("second init = %v, %v", again, err)
+	}
+	if doc, _ := s.GetAdapterSettings(ctx, "unifi"); string(doc) != `{"a":"1"}` {
+		t.Fatalf("document = %s", doc)
+	}
+	if err := s.SetAdapterSettings(ctx, "unifi", []byte(`{"a":"3"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if doc, _ := s.GetAdapterSettings(ctx, "unifi"); string(doc) != `{"a":"3"}` {
+		t.Fatalf("document = %s", doc)
+	}
+	wantErr(t, s.SetAdapterSettings(ctx, "unifi", []byte(`[1]`)), store.ErrInvalid)
+	wantErr(t, s.SetAdapterSettings(ctx, "", []byte(`{}`)), store.ErrInvalid)
+}
