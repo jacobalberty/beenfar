@@ -1,5 +1,10 @@
 version: "2"
 
+run:
+  # Lint the end-to-end suite (e2e/) too; it is behind a build tag.
+  build-tags:
+    - e2e
+
 linters:
   enable:
     - sloglint
