@@ -66,7 +66,7 @@ func TestUnifiTakeover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g := got.GetDevice(); g.GetLocked() || g.GetModel() != "U7PG2" || g.GetFirmware() != "4.0.66.10832" || g.GetState() != configv1.DeviceState_DEVICE_STATE_PENDING {
+	if g := got.GetDevice(); g.GetLocked() || g.GetModel() != "US8P150" || g.GetFirmware() != "4.0.66.10832" || g.GetState() != configv1.DeviceState_DEVICE_STATE_PENDING {
 		t.Fatalf("device = %v", g)
 	}
 

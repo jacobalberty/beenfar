@@ -101,7 +101,10 @@ func newDevice(last byte) *device {
 	return &device{
 		mac:   net.HardwareAddr{0xde, 0xad, 0xbe, 0xef, 0x00, last},
 		flags: inform.FlagEncrypted | inform.FlagSnappy,
-		model: "U7PG2",
+		// A switch, so the key and adoption tests do not see the settings an
+		// access point is sent once it is on its own key; the tests of those
+		// settings set an access point model.
+		model: "US8P150",
 	}
 }
 
@@ -208,7 +211,7 @@ func TestUnknownDeviceIsReportedAndRefused(t *testing.T) {
 		t.Fatalf("status = %d, want 404", status)
 	}
 	got := e.deviceByMAC(d)
-	if got.State != store.DeviceStatePending || got.Adapter != "unifi" || got.Model != "U7PG2" || got.IP != "127.0.0.1" || got.Locked {
+	if got.State != store.DeviceStatePending || got.Adapter != "unifi" || got.Model != d.model || got.Kind != store.DeviceKindSwitch || got.PortCount != 8 || got.IP != "127.0.0.1" || got.Locked {
 		t.Fatalf("device = %+v", got)
 	}
 	// Informing again keeps it pending and refreshes it.
@@ -337,11 +340,25 @@ func TestPushSystemConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := newDevice(9)
+	d.model = "U7PG2"
 	e.post(d, inform.DefaultKey(), "")
 	if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
 		t.Fatal(err)
 	}
+	// The reply that hands the device its key is sealed with the default key,
+	// which anybody can open: it must not carry the wifi key.
 	_, reply := e.post(d, inform.DefaultKey(), "")
+	if sys, ok := reply["system_cfg"]; ok {
+		t.Fatalf("settings sent under the default key: %v", sys)
+	}
+	key := authKey(t, reply)
+	version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+	// The device then speaks its own key, reports the version it was given,
+	// and is sent its settings because that version is not the configuration.
+	status, reply := e.post(d, key, version)
+	if status != http.StatusOK {
+		t.Fatalf("status %d", status)
+	}
 	sys, ok := reply["system_cfg"].(string)
 	if !ok {
 		t.Fatalf("no system_cfg in %v", reply)
@@ -356,6 +373,11 @@ func TestPushSystemConfig(t *testing.T) {
 		if got, _ := cfg.Get(k); got != want {
 			t.Errorf("%s = %q, want %q", k, got, want)
 		}
+	}
+	// Once it runs the settings' version it is left alone.
+	version, _ = mgmt(t, reply).Get(inform.KeyCfgVersion)
+	if status, reply := e.post(d, key, version); status != http.StatusOK || reply["_type"] != "noop" {
+		t.Errorf("after the settings: %d %v, want a noop", status, reply)
 	}
 }
 
@@ -380,6 +402,12 @@ func TestSystemConfigOnlyForRenderableAccessPoints(t *testing.T) {
 		status, reply := e.post(d, inform.DefaultKey(), "")
 		if status != http.StatusOK {
 			t.Fatalf("%s: adoption reply = %d", model, status)
+		}
+		key := authKey(t, reply)
+		version, _ := mgmt(t, reply).Get(inform.KeyCfgVersion)
+		status, reply = e.post(d, key, version) // on its own key now
+		if status != http.StatusOK {
+			t.Fatalf("%s: reply on its own key = %d", model, status)
 		}
 		return reply
 	}

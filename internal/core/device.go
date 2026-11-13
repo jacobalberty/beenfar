@@ -47,9 +47,6 @@ func (s *DeviceService) Update(ctx context.Context, in store.Device, paths []str
 			return err
 		}
 		if next.APGroup != "" {
-			if len(next.APGroup) > 64 {
-				return invalid("ap_group must be at most 64 bytes")
-			}
 			if next.Kind != store.DeviceKindAccessPoint && next.Kind != store.DeviceKindUnknown {
 				return invalid("ap_group only applies to access points; device %s is a %s", cur.ID, next.Kind)
 			}

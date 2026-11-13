@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/netip"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacobalberty/beenfar/internal/store"
@@ -102,6 +103,11 @@ func TestDeviceUpdateAPGroup(t *testing.T) {
 
 	if d, err := svc.Devices.Update(ctx, store.Device{ID: ap.ID, APGroup: "attic"}, []string{"ap_group"}); err != nil || d.APGroup != "attic" {
 		t.Fatalf("update = %+v, %v", d, err)
+	}
+	// Wifi networks accept any group name, so a device can be put in any of them.
+	longName := strings.Repeat("g", 100)
+	if d, err := svc.Devices.Update(ctx, store.Device{ID: ap.ID, APGroup: longName}, []string{"ap_group"}); err != nil || d.APGroup != longName {
+		t.Fatalf("long group name = %+v, %v", d, err)
 	}
 	if _, err := svc.Devices.Update(ctx, store.Device{ID: sw.ID, APGroup: "attic"}, nil); !errors.Is(err, store.ErrInvalid) {
 		t.Fatalf("ap_group on a switch = %v, want ErrInvalid", err)

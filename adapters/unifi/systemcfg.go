@@ -32,6 +32,8 @@ import (
 //   - open and WEP networks, and guest networks (whose client isolation
 //     needs ebtables rules): these are reported as errors;
 //   - more than one RADIUS server per network;
+//   - removing WLANs: an access point with no networks to run is sent no
+//     settings, so networks it already runs keep running;
 //   - switch ports: the capture only has switch.port.1.name and opmode.
 //     DesiredConfig.SwitchPorts is ignored.
 func renderSystemConfig(desired adapter.DesiredConfig) (*inform.Config, error) {

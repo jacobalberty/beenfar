@@ -112,6 +112,34 @@ func TestDevices(t *testing.T) {
 	wantErr(t, err, store.ErrNotFound)
 }
 
+// What an adapter reports about a device's kind, ports and AP group is kept,
+// and a negative port count is refused whichever way it arrives.
+func TestDeviceKindPortsAndGroup(t *testing.T) {
+	ctx := t.Context()
+	st, _ := open(t)
+	d, err := st.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:21", Adapter: "x", Kind: store.DeviceKindSwitch, PortCount: 8})
+	if err != nil || d.Kind != store.DeviceKindSwitch || d.PortCount != 8 {
+		t.Fatalf("report = %+v, %v", d, err)
+	}
+	// A report that cannot say what the device is keeps what is known.
+	d, err = st.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:21", Adapter: "x"})
+	if err != nil || d.Kind != store.DeviceKindSwitch || d.PortCount != 8 {
+		t.Fatalf("blank report = %+v, %v", d, err)
+	}
+	if _, err := st.ReportDevice(ctx, store.DiscoveredDevice{MAC: "de:ad:be:ef:00:22", Adapter: "x", Kind: store.DeviceKindSwitch, PortCount: -1}); !errors.Is(err, store.ErrInvalid) {
+		t.Errorf("negative port count in a report = %v, want ErrInvalid", err)
+	}
+	if _, err := st.RecordDeviceState(ctx, d.ID, store.DeviceReport{Kind: store.DeviceKindSwitch, PortCount: -1}); !errors.Is(err, store.ErrInvalid) {
+		t.Errorf("negative port count in a state report = %v, want ErrInvalid", err)
+	}
+	if got, err := st.SetDeviceAPGroup(ctx, d.ID, "attic"); err != nil || got.APGroup != "attic" {
+		t.Errorf("set group = %+v, %v", got, err)
+	}
+	if _, err := st.SetDeviceAPGroup(ctx, "nope", "attic"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("group of an unknown device = %v, want ErrNotFound", err)
+	}
+}
+
 func newWifi(ssid string) store.WifiNetwork {
 	return store.WifiNetwork{
 		SSID:        ssid,

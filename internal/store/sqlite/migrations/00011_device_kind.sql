@@ -6,7 +6,8 @@
 -- broadcasts every wifi network that is not limited to named groups.
 ALTER TABLE devices ADD COLUMN kind TEXT NOT NULL DEFAULT ''
     CHECK (kind IN ('', 'access_point', 'switch', 'gateway'));
-ALTER TABLE devices ADD COLUMN port_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE devices ADD COLUMN port_count INTEGER NOT NULL DEFAULT 0
+    CHECK (port_count >= 0);
 ALTER TABLE devices ADD COLUMN ap_group TEXT NOT NULL DEFAULT '';
 
 -- +goose Down

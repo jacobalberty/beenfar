@@ -439,7 +439,10 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 		reason = "key"
 	}
 	a.pushes.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", reason)))
-	return a.setParam(ctx, authKey, version, desired, kind)
+	// Settings carry secrets (wifi keys, RADIUS secrets), so they only go out
+	// once the device speaks a key of its own: the replies that hand it that
+	// key are sealed with the default key, which anybody can open.
+	return a.setParam(ctx, authKey, version, desired, kind, pending == nil && !onDefault)
 }
 
 // forgetting answers a device the controller is forgetting (see Forget). On a
@@ -477,15 +480,23 @@ func (a *Adapter) forgetting(ctx context.Context, h adapter.Host, dev adapter.De
 
 // setParam builds the reply that gives the device authKey and the desired
 // configuration.
-func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, desired adapter.DesiredConfig, kind adapter.DeviceKind) (inform.Response, error) {
+func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, desired adapter.DesiredConfig, kind adapter.DeviceKind, secure bool) (inform.Response, error) {
+	provision := kind == adapter.KindAccessPoint
+	if provision && !secure {
+		// A key-only reply: it hands the device its key and nothing that
+		// must stay secret. It carries a revision no configuration has, so the
+		// device keeps asking and is sent its settings once it speaks that key.
+		version = formatRevision(0)
+	}
 	mgmt, err := inform.MgmtConfig{AuthKey: authKey, CfgVersion: version, UseAESGCM: a.opts.UseGCM}.Config()
 	if err != nil {
 		return nil, fmt.Errorf("rendering mgmt_cfg: %w", err)
 	}
 	sp := inform.SetParam{ManagementConfig: mgmt.String(), ConfigVersion: version}
 	// Access points are provisioned with their wifi, VLAN and RADIUS settings
-	// as soon as they are adopted. Other devices have none to receive.
-	if kind != adapter.KindAccessPoint {
+	// once they are adopted and on their own key. Other devices have none to
+	// receive.
+	if !provision || !secure {
 		return sp, nil
 	}
 	system, err := renderSystemConfig(desired)

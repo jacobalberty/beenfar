@@ -94,7 +94,9 @@ count; a device whose adapter did not say what it is is not restricted).
 
 **Access points.** An adopted access point is provisioned automatically: it
 is sent every wifi network (with its VLAN and RADIUS settings) as soon as it is
-adopted, and again whenever they change. Adoption itself is still a decision:
+adopted and speaking its own key (the replies that hand it that key are sealed
+with the public default key, so they carry no secrets), and again whenever
+they change. Adoption itself is still a decision:
 `AdoptDevice`. To change what one access point runs, set its `ap_group` with
 `UpdateDevice`: it then runs the networks that are not limited to groups plus
 those that list its group, and no longer the networks limited to other groups.
@@ -287,6 +289,10 @@ not verified:
   server per network. A configuration containing one cannot be rendered: the
   access point is still adopted and keeps tracking the config revision, but is
   sent no settings, and the daemon logs a warning on each inform;
+- an access point left with no networks to run (every network was deleted, or
+  it was moved to a group no network lists) is sent no settings: the capture does
+  not show how to remove a WLAN, so the networks it already runs keep running
+  until the device is reset or re-adopted;
 - switch port settings are stored and handed to the adapter, but not sent to
   devices: the capture has no port VLAN or PoE keys.
 
