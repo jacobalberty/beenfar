@@ -61,6 +61,7 @@ import (
 	"time"
 
 	"github.com/jacobalberty/go-unifi/inform"
+	"github.com/jacobalberty/go-unifi/inform/profile"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -96,6 +97,10 @@ type Options struct {
 	// by default: GCM is verified against one real capture of a device's
 	// inform, but not of a controller's reply.
 	UseGCM bool
+	// Settings supplies the site settings and each device's tunable settings
+	// that a complete system.cfg is built from. With nil, access points are
+	// adopted and tracked but never sent a system_cfg.
+	Settings SettingsSource
 }
 
 // Adapter is the UniFi adapter. It implements adapter.Adapter and
@@ -208,13 +213,17 @@ func (a *Adapter) hostOrErr() (adapter.Host, error) {
 	return *h, nil
 }
 
-type remoteIPKey struct{}
+type (
+	remoteIPKey struct{}
+	hostKey     struct{}
+)
 
 // serveInform runs one inform under its own span.
 func (a *Adapter) serveInform(w http.ResponseWriter, r *http.Request) {
 	ctx, span := a.tracer.Start(r.Context(), "unifi.inform", trace.WithAttributes(attribute.String("unifi.response", "error")))
 	defer span.End()
 	ctx = context.WithValue(ctx, remoteIPKey{}, remoteIP(r))
+	ctx = context.WithValue(ctx, hostKey{}, r.Host)
 	a.informs.Add(ctx, 1)
 	h := &inform.Handler{
 		Keys:          a.keys,
@@ -420,7 +429,21 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	if err != nil {
 		return nil, err
 	}
+	// An access point's revision is a digest of the document it would run, so
+	// it changes whenever anything that affects the document does (networks,
+	// the device's group, its tunable settings, the site settings). Without
+	// a document it is the revision of the resources.
 	version := formatRevision(desired.Revision)
+	var doc profile.Document
+	var docErr error
+	if kind == adapter.KindAccessPoint {
+		if doc, docErr = a.document(ctx, dev.ID, in.Model, desired); docErr != nil && !isRenderErr(docErr) {
+			return nil, docErr
+		}
+		if doc != nil {
+			version = formatRevision(documentRevision(doc))
+		}
+	}
 
 	// The key the device should end up with: the pending one while it has
 	// not switched, else the one it just used.
@@ -442,7 +465,7 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 	// Settings carry secrets (wifi keys, RADIUS secrets), so they only go out
 	// once the device speaks a key of its own: the replies that hand it that
 	// key are sealed with the default key, which anybody can open.
-	return a.setParam(ctx, authKey, version, desired, kind, pending == nil && !onDefault)
+	return a.setParam(ctx, authKey, version, doc, docErr, kind, pending == nil && !onDefault)
 }
 
 // forgetting answers a device the controller is forgetting (see Forget). On a
@@ -478,9 +501,48 @@ func (a *Adapter) forgetting(ctx context.Context, h adapter.Host, dev adapter.De
 	return inform.SetDefault{}, nil
 }
 
+// document builds the access point's complete system.cfg. An error for which
+// isRenderErr is true means no document is sent; any other is a failure to read
+// the settings, which fails the inform.
+func (a *Adapter) document(ctx context.Context, deviceID, model string, desired adapter.DesiredConfig) (profile.Document, error) {
+	if a.opts.Settings == nil {
+		return nil, fmt.Errorf("%w: the adapter has no settings source", errNoDocument)
+	}
+	if _, ok := profile.Lookup(model); !ok {
+		return nil, fmt.Errorf("%w: model %q has no profile", errNoDocument, model)
+	}
+	site, err := a.opts.Settings.Site(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading the site settings: %w", err)
+	}
+	tunables, err := a.opts.Settings.DeviceSettings(ctx, deviceID)
+	if err != nil {
+		return nil, fmt.Errorf("reading the device's settings: %w", err)
+	}
+	doc, err := renderSystemConfig(model, desired, tunables, site, hostFrom(ctx))
+	if err != nil {
+		return nil, renderErr{err}
+	}
+	return doc, nil
+}
+
+// renderErr marks an error of the configuration, as opposed to one of
+// reading it.
+type renderErr struct{ error }
+
+func (e renderErr) Unwrap() error { return e.error }
+
+func isRenderErr(err error) bool {
+	var r renderErr
+	return errors.As(err, &r) || errors.Is(err, errNoDocument)
+}
+
 // setParam builds the reply that gives the device authKey and the desired
-// configuration.
-func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, desired adapter.DesiredConfig, kind adapter.DeviceKind, secure bool) (inform.Response, error) {
+// configuration. A device REPLACES its whole configuration with system_cfg, so
+// one goes out only when doc is a complete document built for the device's
+// model; with none (docErr says why) the device still gets its key and revision,
+// so that adoption completes.
+func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, doc profile.Document, docErr error, kind adapter.DeviceKind, secure bool) (inform.Response, error) {
 	provision := kind == adapter.KindAccessPoint
 	if provision && !secure {
 		// A key-only reply: it hands the device its key and nothing that
@@ -493,16 +555,18 @@ func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, 
 		return nil, fmt.Errorf("rendering mgmt_cfg: %w", err)
 	}
 	sp := inform.SetParam{ManagementConfig: mgmt.String(), ConfigVersion: version}
-	// A device REPLACES its whole configuration with system_cfg (a real
-	// controller's document and the device's /tmp/system.cfg were identical
-	// key for key in a capture), so a partial document would leave an access
-	// point with almost no configuration. system_cfg is therefore sent only
-	// when a complete document was built for a model that has a profile. None
-	// does yet: the fragment renderer in systemcfg.go is not used here, and an
-	// access point is sent its key and revision only, so adoption completes.
-	if provision && secure {
-		slog.WarnContext(ctx, "not sending the access point its settings: no complete system.cfg can be built for it yet")
+	// The document carries secrets (wifi keys, RADIUS secrets, the device
+	// password), so it only goes out once the device speaks a key of its own:
+	// the replies that hand it that key are sealed with the default key, which
+	// anybody can open.
+	if !provision || !secure {
+		return sp, nil
 	}
+	if doc == nil {
+		slog.WarnContext(ctx, "not sending the access point its settings", slog.Any("reason", docErr))
+		return sp, nil
+	}
+	sp.SystemConfig = doc.String()
 	return sp, nil
 }
 
@@ -511,6 +575,12 @@ func remoteIP(r *http.Request) string {
 	if err != nil {
 		return r.RemoteAddr
 	}
+	return host
+}
+
+// hostFrom is the address the inform being answered was sent to.
+func hostFrom(ctx context.Context) string {
+	host, _ := ctx.Value(hostKey{}).(string)
 	return host
 }
 
