@@ -352,6 +352,7 @@ The helpers are at the top of `e2e/e2e_test.go`:
 | `startDaemon(t, env...)` | Runs `beenfard`; `env` entries (`KEY=value`) are added to the baseline and win over it. Returns a `daemon` with the base `url`, an authenticated Connect `client` and a ready `devices` client. |
 | `startFleet(t, d, specs...)` | Starts emulated devices informing `d`. Returns a `fleet`, which is the emulator's `*emu.Emu`: `State`, `WaitState`, `Stop`. |
 | `d.pending`, `d.adopt`, `d.state`, `connected`, `lastSeen` | Wait for and drive device adoption. |
+| `fleet.tap` | Records the encoding flags of every inform the devices send, by MAC (`count`, `waitInforms`). Use it to assert how devices talk to the daemon, e.g. that they use AES-GCM, rather than only that they keep being answered. |
 | `eventually(t, timeout, what, check)` | Polls `check(ctx)` until it returns nil. Use it for anything asynchronous; do not `time.Sleep`. `ctx` ends at the deadline: pass it to every request `check` makes, so a stalled response cannot outlive the wait. Outside `eventually`, give an API call `callCtx(t)`. |
 
 ### Extending them

@@ -25,6 +25,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,6 +39,7 @@ import (
 
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
+	"github.com/jacobalberty/go-unifi/inform"
 	emu "github.com/jamesbraid/unifi-emu"
 
 	configv1 "github.com/jacobalberty/beenfar/api/gen/go/beenfar/config/v1"
@@ -174,6 +178,66 @@ func startDaemon(t *testing.T, env ...string) *daemon {
 type fleet struct {
 	*emu.Emu
 	specs []emu.DeviceSpec
+	// tap has seen every inform the devices sent.
+	tap *informTap
+}
+
+// informTap records the encoding flags of every inform packet that passes
+// through it, by device MAC. The devices inform the daemon through it, so a
+// test can check how they actually talk to the daemon (for instance that
+// they switched to AES-GCM) rather than only that they keep being answered.
+type informTap struct {
+	mu    sync.Mutex
+	flags map[string][]inform.Flags // in order of arrival
+}
+
+// handler records each inform's flags and forwards the request to target.
+func (tp *informTap) handler(target *url.URL) http.Handler {
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		if p, err := inform.Parse(body); err == nil {
+			tp.mu.Lock()
+			tp.flags[p.MAC.String()] = append(tp.flags[p.MAC.String()], p.Flags)
+			tp.mu.Unlock()
+		}
+		proxy.ServeHTTP(w, r)
+	})
+}
+
+// count returns how many informs from mac (all devices when mac is empty)
+// had every flag in f set.
+func (tp *informTap) count(mac string, f inform.Flags) int {
+	tp.mu.Lock()
+	defer tp.mu.Unlock()
+	n := 0
+	for m, all := range tp.flags {
+		if mac != "" && m != mac {
+			continue
+		}
+		for _, got := range all {
+			if got&f == f {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// waitInforms waits until mac has sent at least n informs with the flags f.
+func (tp *informTap) waitInforms(t *testing.T, mac string, f inform.Flags, n int) {
+	t.Helper()
+	eventually(t, 15*time.Second, fmt.Sprintf("%d informs from %s with flags %s", n, mac, f), func(context.Context) error {
+		if got := tp.count(mac, f); got < n {
+			return fmt.Errorf("%d so far", got)
+		}
+		return nil
+	})
 }
 
 // startFleet starts the given devices informing d once a second.
@@ -183,7 +247,16 @@ func startFleet(t *testing.T, d *daemon, specs ...emu.DeviceSpec) *fleet {
 	log.SetOutput(testWriter{t})
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 
-	e := emu.New(d.url+"/inform", emu.WithInformInterval(time.Second))
+	// The devices inform the daemon through a tap that records their packets.
+	target, err := url.Parse(d.url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tap := &informTap{flags: map[string][]inform.Flags{}}
+	proxy := httptest.NewServer(tap.handler(target))
+	t.Cleanup(proxy.Close)
+
+	e := emu.New(proxy.URL+"/inform", emu.WithInformInterval(time.Second))
 	if err := e.Add(specs...); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +264,7 @@ func startFleet(t *testing.T, d *daemon, specs ...emu.DeviceSpec) *fleet {
 		t.Fatal(err)
 	}
 	t.Cleanup(e.Stop)
-	return &fleet{Emu: e, specs: specs}
+	return &fleet{Emu: e, specs: specs, tap: tap}
 }
 
 // The devices the tests use. MACs are fixed so failures are reproducible; the
@@ -306,23 +379,47 @@ func TestFleetAdoption(t *testing.T) {
 
 	// Adopted devices go on informing: last_seen_time keeps moving.
 	waitLastSeenAdvances(t, d, accessPoint.MAC)
+
+	// AES-GCM is off by default: no device was told to switch to it.
+	if n := f.tap.count("", inform.FlagGCM); n != 0 {
+		t.Errorf("%d informs used AES-GCM without BEENFAR_UNIFI_GCM", n)
+	}
+	// Adopted devices do use their own key, though: encrypted with AES-CBC.
+	for _, spec := range f.specs {
+		if f.tap.count(spec.MAC, inform.FlagEncrypted) == 0 {
+			t.Errorf("%s never sent an encrypted inform", spec.MAC)
+		}
+	}
 }
 
 // With AES-GCM switched on, devices adopted afterwards are told to move to it
-// and carry on talking to the daemon through the switch.
+// and carry on talking to the daemon through the switch. Informs are
+// observed on the wire: before adoption they are AES-CBC, afterwards they
+// carry the GCM flag, and the daemon goes on accepting them.
 func TestAdoptionWithAESGCM(t *testing.T) {
 	d := startDaemon(t, "BEENFAR_UNIFI_GCM=true")
 	f := startFleet(t, d, accessPoint, switchDev)
 
 	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
 	for _, spec := range f.specs {
+		// A pending device is on the default key, and uses CBC with it.
+		f.tap.waitInforms(t, spec.MAC, inform.FlagEncrypted, 1)
+		if n := f.tap.count(spec.MAC, inform.FlagGCM); n != 0 {
+			t.Fatalf("%s sent %d informs with GCM before it was adopted", spec.MAC, n)
+		}
+	}
+	for _, spec := range f.specs {
 		d.adopt(t, pending[spec.MAC])
 	}
 	for _, spec := range f.specs {
 		connected(t, d, f, spec.MAC)
 	}
-	// Informs after the switch must still decode on both sides.
-	waitLastSeenAdvances(t, d, switchDev.MAC)
+	for _, spec := range f.specs {
+		// More than one, so the switch holds rather than happening once.
+		f.tap.waitInforms(t, spec.MAC, inform.FlagEncrypted|inform.FlagGCM, 2)
+		// Informs after the switch must still be accepted by the daemon.
+		waitLastSeenAdvances(t, d, spec.MAC)
+	}
 }
 
 // Forgetting an adopted device factory resets it: the device receives the
