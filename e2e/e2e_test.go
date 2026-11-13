@@ -124,13 +124,17 @@ func startDaemon(t *testing.T, env ...string) *daemon {
 	})
 
 	url := "http://127.0.0.1:" + port
-	eventually(t, 30*time.Second, "beenfard to serve /healthz", func() error {
+	eventually(t, 30*time.Second, "beenfard to serve /healthz", func(ctx context.Context) error {
 		select {
 		case <-exited:
 			return fmt.Errorf("beenfard exited early: %v\n%s", waitErr, logs.String())
 		default:
 		}
-		resp, err := http.Get(url + "/healthz")
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url+"/healthz", nil)
+		if err != nil {
+			return err
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return err
 		}
@@ -204,8 +208,8 @@ var (
 func (d *daemon) pending(t *testing.T, macs ...string) map[string]*configv1.Device {
 	t.Helper()
 	var got map[string]*configv1.Device
-	eventually(t, 30*time.Second, fmt.Sprintf("%d pending devices", len(macs)), func() error {
-		resp, err := d.devices.ListPendingDevices(t.Context(), &configv1.ListPendingDevicesRequest{})
+	eventually(t, 30*time.Second, fmt.Sprintf("%d pending devices", len(macs)), func(ctx context.Context) error {
+		resp, err := d.devices.ListPendingDevices(ctx, &configv1.ListPendingDevicesRequest{})
 		if err != nil {
 			return err
 		}
@@ -225,7 +229,7 @@ func (d *daemon) pending(t *testing.T, macs ...string) map[string]*configv1.Devi
 
 func (d *daemon) adopt(t *testing.T, dev *configv1.Device) {
 	t.Helper()
-	_, err := d.devices.AdoptDevice(t.Context(), &configv1.AdoptDeviceRequest{
+	_, err := d.devices.AdoptDevice(callCtx(t), &configv1.AdoptDeviceRequest{
 		Device: &configv1.AdoptDeviceRequest_Id{Id: dev.GetId()},
 	})
 	if err != nil {
@@ -257,8 +261,8 @@ func connected(t *testing.T, d *daemon, f *fleet, mac string) {
 	if err := f.WaitState(ctx, mac, emu.StateConnected); err != nil {
 		t.Fatalf("device side: %v", err)
 	}
-	eventually(t, 15*time.Second, mac+" to be adopted in the daemon", func() error {
-		st, err := d.state(t.Context(), mac)
+	eventually(t, 15*time.Second, mac+" to be adopted in the daemon", func(ctx context.Context) error {
+		st, err := d.state(ctx, mac)
 		if err != nil {
 			return err
 		}
@@ -301,13 +305,7 @@ func TestFleetAdoption(t *testing.T) {
 	}
 
 	// Adopted devices go on informing: last_seen_time keeps moving.
-	first := lastSeen(t, d, accessPoint.MAC)
-	eventually(t, 15*time.Second, "last_seen_time to advance", func() error {
-		if now := lastSeen(t, d, accessPoint.MAC); !now.After(first) {
-			return errors.New("not advanced")
-		}
-		return nil
-	})
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
 }
 
 // With AES-GCM switched on, devices adopted afterwards are told to move to it
@@ -324,13 +322,7 @@ func TestAdoptionWithAESGCM(t *testing.T) {
 		connected(t, d, f, spec.MAC)
 	}
 	// Informs after the switch must still decode on both sides.
-	first := lastSeen(t, d, switchDev.MAC)
-	eventually(t, 15*time.Second, "informs to continue after the GCM switch", func() error {
-		if !lastSeen(t, d, switchDev.MAC).After(first) {
-			return errors.New("last_seen_time not advancing")
-		}
-		return nil
-	})
+	waitLastSeenAdvances(t, d, switchDev.MAC)
 }
 
 // Forgetting an adopted device factory resets it: the device receives the
@@ -344,11 +336,11 @@ func TestForgetResetsAndReadopts(t *testing.T) {
 	d.adopt(t, pending[switchDev.MAC])
 	connected(t, d, f, switchDev.MAC)
 
-	adopted, err := d.devices.ListDevices(t.Context(), &configv1.ListDevicesRequest{State: configv1.DeviceState_DEVICE_STATE_ADOPTED})
+	adopted, err := d.devices.ListDevices(callCtx(t), &configv1.ListDevicesRequest{State: configv1.DeviceState_DEVICE_STATE_ADOPTED})
 	if err != nil || len(adopted.GetDevices()) != 1 {
 		t.Fatalf("adopted devices = %v, %v", adopted, err)
 	}
-	if _, err := d.devices.ForgetDevice(t.Context(), &configv1.ForgetDeviceRequest{Id: adopted.GetDevices()[0].GetId()}); err != nil {
+	if _, err := d.devices.ForgetDevice(callCtx(t), &configv1.ForgetDeviceRequest{Id: adopted.GetDevices()[0].GetId()}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -370,35 +362,81 @@ func TestForgetResetsAndReadopts(t *testing.T) {
 	connected(t, d, f, switchDev.MAC)
 }
 
-func lastSeen(t *testing.T, d *daemon, mac string) time.Time {
-	t.Helper()
-	resp, err := d.devices.ListDevices(t.Context(), &configv1.ListDevicesRequest{})
+// lastSeen returns the last_seen_time the daemon reports for the device.
+func lastSeen(ctx context.Context, d *daemon, mac string) (time.Time, error) {
+	resp, err := d.devices.ListDevices(ctx, &configv1.ListDevicesRequest{})
 	if err != nil {
-		t.Fatal(err)
+		return time.Time{}, err
 	}
 	for _, dev := range resp.GetDevices() {
 		if dev.GetMac() == mac {
-			return dev.GetLastSeenTime().AsTime()
+			return dev.GetLastSeenTime().AsTime(), nil
 		}
 	}
-	t.Fatalf("%s is not listed", mac)
-	return time.Time{}
+	return time.Time{}, fmt.Errorf("%s is not listed", mac)
 }
 
-// eventually polls check until it returns nil, failing the test with the last
-// error once timeout passes.
-func eventually(t *testing.T, timeout time.Duration, what string, check func() error) {
+// waitLastSeenAdvances waits until the daemon's last_seen_time for the device
+// moves past what it was when the call began: the device is still informing
+// and the daemon still accepts it.
+func waitLastSeenAdvances(t *testing.T, d *daemon, mac string) {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
+	first, err := lastSeen(callCtx(t), d, mac)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, 15*time.Second, mac+" last_seen_time to advance", func(ctx context.Context) error {
+		now, err := lastSeen(ctx, d, mac)
+		if err != nil {
+			return err
+		}
+		if !now.After(first) {
+			return errors.New("not advanced")
+		}
+		return nil
+	})
+}
+
+// callTimeout bounds a single API call made outside eventually, so a daemon
+// that accepts a request and never answers fails the test instead of hanging
+// it until the suite's timeout.
+const callTimeout = 15 * time.Second
+
+// callCtx returns a context for one API call, cancelled when the test ends.
+func callCtx(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), callTimeout)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+// eventually polls check until it returns nil. check gets a context that ends
+// at the deadline, and must pass it to every request it makes, so a stalled
+// request cannot outlive the wait. Past the deadline the test fails with the
+// last real error from check.
+func eventually(t *testing.T, timeout time.Duration, what string, check func(ctx context.Context) error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
+	defer cancel()
+	var last error
 	for {
-		err := check()
+		err := check(ctx)
 		if err == nil {
 			return
 		}
-		if time.Now().After(deadline) || t.Context().Err() != nil {
-			t.Fatalf("waiting for %s: %v", what, err)
+		if ctx.Err() == nil {
+			last = err // not just a casualty of the deadline
 		}
-		time.Sleep(100 * time.Millisecond)
+		if ctx.Err() != nil {
+			if last == nil {
+				last = err
+			}
+			t.Fatalf("waiting for %s: %v", what, last)
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
 }
 
