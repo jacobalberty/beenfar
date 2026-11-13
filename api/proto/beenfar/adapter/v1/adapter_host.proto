@@ -72,6 +72,14 @@ enum ReadoptionState {
   READOPTION_STATE_IN_PROGRESS = 2;
 }
 
+// DeviceKind says what a device is.
+enum DeviceKind {
+  DEVICE_KIND_UNSPECIFIED = 0;
+  DEVICE_KIND_ACCESS_POINT = 1;
+  DEVICE_KIND_SWITCH = 2;
+  DEVICE_KIND_GATEWAY = 3;
+}
+
 // Device is a device as the controller knows it.
 message Device {
   string id = 1;
@@ -96,6 +104,12 @@ message Discovered {
   // The adapter cannot talk to the device yet because it lacks the device's
   // credentials.
   bool locked = 5;
+  // What the device is, when the adapter can tell. Unspecified keeps what the
+  // controller knows.
+  DeviceKind kind = 6;
+  // How many ports beyond the uplink can be configured (most access points
+  // have none). Read only when kind is set.
+  int32 port_count = 7;
 }
 
 // State is what an adapter reports about a device it manages.
@@ -112,6 +126,9 @@ message State {
   // A device the controller is forgetting has been reset: drop it. Ignored for
   // any other device.
   bool released = 7;
+  // As in Discovered.
+  DeviceKind kind = 8;
+  int32 port_count = 9;
 }
 
 // Network is a resolved network.

@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import type { FieldMask, Timestamp } from "@bufbuild/protobuf/wkt";
 
 /**
  * Describes the file beenfar/config/v1/device.proto.
@@ -87,6 +87,32 @@ export declare type Device = Message<"beenfar.config.v1.Device"> & {
    * @generated from field: bool forgetting = 11;
    */
   forgetting: boolean;
+
+  /**
+   * What the device is, as far as its adapter can tell.
+   *
+   * @generated from field: beenfar.config.v1.DeviceKind kind = 12;
+   */
+  kind: DeviceKind;
+
+  /**
+   * How many ports beyond the uplink can be configured with
+   * beenfar.config.v1.SwitchPortService. Most access points have none, so a
+   * client should offer port settings only when this is above zero. Zero for
+   * a device whose kind is unspecified means "not known", and port settings
+   * are accepted.
+   *
+   * @generated from field: uint32 port_count = 13;
+   */
+  portCount: number;
+
+  /**
+   * The AP group this access point is pinned to. Empty is the default (see
+   * UpdateDevice).
+   *
+   * @generated from field: string ap_group = 14;
+   */
+  apGroup: string;
 
   /**
    * @generated from field: google.protobuf.Timestamp create_time = 21;
@@ -259,6 +285,48 @@ export declare type AdoptDeviceResponse = Message<"beenfar.config.v1.AdoptDevice
 export declare const AdoptDeviceResponseSchema: GenMessage<AdoptDeviceResponse>;
 
 /**
+ * @generated from message beenfar.config.v1.UpdateDeviceRequest
+ */
+export declare type UpdateDeviceRequest = Message<"beenfar.config.v1.UpdateDeviceRequest"> & {
+  /**
+   * id selects the device.
+   *
+   * @generated from field: beenfar.config.v1.Device device = 1;
+   */
+  device?: Device | undefined;
+
+  /**
+   * Fields to update, named by their proto field names (currently only
+   * "ap_group"). When empty or "*", every mutable field is replaced.
+   *
+   * @generated from field: google.protobuf.FieldMask update_mask = 2;
+   */
+  updateMask?: FieldMask | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceRequest.
+ * Use `create(UpdateDeviceRequestSchema)` to create a new message.
+ */
+export declare const UpdateDeviceRequestSchema: GenMessage<UpdateDeviceRequest>;
+
+/**
+ * @generated from message beenfar.config.v1.UpdateDeviceResponse
+ */
+export declare type UpdateDeviceResponse = Message<"beenfar.config.v1.UpdateDeviceResponse"> & {
+  /**
+   * @generated from field: beenfar.config.v1.Device device = 1;
+   */
+  device?: Device | undefined;
+};
+
+/**
+ * Describes the message beenfar.config.v1.UpdateDeviceResponse.
+ * Use `create(UpdateDeviceResponseSchema)` to create a new message.
+ */
+export declare const UpdateDeviceResponseSchema: GenMessage<UpdateDeviceResponse>;
+
+/**
  * @generated from message beenfar.config.v1.ForgetDeviceRequest
  */
 export declare type ForgetDeviceRequest = Message<"beenfar.config.v1.ForgetDeviceRequest"> & {
@@ -366,6 +434,40 @@ export enum ReadoptionState {
 export declare const ReadoptionStateSchema: GenEnum<ReadoptionState>;
 
 /**
+ * DeviceKind says what a device is.
+ *
+ * @generated from enum beenfar.config.v1.DeviceKind
+ */
+export enum DeviceKind {
+  /**
+   * The adapter has not said (or cannot tell).
+   *
+   * @generated from enum value: DEVICE_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: DEVICE_KIND_ACCESS_POINT = 1;
+   */
+  ACCESS_POINT = 1,
+
+  /**
+   * @generated from enum value: DEVICE_KIND_SWITCH = 2;
+   */
+  SWITCH = 2,
+
+  /**
+   * @generated from enum value: DEVICE_KIND_GATEWAY = 3;
+   */
+  GATEWAY = 3,
+}
+
+/**
+ * Describes the enum beenfar.config.v1.DeviceKind.
+ */
+export declare const DeviceKindSchema: GenEnum<DeviceKind>;
+
+/**
  * DeviceService manages network devices: discovery results, adoption and
  * removal. Devices are created by adapters when they are first seen, in the
  * PENDING state; AdoptDevice brings one under management.
@@ -415,6 +517,23 @@ export declare const DeviceService: GenService<{
     methodKind: "unary";
     input: typeof AdoptDeviceRequestSchema;
     output: typeof AdoptDeviceResponseSchema;
+  },
+  /**
+   * UpdateDevice changes the operator-set settings of a device: for now only
+   * ap_group, which pins an access point to one AP group. The access point
+   * then broadcasts the wifi networks that are not limited to named groups
+   * plus those that list its group, and not the ones limited to other groups;
+   * with no group it broadcasts every network. Only access points take an
+   * ap_group.
+   * Fields named by update_mask are replaced; an empty mask replaces all of
+   * them. All other fields are output only and ignored.
+   *
+   * @generated from rpc beenfar.config.v1.DeviceService.UpdateDevice
+   */
+  updateDevice: {
+    methodKind: "unary";
+    input: typeof UpdateDeviceRequestSchema;
+    output: typeof UpdateDeviceResponseSchema;
   },
   /**
    * ForgetDevice stops managing a device. An adopted device is factory reset

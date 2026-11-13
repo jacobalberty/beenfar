@@ -932,6 +932,23 @@
             "description": "Set while the device is being forgotten and the controller is waiting for\n it to reset itself (see ForgetDevice). The device is removed once it has.",
             "readOnly": true
           },
+          "kind": {
+            "title": "kind",
+            "description": "What the device is, as far as its adapter can tell.",
+            "readOnly": true,
+            "$ref": "#/components/schemas/beenfar.config.v1.DeviceKind"
+          },
+          "portCount": {
+            "type": "integer",
+            "title": "port_count",
+            "description": "How many ports beyond the uplink can be configured with\n beenfar.config.v1.SwitchPortService. Most access points have none, so a\n client should offer port settings only when this is above zero. Zero for\n a device whose kind is unspecified means \"not known\", and port settings\n are accepted.",
+            "readOnly": true
+          },
+          "apGroup": {
+            "type": "string",
+            "title": "ap_group",
+            "description": "The AP group this access point is pinned to. Empty is the default (see\n UpdateDevice)."
+          },
           "createTime": {
             "title": "create_time",
             "readOnly": true,
@@ -946,6 +963,17 @@
         "title": "Device",
         "additionalProperties": false,
         "description": "Device is a piece of network gear known to the controller."
+      },
+      "beenfar.config.v1.DeviceKind": {
+        "type": "string",
+        "title": "DeviceKind",
+        "enum": [
+          "DEVICE_KIND_UNSPECIFIED",
+          "DEVICE_KIND_ACCESS_POINT",
+          "DEVICE_KIND_SWITCH",
+          "DEVICE_KIND_GATEWAY"
+        ],
+        "description": "DeviceKind says what a device is."
       },
       "beenfar.config.v1.DeviceState": {
         "type": "string",
@@ -1550,6 +1578,37 @@
           "SWITCH_PORT_TAGGING_CUSTOM"
         ],
         "description": "SwitchPortTagging says which networks a port carries tagged."
+      },
+      "beenfar.config.v1.UpdateDeviceRequest": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "description": "id selects the device.",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          },
+          "updateMask": {
+            "title": "update_mask",
+            "description": "Fields to update, named by their proto field names (currently only\n \"ap_group\"). When empty or \"*\", every mutable field is replaced.",
+            "$ref": "#/components/schemas/google.protobuf.FieldMask"
+          }
+        },
+        "title": "UpdateDeviceRequest",
+        "required": [
+          "device"
+        ],
+        "additionalProperties": false
+      },
+      "beenfar.config.v1.UpdateDeviceResponse": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "title": "device",
+            "$ref": "#/components/schemas/beenfar.config.v1.Device"
+          }
+        },
+        "title": "UpdateDeviceResponse",
+        "additionalProperties": false
       },
       "beenfar.config.v1.UpdateNetworkRequest": {
         "type": "object",
@@ -2227,6 +2286,134 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/beenfar.config.v1.ListDevicesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{device.id}": {
+      "put": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "UpdateDevice",
+        "description": "UpdateDevice changes the operator-set settings of a device: for now only\n ap_group, which pins an access point to one AP group. The access point\n then broadcasts the wifi networks that are not limited to named groups\n plus those that list its group, and not the ones limited to other groups;\n with no group it broadcasts every network. Only access points take an\n ap_group.\n Fields named by update_mask are replaced; an empty mask replaces all of\n them. All other fields are output only and ignored.",
+        "operationId": "beenfar.config.v1.DeviceService.UpdateDevice2",
+        "parameters": [
+          {
+            "name": "device.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (currently only\n \"ap_group\"). When empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the device.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "device",
+                "description": "id selects the device.",
+                "$ref": "#/components/schemas/beenfar.config.v1.Device"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "device",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Device"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "DeviceService"
+        ],
+        "summary": "UpdateDevice",
+        "description": "UpdateDevice changes the operator-set settings of a device: for now only\n ap_group, which pins an access point to one AP group. The access point\n then broadcasts the wifi networks that are not limited to named groups\n plus those that list its group, and not the ones limited to other groups;\n with no group it broadcasts every network. Only access points take an\n ap_group.\n Fields named by update_mask are replaced; an empty mask replaces all of\n them. All other fields are output only and ignored.",
+        "operationId": "beenfar.config.v1.DeviceService.UpdateDevice",
+        "parameters": [
+          {
+            "name": "device.id",
+            "in": "path",
+            "description": "(IDENTIFIER) Server-assigned, immutable identifier.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "id"
+            }
+          },
+          {
+            "name": "updateMask",
+            "in": "query",
+            "description": "Fields to update, named by their proto field names (currently only\n \"ap_group\"). When empty or \"*\", every mutable field is replaced.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "id selects the device.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "title": "device",
+                "description": "id selects the device.",
+                "$ref": "#/components/schemas/beenfar.config.v1.Device"
+              }
+            }
+          }
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "device",
+                  "$ref": "#/components/schemas/beenfar.config.v1.Device"
                 }
               }
             }

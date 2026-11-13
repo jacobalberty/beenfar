@@ -103,6 +103,7 @@ type (
 	DeviceState   = model.DeviceState
 	Readoption    = model.Readoption
 	Device        = model.Device
+	DeviceKind    = model.DeviceKind
 	Discovered    = model.Discovered
 	State         = model.State
 	DesiredConfig = model.DesiredConfig
@@ -119,6 +120,11 @@ type (
 )
 
 const (
+	KindUnknown     = model.KindUnknown
+	KindAccessPoint = model.KindAccessPoint
+	KindSwitch      = model.KindSwitch
+	KindGateway     = model.KindGateway
+
 	DevicePending = model.DevicePending
 	DeviceAdopted = model.DeviceAdopted
 

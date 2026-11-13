@@ -127,6 +127,59 @@ func (ReadoptionState) EnumDescriptor() ([]byte, []int) {
 	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{1}
 }
 
+// DeviceKind says what a device is.
+type DeviceKind int32
+
+const (
+	DeviceKind_DEVICE_KIND_UNSPECIFIED  DeviceKind = 0
+	DeviceKind_DEVICE_KIND_ACCESS_POINT DeviceKind = 1
+	DeviceKind_DEVICE_KIND_SWITCH       DeviceKind = 2
+	DeviceKind_DEVICE_KIND_GATEWAY      DeviceKind = 3
+)
+
+// Enum value maps for DeviceKind.
+var (
+	DeviceKind_name = map[int32]string{
+		0: "DEVICE_KIND_UNSPECIFIED",
+		1: "DEVICE_KIND_ACCESS_POINT",
+		2: "DEVICE_KIND_SWITCH",
+		3: "DEVICE_KIND_GATEWAY",
+	}
+	DeviceKind_value = map[string]int32{
+		"DEVICE_KIND_UNSPECIFIED":  0,
+		"DEVICE_KIND_ACCESS_POINT": 1,
+		"DEVICE_KIND_SWITCH":       2,
+		"DEVICE_KIND_GATEWAY":      3,
+	}
+)
+
+func (x DeviceKind) Enum() *DeviceKind {
+	p := new(DeviceKind)
+	*p = x
+	return p
+}
+
+func (x DeviceKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[2].Descriptor()
+}
+
+func (DeviceKind) Type() protoreflect.EnumType {
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[2]
+}
+
+func (x DeviceKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DeviceKind.Descriptor instead.
+func (DeviceKind) EnumDescriptor() ([]byte, []int) {
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{2}
+}
+
 type WifiSecurity int32
 
 const (
@@ -166,11 +219,11 @@ func (x WifiSecurity) String() string {
 }
 
 func (WifiSecurity) Descriptor() protoreflect.EnumDescriptor {
-	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[2].Descriptor()
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[3].Descriptor()
 }
 
 func (WifiSecurity) Type() protoreflect.EnumType {
-	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[2]
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[3]
 }
 
 func (x WifiSecurity) Number() protoreflect.EnumNumber {
@@ -179,7 +232,7 @@ func (x WifiSecurity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WifiSecurity.Descriptor instead.
 func (WifiSecurity) EnumDescriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{2}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{3}
 }
 
 type WifiBand int32
@@ -218,11 +271,11 @@ func (x WifiBand) String() string {
 }
 
 func (WifiBand) Descriptor() protoreflect.EnumDescriptor {
-	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[3].Descriptor()
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[4].Descriptor()
 }
 
 func (WifiBand) Type() protoreflect.EnumType {
-	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[3]
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[4]
 }
 
 func (x WifiBand) Number() protoreflect.EnumNumber {
@@ -231,7 +284,7 @@ func (x WifiBand) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WifiBand.Descriptor instead.
 func (WifiBand) EnumDescriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{3}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{4}
 }
 
 type SwitchPortTagging int32
@@ -270,11 +323,11 @@ func (x SwitchPortTagging) String() string {
 }
 
 func (SwitchPortTagging) Descriptor() protoreflect.EnumDescriptor {
-	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[4].Descriptor()
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[5].Descriptor()
 }
 
 func (SwitchPortTagging) Type() protoreflect.EnumType {
-	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[4]
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[5]
 }
 
 func (x SwitchPortTagging) Number() protoreflect.EnumNumber {
@@ -283,7 +336,7 @@ func (x SwitchPortTagging) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SwitchPortTagging.Descriptor instead.
 func (SwitchPortTagging) EnumDescriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{4}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{5}
 }
 
 type PoeMode int32
@@ -319,11 +372,11 @@ func (x PoeMode) String() string {
 }
 
 func (PoeMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[5].Descriptor()
+	return file_beenfar_adapter_v1_adapter_host_proto_enumTypes[6].Descriptor()
 }
 
 func (PoeMode) Type() protoreflect.EnumType {
-	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[5]
+	return &file_beenfar_adapter_v1_adapter_host_proto_enumTypes[6]
 }
 
 func (x PoeMode) Number() protoreflect.EnumNumber {
@@ -332,7 +385,7 @@ func (x PoeMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PoeMode.Descriptor instead.
 func (PoeMode) EnumDescriptor() ([]byte, []int) {
-	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{5}
+	return file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP(), []int{6}
 }
 
 // Device is a device as the controller knows it.
@@ -441,7 +494,13 @@ type Discovered struct {
 	Firmware string                 `protobuf:"bytes,4,opt,name=firmware,proto3" json:"firmware,omitempty"`
 	// The adapter cannot talk to the device yet because it lacks the device's
 	// credentials.
-	Locked        bool `protobuf:"varint,5,opt,name=locked,proto3" json:"locked,omitempty"`
+	Locked bool `protobuf:"varint,5,opt,name=locked,proto3" json:"locked,omitempty"`
+	// What the device is, when the adapter can tell. Unspecified keeps what the
+	// controller knows.
+	Kind DeviceKind `protobuf:"varint,6,opt,name=kind,proto3,enum=beenfar.adapter.v1.DeviceKind" json:"kind,omitempty"`
+	// How many ports beyond the uplink can be configured (most access points
+	// have none). Read only when kind is set.
+	PortCount     int32 `protobuf:"varint,7,opt,name=port_count,json=portCount,proto3" json:"port_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -511,6 +570,20 @@ func (x *Discovered) GetLocked() bool {
 	return false
 }
 
+func (x *Discovered) GetKind() DeviceKind {
+	if x != nil {
+		return x.Kind
+	}
+	return DeviceKind_DEVICE_KIND_UNSPECIFIED
+}
+
+func (x *Discovered) GetPortCount() int32 {
+	if x != nil {
+		return x.PortCount
+	}
+	return 0
+}
+
 // State is what an adapter reports about a device it manages.
 type State struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
@@ -525,7 +598,10 @@ type State struct {
 	Readoption ReadoptionState `protobuf:"varint,6,opt,name=readoption,proto3,enum=beenfar.adapter.v1.ReadoptionState" json:"readoption,omitempty"`
 	// A device the controller is forgetting has been reset: drop it. Ignored for
 	// any other device.
-	Released      bool `protobuf:"varint,7,opt,name=released,proto3" json:"released,omitempty"`
+	Released bool `protobuf:"varint,7,opt,name=released,proto3" json:"released,omitempty"`
+	// As in Discovered.
+	Kind          DeviceKind `protobuf:"varint,8,opt,name=kind,proto3,enum=beenfar.adapter.v1.DeviceKind" json:"kind,omitempty"`
+	PortCount     int32      `protobuf:"varint,9,opt,name=port_count,json=portCount,proto3" json:"port_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -607,6 +683,20 @@ func (x *State) GetReleased() bool {
 		return x.Released
 	}
 	return false
+}
+
+func (x *State) GetKind() DeviceKind {
+	if x != nil {
+		return x.Kind
+	}
+	return DeviceKind_DEVICE_KIND_UNSPECIFIED
+}
+
+func (x *State) GetPortCount() int32 {
+	if x != nil {
+		return x.PortCount
+	}
+	return 0
 }
 
 // Network is a resolved network.
@@ -1947,14 +2037,17 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"readoption\x12\x1e\n" +
 	"\n" +
 	"forgetting\x18\a \x01(\bR\n" +
-	"forgetting\"x\n" +
+	"forgetting\"\xcb\x01\n" +
 	"\n" +
 	"Discovered\x12\x10\n" +
 	"\x03mac\x18\x01 \x01(\tR\x03mac\x12\x14\n" +
 	"\x05model\x18\x02 \x01(\tR\x05model\x12\x0e\n" +
 	"\x02ip\x18\x03 \x01(\tR\x02ip\x12\x1a\n" +
 	"\bfirmware\x18\x04 \x01(\tR\bfirmware\x12\x16\n" +
-	"\x06locked\x18\x05 \x01(\bR\x06locked\"\xfa\x01\n" +
+	"\x06locked\x18\x05 \x01(\bR\x06locked\x122\n" +
+	"\x04kind\x18\x06 \x01(\x0e2\x1e.beenfar.adapter.v1.DeviceKindR\x04kind\x12\x1d\n" +
+	"\n" +
+	"port_count\x18\a \x01(\x05R\tportCount\"\xcd\x02\n" +
 	"\x05State\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\tR\x02ip\x12\x1a\n" +
 	"\bfirmware\x18\x02 \x01(\tR\bfirmware\x12\x14\n" +
@@ -1964,7 +2057,10 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\n" +
 	"readoption\x18\x06 \x01(\x0e2#.beenfar.adapter.v1.ReadoptionStateR\n" +
 	"readoption\x12\x1a\n" +
-	"\breleased\x18\a \x01(\bR\breleased\"\xde\x01\n" +
+	"\breleased\x18\a \x01(\bR\breleased\x122\n" +
+	"\x04kind\x18\b \x01(\x0e2\x1e.beenfar.adapter.v1.DeviceKindR\x04kind\x12\x1d\n" +
+	"\n" +
+	"port_count\x18\t \x01(\x05R\tportCount\"\xde\x01\n" +
 	"\aNetwork\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
@@ -2068,7 +2164,13 @@ const file_beenfar_adapter_v1_adapter_host_proto_rawDesc = "" +
 	"\x0fReadoptionState\x12 \n" +
 	"\x1cREADOPTION_STATE_UNSPECIFIED\x10\x00\x12(\n" +
 	"$READOPTION_STATE_AWAITING_ACCEPTANCE\x10\x01\x12 \n" +
-	"\x1cREADOPTION_STATE_IN_PROGRESS\x10\x02*\x9e\x01\n" +
+	"\x1cREADOPTION_STATE_IN_PROGRESS\x10\x02*x\n" +
+	"\n" +
+	"DeviceKind\x12\x1b\n" +
+	"\x17DEVICE_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18DEVICE_KIND_ACCESS_POINT\x10\x01\x12\x16\n" +
+	"\x12DEVICE_KIND_SWITCH\x10\x02\x12\x17\n" +
+	"\x13DEVICE_KIND_GATEWAY\x10\x03*\x9e\x01\n" +
 	"\fWifiSecurity\x12\x1d\n" +
 	"\x19WIFI_SECURITY_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12WIFI_SECURITY_OPEN\x10\x01\x12\x15\n" +
@@ -2112,86 +2214,89 @@ func file_beenfar_adapter_v1_adapter_host_proto_rawDescGZIP() []byte {
 	return file_beenfar_adapter_v1_adapter_host_proto_rawDescData
 }
 
-var file_beenfar_adapter_v1_adapter_host_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_beenfar_adapter_v1_adapter_host_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
 var file_beenfar_adapter_v1_adapter_host_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_beenfar_adapter_v1_adapter_host_proto_goTypes = []any{
 	(DeviceState)(0),                 // 0: beenfar.adapter.v1.DeviceState
 	(ReadoptionState)(0),             // 1: beenfar.adapter.v1.ReadoptionState
-	(WifiSecurity)(0),                // 2: beenfar.adapter.v1.WifiSecurity
-	(WifiBand)(0),                    // 3: beenfar.adapter.v1.WifiBand
-	(SwitchPortTagging)(0),           // 4: beenfar.adapter.v1.SwitchPortTagging
-	(PoeMode)(0),                     // 5: beenfar.adapter.v1.PoeMode
-	(*Device)(nil),                   // 6: beenfar.adapter.v1.Device
-	(*Discovered)(nil),               // 7: beenfar.adapter.v1.Discovered
-	(*State)(nil),                    // 8: beenfar.adapter.v1.State
-	(*Network)(nil),                  // 9: beenfar.adapter.v1.Network
-	(*WifiNetwork)(nil),              // 10: beenfar.adapter.v1.WifiNetwork
-	(*RadiusServer)(nil),             // 11: beenfar.adapter.v1.RadiusServer
-	(*SwitchPort)(nil),               // 12: beenfar.adapter.v1.SwitchPort
-	(*DesiredConfig)(nil),            // 13: beenfar.adapter.v1.DesiredConfig
-	(*RegisterRequest)(nil),          // 14: beenfar.adapter.v1.RegisterRequest
-	(*RegisterResponse)(nil),         // 15: beenfar.adapter.v1.RegisterResponse
-	(*Registered)(nil),               // 16: beenfar.adapter.v1.Registered
-	(*CompleteCommandRequest)(nil),   // 17: beenfar.adapter.v1.CompleteCommandRequest
-	(*CompleteCommandResponse)(nil),  // 18: beenfar.adapter.v1.CompleteCommandResponse
-	(*LookupDeviceRequest)(nil),      // 19: beenfar.adapter.v1.LookupDeviceRequest
-	(*LookupDeviceResponse)(nil),     // 20: beenfar.adapter.v1.LookupDeviceResponse
-	(*ReportDeviceRequest)(nil),      // 21: beenfar.adapter.v1.ReportDeviceRequest
-	(*ReportDeviceResponse)(nil),     // 22: beenfar.adapter.v1.ReportDeviceResponse
-	(*GetDesiredConfigRequest)(nil),  // 23: beenfar.adapter.v1.GetDesiredConfigRequest
-	(*GetDesiredConfigResponse)(nil), // 24: beenfar.adapter.v1.GetDesiredConfigResponse
-	(*ReportStateRequest)(nil),       // 25: beenfar.adapter.v1.ReportStateRequest
-	(*ReportStateResponse)(nil),      // 26: beenfar.adapter.v1.ReportStateResponse
-	(*GetDeviceSecretRequest)(nil),   // 27: beenfar.adapter.v1.GetDeviceSecretRequest
-	(*GetDeviceSecretResponse)(nil),  // 28: beenfar.adapter.v1.GetDeviceSecretResponse
-	(*SetDeviceSecretRequest)(nil),   // 29: beenfar.adapter.v1.SetDeviceSecretRequest
-	(*SetDeviceSecretResponse)(nil),  // 30: beenfar.adapter.v1.SetDeviceSecretResponse
-	nil,                              // 31: beenfar.adapter.v1.RegisterResponse.TraceContextEntry
-	(*timestamppb.Timestamp)(nil),    // 32: google.protobuf.Timestamp
+	(DeviceKind)(0),                  // 2: beenfar.adapter.v1.DeviceKind
+	(WifiSecurity)(0),                // 3: beenfar.adapter.v1.WifiSecurity
+	(WifiBand)(0),                    // 4: beenfar.adapter.v1.WifiBand
+	(SwitchPortTagging)(0),           // 5: beenfar.adapter.v1.SwitchPortTagging
+	(PoeMode)(0),                     // 6: beenfar.adapter.v1.PoeMode
+	(*Device)(nil),                   // 7: beenfar.adapter.v1.Device
+	(*Discovered)(nil),               // 8: beenfar.adapter.v1.Discovered
+	(*State)(nil),                    // 9: beenfar.adapter.v1.State
+	(*Network)(nil),                  // 10: beenfar.adapter.v1.Network
+	(*WifiNetwork)(nil),              // 11: beenfar.adapter.v1.WifiNetwork
+	(*RadiusServer)(nil),             // 12: beenfar.adapter.v1.RadiusServer
+	(*SwitchPort)(nil),               // 13: beenfar.adapter.v1.SwitchPort
+	(*DesiredConfig)(nil),            // 14: beenfar.adapter.v1.DesiredConfig
+	(*RegisterRequest)(nil),          // 15: beenfar.adapter.v1.RegisterRequest
+	(*RegisterResponse)(nil),         // 16: beenfar.adapter.v1.RegisterResponse
+	(*Registered)(nil),               // 17: beenfar.adapter.v1.Registered
+	(*CompleteCommandRequest)(nil),   // 18: beenfar.adapter.v1.CompleteCommandRequest
+	(*CompleteCommandResponse)(nil),  // 19: beenfar.adapter.v1.CompleteCommandResponse
+	(*LookupDeviceRequest)(nil),      // 20: beenfar.adapter.v1.LookupDeviceRequest
+	(*LookupDeviceResponse)(nil),     // 21: beenfar.adapter.v1.LookupDeviceResponse
+	(*ReportDeviceRequest)(nil),      // 22: beenfar.adapter.v1.ReportDeviceRequest
+	(*ReportDeviceResponse)(nil),     // 23: beenfar.adapter.v1.ReportDeviceResponse
+	(*GetDesiredConfigRequest)(nil),  // 24: beenfar.adapter.v1.GetDesiredConfigRequest
+	(*GetDesiredConfigResponse)(nil), // 25: beenfar.adapter.v1.GetDesiredConfigResponse
+	(*ReportStateRequest)(nil),       // 26: beenfar.adapter.v1.ReportStateRequest
+	(*ReportStateResponse)(nil),      // 27: beenfar.adapter.v1.ReportStateResponse
+	(*GetDeviceSecretRequest)(nil),   // 28: beenfar.adapter.v1.GetDeviceSecretRequest
+	(*GetDeviceSecretResponse)(nil),  // 29: beenfar.adapter.v1.GetDeviceSecretResponse
+	(*SetDeviceSecretRequest)(nil),   // 30: beenfar.adapter.v1.SetDeviceSecretRequest
+	(*SetDeviceSecretResponse)(nil),  // 31: beenfar.adapter.v1.SetDeviceSecretResponse
+	nil,                              // 32: beenfar.adapter.v1.RegisterResponse.TraceContextEntry
+	(*timestamppb.Timestamp)(nil),    // 33: google.protobuf.Timestamp
 }
 var file_beenfar_adapter_v1_adapter_host_proto_depIdxs = []int32{
 	0,  // 0: beenfar.adapter.v1.Device.state:type_name -> beenfar.adapter.v1.DeviceState
-	32, // 1: beenfar.adapter.v1.Device.last_seen_time:type_name -> google.protobuf.Timestamp
+	33, // 1: beenfar.adapter.v1.Device.last_seen_time:type_name -> google.protobuf.Timestamp
 	1,  // 2: beenfar.adapter.v1.Device.readoption:type_name -> beenfar.adapter.v1.ReadoptionState
-	1,  // 3: beenfar.adapter.v1.State.readoption:type_name -> beenfar.adapter.v1.ReadoptionState
-	2,  // 4: beenfar.adapter.v1.WifiNetwork.security:type_name -> beenfar.adapter.v1.WifiSecurity
-	3,  // 5: beenfar.adapter.v1.WifiNetwork.band:type_name -> beenfar.adapter.v1.WifiBand
-	4,  // 6: beenfar.adapter.v1.SwitchPort.tagging:type_name -> beenfar.adapter.v1.SwitchPortTagging
-	5,  // 7: beenfar.adapter.v1.SwitchPort.poe_mode:type_name -> beenfar.adapter.v1.PoeMode
-	9,  // 8: beenfar.adapter.v1.DesiredConfig.networks:type_name -> beenfar.adapter.v1.Network
-	10, // 9: beenfar.adapter.v1.DesiredConfig.wifi:type_name -> beenfar.adapter.v1.WifiNetwork
-	11, // 10: beenfar.adapter.v1.DesiredConfig.radius_servers:type_name -> beenfar.adapter.v1.RadiusServer
-	12, // 11: beenfar.adapter.v1.DesiredConfig.switch_ports:type_name -> beenfar.adapter.v1.SwitchPort
-	16, // 12: beenfar.adapter.v1.RegisterResponse.registered:type_name -> beenfar.adapter.v1.Registered
-	6,  // 13: beenfar.adapter.v1.RegisterResponse.adopt:type_name -> beenfar.adapter.v1.Device
-	6,  // 14: beenfar.adapter.v1.RegisterResponse.forget:type_name -> beenfar.adapter.v1.Device
-	31, // 15: beenfar.adapter.v1.RegisterResponse.trace_context:type_name -> beenfar.adapter.v1.RegisterResponse.TraceContextEntry
-	6,  // 16: beenfar.adapter.v1.LookupDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
-	7,  // 17: beenfar.adapter.v1.ReportDeviceRequest.discovered:type_name -> beenfar.adapter.v1.Discovered
-	6,  // 18: beenfar.adapter.v1.ReportDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
-	13, // 19: beenfar.adapter.v1.GetDesiredConfigResponse.config:type_name -> beenfar.adapter.v1.DesiredConfig
-	8,  // 20: beenfar.adapter.v1.ReportStateRequest.state:type_name -> beenfar.adapter.v1.State
-	14, // 21: beenfar.adapter.v1.AdapterHostService.Register:input_type -> beenfar.adapter.v1.RegisterRequest
-	17, // 22: beenfar.adapter.v1.AdapterHostService.CompleteCommand:input_type -> beenfar.adapter.v1.CompleteCommandRequest
-	19, // 23: beenfar.adapter.v1.AdapterHostService.LookupDevice:input_type -> beenfar.adapter.v1.LookupDeviceRequest
-	21, // 24: beenfar.adapter.v1.AdapterHostService.ReportDevice:input_type -> beenfar.adapter.v1.ReportDeviceRequest
-	23, // 25: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:input_type -> beenfar.adapter.v1.GetDesiredConfigRequest
-	25, // 26: beenfar.adapter.v1.AdapterHostService.ReportState:input_type -> beenfar.adapter.v1.ReportStateRequest
-	27, // 27: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:input_type -> beenfar.adapter.v1.GetDeviceSecretRequest
-	29, // 28: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:input_type -> beenfar.adapter.v1.SetDeviceSecretRequest
-	15, // 29: beenfar.adapter.v1.AdapterHostService.Register:output_type -> beenfar.adapter.v1.RegisterResponse
-	18, // 30: beenfar.adapter.v1.AdapterHostService.CompleteCommand:output_type -> beenfar.adapter.v1.CompleteCommandResponse
-	20, // 31: beenfar.adapter.v1.AdapterHostService.LookupDevice:output_type -> beenfar.adapter.v1.LookupDeviceResponse
-	22, // 32: beenfar.adapter.v1.AdapterHostService.ReportDevice:output_type -> beenfar.adapter.v1.ReportDeviceResponse
-	24, // 33: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:output_type -> beenfar.adapter.v1.GetDesiredConfigResponse
-	26, // 34: beenfar.adapter.v1.AdapterHostService.ReportState:output_type -> beenfar.adapter.v1.ReportStateResponse
-	28, // 35: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:output_type -> beenfar.adapter.v1.GetDeviceSecretResponse
-	30, // 36: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:output_type -> beenfar.adapter.v1.SetDeviceSecretResponse
-	29, // [29:37] is the sub-list for method output_type
-	21, // [21:29] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	2,  // 3: beenfar.adapter.v1.Discovered.kind:type_name -> beenfar.adapter.v1.DeviceKind
+	1,  // 4: beenfar.adapter.v1.State.readoption:type_name -> beenfar.adapter.v1.ReadoptionState
+	2,  // 5: beenfar.adapter.v1.State.kind:type_name -> beenfar.adapter.v1.DeviceKind
+	3,  // 6: beenfar.adapter.v1.WifiNetwork.security:type_name -> beenfar.adapter.v1.WifiSecurity
+	4,  // 7: beenfar.adapter.v1.WifiNetwork.band:type_name -> beenfar.adapter.v1.WifiBand
+	5,  // 8: beenfar.adapter.v1.SwitchPort.tagging:type_name -> beenfar.adapter.v1.SwitchPortTagging
+	6,  // 9: beenfar.adapter.v1.SwitchPort.poe_mode:type_name -> beenfar.adapter.v1.PoeMode
+	10, // 10: beenfar.adapter.v1.DesiredConfig.networks:type_name -> beenfar.adapter.v1.Network
+	11, // 11: beenfar.adapter.v1.DesiredConfig.wifi:type_name -> beenfar.adapter.v1.WifiNetwork
+	12, // 12: beenfar.adapter.v1.DesiredConfig.radius_servers:type_name -> beenfar.adapter.v1.RadiusServer
+	13, // 13: beenfar.adapter.v1.DesiredConfig.switch_ports:type_name -> beenfar.adapter.v1.SwitchPort
+	17, // 14: beenfar.adapter.v1.RegisterResponse.registered:type_name -> beenfar.adapter.v1.Registered
+	7,  // 15: beenfar.adapter.v1.RegisterResponse.adopt:type_name -> beenfar.adapter.v1.Device
+	7,  // 16: beenfar.adapter.v1.RegisterResponse.forget:type_name -> beenfar.adapter.v1.Device
+	32, // 17: beenfar.adapter.v1.RegisterResponse.trace_context:type_name -> beenfar.adapter.v1.RegisterResponse.TraceContextEntry
+	7,  // 18: beenfar.adapter.v1.LookupDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
+	8,  // 19: beenfar.adapter.v1.ReportDeviceRequest.discovered:type_name -> beenfar.adapter.v1.Discovered
+	7,  // 20: beenfar.adapter.v1.ReportDeviceResponse.device:type_name -> beenfar.adapter.v1.Device
+	14, // 21: beenfar.adapter.v1.GetDesiredConfigResponse.config:type_name -> beenfar.adapter.v1.DesiredConfig
+	9,  // 22: beenfar.adapter.v1.ReportStateRequest.state:type_name -> beenfar.adapter.v1.State
+	15, // 23: beenfar.adapter.v1.AdapterHostService.Register:input_type -> beenfar.adapter.v1.RegisterRequest
+	18, // 24: beenfar.adapter.v1.AdapterHostService.CompleteCommand:input_type -> beenfar.adapter.v1.CompleteCommandRequest
+	20, // 25: beenfar.adapter.v1.AdapterHostService.LookupDevice:input_type -> beenfar.adapter.v1.LookupDeviceRequest
+	22, // 26: beenfar.adapter.v1.AdapterHostService.ReportDevice:input_type -> beenfar.adapter.v1.ReportDeviceRequest
+	24, // 27: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:input_type -> beenfar.adapter.v1.GetDesiredConfigRequest
+	26, // 28: beenfar.adapter.v1.AdapterHostService.ReportState:input_type -> beenfar.adapter.v1.ReportStateRequest
+	28, // 29: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:input_type -> beenfar.adapter.v1.GetDeviceSecretRequest
+	30, // 30: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:input_type -> beenfar.adapter.v1.SetDeviceSecretRequest
+	16, // 31: beenfar.adapter.v1.AdapterHostService.Register:output_type -> beenfar.adapter.v1.RegisterResponse
+	19, // 32: beenfar.adapter.v1.AdapterHostService.CompleteCommand:output_type -> beenfar.adapter.v1.CompleteCommandResponse
+	21, // 33: beenfar.adapter.v1.AdapterHostService.LookupDevice:output_type -> beenfar.adapter.v1.LookupDeviceResponse
+	23, // 34: beenfar.adapter.v1.AdapterHostService.ReportDevice:output_type -> beenfar.adapter.v1.ReportDeviceResponse
+	25, // 35: beenfar.adapter.v1.AdapterHostService.GetDesiredConfig:output_type -> beenfar.adapter.v1.GetDesiredConfigResponse
+	27, // 36: beenfar.adapter.v1.AdapterHostService.ReportState:output_type -> beenfar.adapter.v1.ReportStateResponse
+	29, // 37: beenfar.adapter.v1.AdapterHostService.GetDeviceSecret:output_type -> beenfar.adapter.v1.GetDeviceSecretResponse
+	31, // 38: beenfar.adapter.v1.AdapterHostService.SetDeviceSecret:output_type -> beenfar.adapter.v1.SetDeviceSecretResponse
+	31, // [31:39] is the sub-list for method output_type
+	23, // [23:31] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_beenfar_adapter_v1_adapter_host_proto_init() }
@@ -2209,7 +2314,7 @@ func file_beenfar_adapter_v1_adapter_host_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_beenfar_adapter_v1_adapter_host_proto_rawDesc), len(file_beenfar_adapter_v1_adapter_host_proto_rawDesc)),
-			NumEnums:      6,
+			NumEnums:      7,
 			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,

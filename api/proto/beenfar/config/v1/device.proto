@@ -4,6 +4,7 @@ package beenfar.config.v1;
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
+import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 
 // DeviceService manages network devices: discovery results, adoption and
@@ -40,6 +41,27 @@ service DeviceService {
       post: "/api/v1/devices:adopt"
       body: "*"
       response_body: "device"
+    };
+  }
+
+  // UpdateDevice changes the operator-set settings of a device: for now only
+  // ap_group, which pins an access point to one AP group. The access point
+  // then broadcasts the wifi networks that are not limited to named groups
+  // plus those that list its group, and not the ones limited to other groups;
+  // with no group it broadcasts every network. Only access points take an
+  // ap_group.
+  // Fields named by update_mask are replaced; an empty mask replaces all of
+  // them. All other fields are output only and ignored.
+  rpc UpdateDevice(UpdateDeviceRequest) returns (UpdateDeviceResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/devices/{device.id}"
+      body: "device"
+      response_body: "device"
+      additional_bindings: {
+        put: "/api/v1/devices/{device.id}"
+        body: "device"
+        response_body: "device"
+      }
     };
   }
 
@@ -80,6 +102,15 @@ enum ReadoptionState {
   READOPTION_STATE_IN_PROGRESS = 2;
 }
 
+// DeviceKind says what a device is.
+enum DeviceKind {
+  // The adapter has not said (or cannot tell).
+  DEVICE_KIND_UNSPECIFIED = 0;
+  DEVICE_KIND_ACCESS_POINT = 1;
+  DEVICE_KIND_SWITCH = 2;
+  DEVICE_KIND_GATEWAY = 3;
+}
+
 // Device is a piece of network gear known to the controller.
 message Device {
   // Server-assigned, immutable identifier.
@@ -103,6 +134,17 @@ message Device {
   // Set while the device is being forgotten and the controller is waiting for
   // it to reset itself (see ForgetDevice). The device is removed once it has.
   bool forgetting = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // What the device is, as far as its adapter can tell.
+  DeviceKind kind = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // How many ports beyond the uplink can be configured with
+  // beenfar.config.v1.SwitchPortService. Most access points have none, so a
+  // client should offer port settings only when this is above zero. Zero for
+  // a device whose kind is unspecified means "not known", and port settings
+  // are accepted.
+  uint32 port_count = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // The AP group this access point is pinned to. Empty is the default (see
+  // UpdateDevice).
+  string ap_group = 14;
 
   google.protobuf.Timestamp create_time = 21 [(google.api.field_behavior) = OUTPUT_ONLY];
   google.protobuf.Timestamp update_time = 22 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -145,6 +187,18 @@ message AdoptDeviceRequest {
 }
 
 message AdoptDeviceResponse {
+  Device device = 1;
+}
+
+message UpdateDeviceRequest {
+  // id selects the device.
+  Device device = 1 [(google.api.field_behavior) = REQUIRED];
+  // Fields to update, named by their proto field names (currently only
+  // "ap_group"). When empty or "*", every mutable field is replaced.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateDeviceResponse {
   Device device = 1;
 }
 

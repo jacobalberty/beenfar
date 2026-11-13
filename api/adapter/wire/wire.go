@@ -36,6 +36,7 @@ import (
 // goverter:extend WifiBandToProto WifiBandFromProto SecondsFromDuration DurationFromSeconds Int32 Int
 // goverter:extend TimeToProto TimeFromProto ReadoptionToProto ReadoptionFromProto
 // goverter:extend TaggingToProto TaggingFromProto PoEModeToProto PoEModeFromProto
+// goverter:extend KindToProto KindFromProto
 type Converter interface {
 	// goverter:map LastSeen LastSeenTime
 	DeviceToProto(model.Device) *adapterv1.Device
@@ -91,6 +92,30 @@ func ReadoptionFromProto(r adapterv1.ReadoptionState) model.Readoption {
 		return model.ReadoptionInProgress
 	}
 	return model.ReadoptionNone
+}
+
+func KindToProto(k model.DeviceKind) adapterv1.DeviceKind {
+	switch k {
+	case model.KindAccessPoint:
+		return adapterv1.DeviceKind_DEVICE_KIND_ACCESS_POINT
+	case model.KindSwitch:
+		return adapterv1.DeviceKind_DEVICE_KIND_SWITCH
+	case model.KindGateway:
+		return adapterv1.DeviceKind_DEVICE_KIND_GATEWAY
+	}
+	return adapterv1.DeviceKind_DEVICE_KIND_UNSPECIFIED
+}
+
+func KindFromProto(k adapterv1.DeviceKind) model.DeviceKind {
+	switch k {
+	case adapterv1.DeviceKind_DEVICE_KIND_ACCESS_POINT:
+		return model.KindAccessPoint
+	case adapterv1.DeviceKind_DEVICE_KIND_SWITCH:
+		return model.KindSwitch
+	case adapterv1.DeviceKind_DEVICE_KIND_GATEWAY:
+		return model.KindGateway
+	}
+	return model.KindUnknown
 }
 
 func SecondsFromDuration(d time.Duration) int64 { return int64(d / time.Second) }
