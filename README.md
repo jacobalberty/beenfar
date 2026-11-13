@@ -339,7 +339,8 @@ interpret `system_cfg`. Specifically:
 `BEENFAR_UNIFI_COUNTRY`, create a WPA-personal wifi network, point the access point
 at beenfar and adopt it. When it has informed under its new key, SSH in with the
 `admin` login (`beenfard admin unifi-device-password`) and `cat /tmp/system.cfg`:
-it should be identical to the document beenfar rendered (a real controller's was);
+it should be identical to `beenfard admin unifi-render -mac <MAC> -host
+<address the device informs>` (a real controller's document was);
 confirm the access point stays reachable, SSH still works and the SSID comes up.
 Then change a setting (`UpdateDeviceSettings`, say `radio.1.channel`), see the
 file change by exactly that key, and `ResetDeviceSettings`. Until someone has done

@@ -76,6 +76,19 @@ func renderSystemConfig(model string, desired adapter.DesiredConfig, tunables ma
 	return profile.Render(p, profile.Inputs{Tunables: tunables, Site: ps, Networks: nets})
 }
 
+// RenderSystemConfig renders the system.cfg that would be sent to a device of
+// model, as the key=value text of a system_cfg. It is what `beenfard admin
+// unifi-render` prints so that a device's /tmp/system.cfg can be compared with
+// it. informHost is the address the device informs (host:port) when the site has
+// no inform URL. The text contains the device's secrets.
+func RenderSystemConfig(model string, desired adapter.DesiredConfig, tunables map[string]string, site SiteSettings, informHost string) (string, error) {
+	doc, err := renderSystemConfig(model, desired, tunables, site, informHost)
+	if err != nil {
+		return "", err
+	}
+	return doc.String(), nil
+}
+
 func toNetwork(w adapter.WifiNetwork, vlans map[string]int, radius map[string]adapter.RadiusServer, siteKey string) (profile.Network, error) {
 	n := profile.Network{ID: w.ID, SSID: w.SSID, Hidden: w.Hidden, Guest: w.Guest, IAPPKey: iappKey(siteKey, w.ID)}
 	if w.NetworkID != "" {
