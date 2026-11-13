@@ -41,6 +41,9 @@ type Registry struct {
 	prop  propagation.TextMapPropagator
 	now   func() time.Time
 
+	autoAdopt bool
+	adopting  sync.Map // device ids with an automatic adoption under way
+
 	adoptions metric.Int64Counter // nil without a meter
 	wg        sync.WaitGroup
 	mu        sync.RWMutex
@@ -59,17 +62,23 @@ type Options struct {
 	// Propagator carries the trace of the request behind an Adopt or Forget
 	// to the external adapter that carries it out. Nil sends no trace.
 	Propagator propagation.TextMapPropagator
+	// AutoAdopt adopts access points as soon as they are seen, so a new one
+	// only needs to be plugged in. Other devices (switches, gateways, and
+	// anything whose adapter cannot say what it is) stay pending until
+	// somebody adopts them.
+	AutoAdopt bool
 }
 
 // NewRegistry returns an empty registry.
 func NewRegistry(opts Options) (*Registry, error) {
 	r := &Registry{
-		store:    opts.Store,
-		prop:     opts.Propagator,
-		now:      time.Now,
-		adapters: map[string]*entry{},
-		handlers: map[string]http.Handler{},
-		pending:  map[string]*pendingCommand{},
+		store:     opts.Store,
+		prop:      opts.Propagator,
+		autoAdopt: opts.AutoAdopt,
+		now:       time.Now,
+		adapters:  map[string]*entry{},
+		handlers:  map[string]http.Handler{},
+		pending:   map[string]*pendingCommand{},
 	}
 	if opts.Meter != nil {
 		if err := r.registerMetrics(opts.Meter); err != nil {
@@ -150,7 +159,7 @@ func (r *Registry) Start(ctx context.Context) {
 		e.status.StatusMessage = ""
 		e.status.ConnectTime = r.now()
 		r.wg.Go(func() {
-			err := a.Start(ctx, NewHost(name, r.store))
+			err := a.Start(ctx, r.NewHost(name))
 			if err != nil && !errors.Is(err, context.Canceled) {
 				slog.ErrorContext(ctx, "adapter stopped", slog.String("adapter", name), slog.Any("error", err))
 				r.setHealth(name, false, err.Error())
@@ -159,6 +168,43 @@ func (r *Registry) Start(ctx context.Context) {
 			r.setHealth(name, false, "")
 		})
 	}
+}
+
+// NewHost returns the Host for the adapter called name, wired to this
+// registry's policies (automatic adoption).
+func (r *Registry) NewHost(name string) *Host {
+	h := NewHost(name, r.store)
+	if r.autoAdopt {
+		h.onNew = r.maybeAdopt
+	}
+	return h
+}
+
+// maybeAdopt adopts a device that has just been seen if it is an access
+// point. It runs in the background: the adapter reporting the device is in the
+// middle of answering it, and adopting calls back into that adapter.
+func (r *Registry) maybeAdopt(ctx context.Context, d store.Device) {
+	if d.Kind != store.DeviceKindAccessPoint || d.Forgetting {
+		return
+	}
+	if _, busy := r.adopting.LoadOrStore(d.ID, struct{}{}); busy {
+		return
+	}
+	ctx = context.WithoutCancel(ctx)
+	go func() {
+		defer r.adopting.Delete(d.ID)
+		_, err := core.New(r.store, r).Devices.Adopt(ctx, d.ID, "")
+		switch {
+		case err == nil:
+			slog.InfoContext(ctx, "adopted access point automatically",
+				slog.String("device.id", d.ID), slog.String("adapter", d.Adapter), slog.String("model", d.Model))
+		case errors.Is(err, store.ErrFailedPrecondition):
+			// Adopted by somebody else in the meantime, or locked.
+		default:
+			slog.WarnContext(ctx, "could not adopt access point automatically; it stays pending",
+				slog.String("device.id", d.ID), slog.Any("error", err))
+		}
+	}()
 }
 
 // Wait blocks until the adapters started by Start have returned.

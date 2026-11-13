@@ -56,6 +56,8 @@ type config struct {
 	unifiReadoptAfter time.Duration
 	// Send UniFi devices their wifi, VLAN and RADIUS settings.
 	unifiSystemCfg bool
+	// Adopt access points as soon as they are seen.
+	autoAdopt bool
 }
 
 func parseFlags(args []string) (config, error) {
@@ -76,6 +78,8 @@ func parseFlags(args []string) (config, error) {
 		"switch UniFi devices to AES-GCM when adopting them (env BEENFAR_UNIFI_GCM)")
 	fs.BoolVar(&cfg.unifiSystemCfg, "unifi-system-cfg", cfg.auth.envBool("BEENFAR_UNIFI_SYSTEM_CFG", false),
 		"send adopted UniFi devices their wifi, VLAN and RADIUS settings (system_cfg); experimental, off by default (env BEENFAR_UNIFI_SYSTEM_CFG)")
+	fs.BoolVar(&cfg.autoAdopt, "auto-adopt", cfg.auth.envBool("BEENFAR_AUTO_ADOPT", true),
+		"adopt access points as soon as they connect; switches and gateways still wait to be adopted (env BEENFAR_AUTO_ADOPT)")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -135,7 +139,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("auth configuration: %w", err)
 	}
-	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter(), Propagator: tel.TextMapPropagator()})
+	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter(), Propagator: tel.TextMapPropagator(), AutoAdopt: cfg.autoAdopt})
 	if err != nil {
 		return err
 	}

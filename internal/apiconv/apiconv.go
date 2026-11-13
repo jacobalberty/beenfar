@@ -37,7 +37,7 @@ import (
 // goverter:ignoreUnexported
 // goverter:useZeroValueOnPointerInconsistency
 // goverter:extend Timestamp WifiSecurityToProto WifiSecurityFromProto WifiBandToProto WifiBandFromProto
-// goverter:extend DeviceStateToProto ReadoptionToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
+// goverter:extend DeviceStateToProto DeviceKindToProto DeviceKindFromProto ReadoptionToProto AdapterKindToProto UserSourceToProto VLANToProto VLANFromProto
 // goverter:extend SwitchPortTaggingToProto SwitchPortTaggingFromProto PoEModeToProto PoEModeFromProto FieldWriterKindToProto
 type Converter interface {
 	// goverter:map Revision Etag | Etag
@@ -74,7 +74,11 @@ type Converter interface {
 	SwitchPortFromProto(*configv1.SwitchPort) (store.SwitchPort, error)
 
 	// goverter:map LastSeen LastSeenTime
+	// goverter:map PortCount PortCount | PortToProto
 	DeviceToProto(store.Device) *configv1.Device
+	// Only what an operator can set comes in; the rest is output only.
+	// goverter:ignore ID MAC Adapter State Model IP Firmware ConfigRevision Locked Readoption Forgetting Kind PortCount LastSeen CreateTime UpdateTime
+	DeviceFromProto(*configv1.Device) store.Device
 	DevicesToProto([]store.Device) []*configv1.Device
 
 	// goverter:map Revision Etag | Etag
@@ -164,6 +168,12 @@ var deviceState = biMap[configv1.DeviceState, store.DeviceState]{
 	configv1.DeviceState_DEVICE_STATE_ADOPTED: store.DeviceStateAdopted,
 }
 
+var deviceKind = biMap[configv1.DeviceKind, store.DeviceKind]{
+	configv1.DeviceKind_DEVICE_KIND_ACCESS_POINT: store.DeviceKindAccessPoint,
+	configv1.DeviceKind_DEVICE_KIND_SWITCH:       store.DeviceKindSwitch,
+	configv1.DeviceKind_DEVICE_KIND_GATEWAY:      store.DeviceKindGateway,
+}
+
 var readoption = biMap[configv1.ReadoptionState, store.Readoption]{
 	configv1.ReadoptionState_READOPTION_STATE_AWAITING_ACCEPTANCE: store.ReadoptionAwaiting,
 	configv1.ReadoptionState_READOPTION_STATE_IN_PROGRESS:         store.ReadoptionInProgress,
@@ -247,6 +257,13 @@ func DeviceStateToProto(s store.DeviceState) configv1.DeviceState { return devic
 // DeviceStateFromProto is used for list filters; unspecified matches all.
 func DeviceStateFromProto(s configv1.DeviceState) (store.DeviceState, error) {
 	return deviceState.fromProto(s, "state")
+}
+
+func DeviceKindToProto(k store.DeviceKind) configv1.DeviceKind { return deviceKind.toProto(k) }
+
+func DeviceKindFromProto(k configv1.DeviceKind) store.DeviceKind {
+	out, _ := deviceKind.fromProto(k, "kind")
+	return out
 }
 
 func ReadoptionToProto(r store.Readoption) configv1.ReadoptionState { return readoption.toProto(r) }

@@ -28,6 +28,46 @@ func (s *DeviceService) ListPending(ctx context.Context, adapter string) ([]stor
 	return s.store.ListDevices(ctx, store.DeviceFilter{State: store.DeviceStatePending, Adapter: adapter})
 }
 
+// Update changes the operator-set settings of a device: ap_group, which pins
+// an access point to one AP group. paths names the fields to change (API
+// names); empty or "*" replaces all of them. Anything the adapter reports is
+// left alone.
+func (s *DeviceService) Update(ctx context.Context, in store.Device, paths []string) (store.Device, error) {
+	if in.ID == "" {
+		return store.Device{}, invalid("device id is required")
+	}
+	var out store.Device
+	err := s.store.WithTx(ctx, func(tx store.Store) error {
+		cur, err := tx.GetDevice(ctx, in.ID)
+		if err != nil {
+			return err
+		}
+		next := cur
+		if err := deviceFields.apply(&next, in, paths); err != nil {
+			return err
+		}
+		if next.APGroup != "" {
+			if len(next.APGroup) > 64 {
+				return invalid("ap_group must be at most 64 bytes")
+			}
+			if next.Kind != store.DeviceKindAccessPoint && next.Kind != store.DeviceKindUnknown {
+				return invalid("ap_group only applies to access points; device %s is a %s", cur.ID, next.Kind)
+			}
+		}
+		out = cur
+		if next.APGroup != cur.APGroup {
+			out, err = tx.SetDeviceAPGroup(ctx, cur.ID, next.APGroup)
+		}
+		return err
+	})
+	return out, err
+}
+
+// deviceFields are the mutable fields of a device, by API name.
+var deviceFields = fieldSetters[store.Device]{
+	"ap_group": func(d *store.Device, s store.Device) { d.APGroup = s.APGroup },
+}
+
 // Adopt brings a pending device under management, or accepts the re-adoption
 // of an adopted device that was reset and is awaiting it. Exactly one of id
 // and mac must be set.

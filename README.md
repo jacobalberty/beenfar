@@ -86,19 +86,20 @@ without one keeps it. `shared_secret_version` increases whenever it changes.
 **Switch ports.** Ports of adopted devices can be given settings (name,
 disabled, native network, tagged networks, PoE mode) by device id and
 1-based port index. A port without settings runs with the device's
-defaults; deleting them restores the defaults.
+defaults; deleting them restores the defaults. Only devices with ports of their
+own take settings: a device reports `kind` and `port_count`, and most access
+points report none, so a UI should offer port settings only when `port_count`
+is above zero (the API refuses ports on a device that has none, or beyond its
+count; a device whose adapter did not say what it is is not restricted).
 
-## API module
-
-The protobuf API and its generated Go clients, together with the adapter
-SDK, are the module `github.com/jacobalberty/beenfar/api` in `api/`, which
-the Terraform provider and external adapters import. It is released on its
-own, as `api/vX.Y.Z` tags: every push to `main` that touches `api/` runs CI
-and tags a release when the commits that touched `api/` since the last one
-call for it (`feat` minor, `fix`/`perf` patch, breaking changes minor while
-0.x; see `.github/scripts/api-next-version.sh`). Commits that touch `api/`
-must therefore follow [Conventional Commits](https://www.conventionalcommits.org/),
-which a pull request check enforces.
+**Access points.** An access point is adopted on its own the first time it
+connects (`BEENFAR_AUTO_ADOPT`, on by default; switches, gateways and
+unrecognised devices still wait for `AdoptDevice`). Every access point runs the
+wifi networks. To change that for one access point, set its `ap_group` with
+`UpdateDevice`: it then runs the networks that are not limited to groups plus
+those that list its group, and no longer the networks limited to other groups.
+A network can list several groups (`ap_groups`). Clearing `ap_group` returns
+the access point to running everything.
 
 **TypeScript client.** The same release also publishes the generated
 TypeScript client (messages and service descriptors, for
@@ -231,7 +232,8 @@ others run as separate processes and connect to the controller.
 
 Point devices at `http://<controller>:8080/inform` (DNS or `set-inform`). An
 unknown device is recorded as pending (and answered 404, so it keeps
-trying); adopt it through the API (`AdoptDevice`) or Terraform. Adoption gives
+trying); adopt it through the API (`AdoptDevice`) or Terraform. Access points
+are adopted automatically (see above). Adoption gives
 the device a private key, which is stored in the database and kept across
 restarts; a device that loses the reply keeps working, because its old key is
 accepted until it has switched.
@@ -239,6 +241,7 @@ accepted until it has switched.
 | Variable | Default | Meaning |
 |---|---|---|
 | `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
+| `BEENFAR_AUTO_ADOPT` | `true` | Adopt access points as soon as they connect (any adapter) |
 | `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
 | `BEENFAR_UNIFI_SYSTEM_CFG` | `false` | Send adopted devices their wifi, VLAN and RADIUS settings (experimental, see below) |
 | `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |

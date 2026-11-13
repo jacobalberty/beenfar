@@ -180,6 +180,16 @@ func (h *deviceHandler) AdoptDevice(ctx context.Context, req *configv1.AdoptDevi
 	return &configv1.AdoptDeviceResponse{Device: apiconvgen.DeviceToProto(d)}, nil
 }
 
+func (h *deviceHandler) UpdateDevice(ctx context.Context, req *configv1.UpdateDeviceRequest) (*configv1.UpdateDeviceResponse, error) {
+	in := apiconvgen.DeviceFromProto(req.GetDevice())
+	in.ID = req.GetDevice().GetId()
+	out, err := h.svc.Update(ctx, in, req.GetUpdateMask().GetPaths())
+	if err != nil {
+		return nil, err
+	}
+	return &configv1.UpdateDeviceResponse{Device: apiconvgen.DeviceToProto(out)}, nil
+}
+
 func (h *deviceHandler) ForgetDevice(ctx context.Context, req *configv1.ForgetDeviceRequest) (*configv1.ForgetDeviceResponse, error) {
 	d, err := h.svc.Forget(ctx, req.GetId(), req.GetForce())
 	if err != nil {
