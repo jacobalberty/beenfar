@@ -51,7 +51,7 @@ func (s *Service) host(ctx context.Context) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.reg.NewHost(name), nil
+	return NewHost(name, s.store), nil
 }
 
 // rpcErr maps the SDK's not-found error onto the one the error interceptor

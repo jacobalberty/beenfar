@@ -346,24 +346,16 @@ func connected(t *testing.T, d *daemon, f *fleet, mac string) {
 	})
 }
 
-// A mixed fleet shows up with the identity each device reports. The access
-// point adopts itself (BEENFAR_AUTO_ADOPT is on by default); the switch and the
-// gateway stay pending until they are adopted through the API. Every device
-// then completes the real key handshake and keeps informing.
+// A mixed fleet shows up as pending with the identity each device reports,
+// stays pending (nothing is adopted by itself), and is adopted through the
+// API: every device then completes the real key handshake and keeps informing.
 func TestFleetAdoption(t *testing.T) {
 	d := startDaemon(t)
 	f := startFleet(t, d, accessPoint, switchDev, gateway)
 
-	pending := d.pending(t, switchDev.MAC, gateway.MAC)
-	connected(t, d, f, accessPoint.MAC) // adopted without anybody asking
+	pending := d.pending(t, accessPoint.MAC, switchDev.MAC, gateway.MAC)
 	for _, spec := range f.specs {
 		dev := pending[spec.MAC]
-		if spec.MAC == accessPoint.MAC {
-			if dev != nil {
-				t.Errorf("%s is pending: access points are adopted on their own", spec.MAC)
-			}
-			continue
-		}
 		if dev.GetAdapter() != "unifi" {
 			t.Errorf("%s adapter = %q, want unifi", spec.MAC, dev.GetAdapter())
 		}
@@ -378,8 +370,9 @@ func TestFleetAdoption(t *testing.T) {
 		}
 	}
 
-	d.adopt(t, pending[switchDev.MAC])
-	d.adopt(t, pending[gateway.MAC])
+	for _, spec := range f.specs {
+		d.adopt(t, pending[spec.MAC])
+	}
 	for _, spec := range f.specs {
 		connected(t, d, f, spec.MAC)
 	}
@@ -407,14 +400,17 @@ func TestAdoptionWithAESGCM(t *testing.T) {
 	d := startDaemon(t, "BEENFAR_UNIFI_GCM=true")
 	f := startFleet(t, d, accessPoint, switchDev)
 
-	// The switch waits to be adopted, so it can be seen on the default key
-	// first. The access point adopts itself, too quickly to catch it there.
-	pending := d.pending(t, switchDev.MAC)
-	f.tap.waitInforms(t, switchDev.MAC, inform.FlagEncrypted, 1)
-	if n := f.tap.count(switchDev.MAC, inform.FlagGCM); n != 0 {
-		t.Fatalf("%s sent %d informs with GCM before it was adopted", switchDev.MAC, n)
+	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
+	for _, spec := range f.specs {
+		// A pending device is on the default key, and uses CBC with it.
+		f.tap.waitInforms(t, spec.MAC, inform.FlagEncrypted, 1)
+		if n := f.tap.count(spec.MAC, inform.FlagGCM); n != 0 {
+			t.Fatalf("%s sent %d informs with GCM before it was adopted", spec.MAC, n)
+		}
 	}
-	d.adopt(t, pending[switchDev.MAC])
+	for _, spec := range f.specs {
+		d.adopt(t, pending[spec.MAC])
+	}
 	for _, spec := range f.specs {
 		connected(t, d, f, spec.MAC)
 	}
@@ -481,7 +477,7 @@ func (d *daemon) device(ctx context.Context, mac string) (*configv1.Device, erro
 // and the switch are told apart and the switch reports its ports, which is
 // what a client uses to decide whether port settings apply.
 func TestDevicesReportKindAndPorts(t *testing.T) {
-	d := startDaemon(t, "BEENFAR_AUTO_ADOPT=false")
+	d := startDaemon(t)
 	startFleet(t, d, accessPoint, switchDev, gateway)
 	d.pending(t, accessPoint.MAC, switchDev.MAC, gateway.MAC)
 
@@ -507,28 +503,13 @@ func TestDevicesReportKindAndPorts(t *testing.T) {
 	}
 }
 
-// With BEENFAR_AUTO_ADOPT off, an access point waits to be adopted like any
-// other device, and adopting it by hand still works.
-func TestAutoAdoptCanBeTurnedOff(t *testing.T) {
-	d := startDaemon(t, "BEENFAR_AUTO_ADOPT=false")
-	f := startFleet(t, d, accessPoint)
-
-	pending := d.pending(t, accessPoint.MAC)
-	// Several informs, so a late automatic adoption would have happened.
-	f.tap.waitInforms(t, accessPoint.MAC, inform.FlagEncrypted, 3)
-	if st, err := d.state(callCtx(t), accessPoint.MAC); err != nil || st != configv1.DeviceState_DEVICE_STATE_PENDING {
-		t.Fatalf("state = %s, %v; want it still pending", st, err)
-	}
-	d.adopt(t, pending[accessPoint.MAC])
-	connected(t, d, f, accessPoint.MAC)
-}
-
 // Port settings only exist for devices with ports: the API refuses them on an
 // access point and accepts them on a switch, within its port count.
 func TestSwitchPortsOnlyOnDevicesWithPorts(t *testing.T) {
 	d := startDaemon(t)
 	f := startFleet(t, d, accessPoint, switchDev)
-	pending := d.pending(t, switchDev.MAC)
+	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
+	d.adopt(t, pending[accessPoint.MAC])
 	d.adopt(t, pending[switchDev.MAC])
 	connected(t, d, f, accessPoint.MAC)
 	connected(t, d, f, switchDev.MAC)
@@ -565,12 +546,11 @@ func TestSwitchPortsOnlyOnDevicesWithPorts(t *testing.T) {
 func TestAccessPointGroupOverride(t *testing.T) {
 	d := startDaemon(t)
 	f := startFleet(t, d, accessPoint, switchDev)
-	pending := d.pending(t, switchDev.MAC)
-	d.adopt(t, pending[switchDev.MAC])
-	connected(t, d, f, accessPoint.MAC)
-	connected(t, d, f, switchDev.MAC)
+	pending := d.pending(t, accessPoint.MAC, switchDev.MAC)
 
-	// A wifi network limited to two groups, which one access point can join.
+	// A wifi network limited to two groups, which exists before the access
+	// point is adopted: the access point is provisioned with it as it adopts
+	// (its group is unset, so it gets every network) and goes on informing.
 	wifi := configv1connect.NewWifiNetworkServiceClient(d.client)
 	if _, err := wifi.CreateWifiNetwork(callCtx(t), &configv1.CreateWifiNetworkRequest{WifiNetwork: &configv1.WifiNetwork{
 		Ssid: "e2e-upstairs", Security: configv1.WifiSecurity_WIFI_SECURITY_WPA_PERSONAL,
@@ -578,6 +558,11 @@ func TestAccessPointGroupOverride(t *testing.T) {
 	}}); err != nil {
 		t.Fatal(err)
 	}
+	d.adopt(t, pending[accessPoint.MAC])
+	d.adopt(t, pending[switchDev.MAC])
+	connected(t, d, f, accessPoint.MAC)
+	connected(t, d, f, switchDev.MAC)
+	waitLastSeenAdvances(t, d, accessPoint.MAC)
 
 	ap, err := d.device(callCtx(t), accessPoint.MAC)
 	if err != nil {

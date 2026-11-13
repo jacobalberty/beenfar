@@ -26,8 +26,7 @@ import (
 // sections and nothing for the settings beenfar does not model (radio
 // channels and power, SSH users, NTP, syslog, ...). Whether a device merges a
 // fragment into its configuration or replaces its configuration with it is
-// not verified, so the adapter sends it only when Options.PushSystemConfig
-// is set.
+// not verified; the adapter sends it to every adopted access point anyway.
 //
 // Not rendered, because the capture does not show how:
 //   - open and WEP networks, and guest networks (whose client isolation

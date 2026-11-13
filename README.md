@@ -92,10 +92,10 @@ points report none, so a UI should offer port settings only when `port_count`
 is above zero (the API refuses ports on a device that has none, or beyond its
 count; a device whose adapter did not say what it is is not restricted).
 
-**Access points.** An access point is adopted on its own the first time it
-connects (`BEENFAR_AUTO_ADOPT`, on by default; switches, gateways and
-unrecognised devices still wait for `AdoptDevice`). Every access point runs the
-wifi networks. To change that for one access point, set its `ap_group` with
+**Access points.** An adopted access point is provisioned automatically: it
+is sent every wifi network (with its VLAN and RADIUS settings) as soon as it is
+adopted, and again whenever they change. Adoption itself is still a decision:
+`AdoptDevice`. To change what one access point runs, set its `ap_group` with
 `UpdateDevice`: it then runs the networks that are not limited to groups plus
 those that list its group, and no longer the networks limited to other groups.
 A network can list several groups (`ap_groups`). Clearing `ap_group` returns
@@ -232,8 +232,7 @@ others run as separate processes and connect to the controller.
 
 Point devices at `http://<controller>:8080/inform` (DNS or `set-inform`). An
 unknown device is recorded as pending (and answered 404, so it keeps
-trying); adopt it through the API (`AdoptDevice`) or Terraform. Access points
-are adopted automatically (see above). Adoption gives
+trying); adopt it through the API (`AdoptDevice`) or Terraform. Adoption gives
 the device a private key, which is stored in the database and kept across
 restarts; a device that loses the reply keeps working, because its old key is
 accepted until it has switched.
@@ -241,9 +240,7 @@ accepted until it has switched.
 | Variable | Default | Meaning |
 |---|---|---|
 | `BEENFAR_UNIFI_INFORM_INTERVAL` | `10` | Seconds between informs of a device |
-| `BEENFAR_AUTO_ADOPT` | `true` | Adopt access points as soon as they connect (any adapter) |
 | `BEENFAR_UNIFI_GCM` | `false` | Switch devices to AES-GCM when adopting them |
-| `BEENFAR_UNIFI_SYSTEM_CFG` | `false` | Send adopted devices their wifi, VLAN and RADIUS settings (experimental, see below) |
 | `BEENFAR_UNIFI_READOPT_AFTER` | `2m` | How long an adopted device must be silent before one on the default key is taken for factory reset and offered for re-adoption; `0` turns it off |
 
 **Reset devices.** An adopted device that comes back speaking the default key
@@ -272,28 +269,29 @@ device has nothing to reset and is removed at once. Only one captured controller
 reply backs the message, so which models and firmware honour it is not
 verified; see [go-unifi](https://github.com/jacobalberty/go-unifi).
 
-**Device settings (experimental).** With `BEENFAR_UNIFI_SYSTEM_CFG=true`,
-adopted devices are sent their wifi networks (WPA-PSK, and WPA-enterprise
-with a RADIUS server for authentication and optional accounting), the VLANs
-those networks use, and the matching bridges, as a `system_cfg` document
+**Device settings.** Adopted access points are sent their wifi networks
+(WPA-PSK, and WPA-enterprise with a RADIUS server for authentication and
+optional accounting, filtered by the access point's `ap_group`), the VLANs those
+networks use, and the matching bridges, as a `system_cfg` document
 (`renderSystemConfig` in `adapters/unifi/systemcfg.go`). The key names come
 from a `system.cfg` captured from a dual-radio access point with the madwifi
 driver, and the tests check every rendered key against that capture. What is
-not verified, and why it is off by default:
+not verified:
 
 - the document only holds those sections, not radio channels, SSH users,
   NTP and the other settings beenfar does not manage, and whether a device
   merges it into its configuration or replaces its configuration with it has
   not been tried on hardware;
 - other radio layouts (newer models use other interface names);
-- open, WEP and guest networks are not rendered (a config containing one is
-  refused, and the push fails with an error), nor is more than one RADIUS
-  server per network;
+- open, WEP and guest networks are not rendered, nor is more than one RADIUS
+  server per network. A configuration containing one cannot be rendered: the
+  access point is still adopted and keeps tracking the config revision, but is
+  sent no settings, and the daemon logs a warning on each inform;
 - switch port settings are stored and handed to the adapter, but not sent to
   devices: the capture has no port VLAN or PoE keys.
 
-Without it, adopted devices are re-keyed and tracked by config revision, but
-their settings are left alone.
+Switches and gateways are re-keyed and tracked by config revision, but their
+settings are left alone.
 
 **Taking over devices from another controller.** Extract each device's
 credentials with an outside tool (the `x_authkey` in the old controller's
@@ -391,9 +389,10 @@ The helpers are at the top of `e2e/e2e_test.go`:
 - The emulator understands `noop`, `setparam` (the `authkey`, `cfgversion` and
   `use_aes_gcm` of `mgmt_cfg`), `setstate`, `upgrade`, `reboot` and the
   `setdefault` factory reset. It does not interpret `system_cfg`, so these
-  tests cannot show that the wifi, VLAN and RADIUS settings pushed with
-  `BEENFAR_UNIFI_SYSTEM_CFG` are correct; that is checked against a real
-  device's key names in `adapters/unifi`.
+  tests cannot show that the wifi, VLAN and RADIUS settings pushed to access
+  points are correct; that is checked against a real device's key names in
+  `adapters/unifi`. They do show that an access point accepts them and keeps
+  informing.
 - The emulator logs through the global standard logger, so tests that start a
   fleet must not use `t.Parallel`. The suite is a few seconds long, so that
   costs little.

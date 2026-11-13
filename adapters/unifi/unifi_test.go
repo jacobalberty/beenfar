@@ -312,7 +312,7 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	if v, _ := mgmt(t, reply).Get(inform.KeyCfgVersion); v != version {
 		t.Fatalf("cfgversion %q, want %q", v, version)
 	}
-	// Without PushSystemConfig, no system_cfg is sent.
+	// There are no wifi networks yet, so there is nothing to send.
 	if _, ok := reply["system_cfg"]; ok {
 		t.Errorf("unexpected system_cfg: %v", reply["system_cfg"])
 	}
@@ -327,10 +327,10 @@ func TestConfigRevisionPushesSetParam(t *testing.T) {
 	}
 }
 
-// With PushSystemConfig, the device is sent its wifi settings.
+// An adopted access point is sent its wifi settings.
 func TestPushSystemConfig(t *testing.T) {
 	ctx := t.Context()
-	e := newEnv(t, unifi.Options{PushSystemConfig: true})
+	e := newEnv(t, unifi.Options{})
 	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
 		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
 	}); err != nil {
@@ -356,6 +356,50 @@ func TestPushSystemConfig(t *testing.T) {
 		if got, _ := cfg.Get(k); got != want {
 			t.Errorf("%s = %q, want %q", k, got, want)
 		}
+	}
+}
+
+// Only access points are provisioned with wifi settings, and a configuration
+// that cannot be rendered does not keep an access point from being adopted.
+func TestSystemConfigOnlyForRenderableAccessPoints(t *testing.T) {
+	ctx := t.Context()
+	e := newEnv(t, unifi.Options{})
+	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{
+		SSID: "home", Security: store.WifiSecurityWPAPersonal, SecurityKey: "hunter2hunter2", Band: store.WifiBand5G,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	adopted := func(last byte, model string) map[string]any {
+		t.Helper()
+		d := newDevice(last)
+		d.model = model
+		e.post(d, inform.DefaultKey(), "")
+		if _, err := e.devices.Adopt(ctx, e.deviceByMAC(d).ID, ""); err != nil {
+			t.Fatal(err)
+		}
+		status, reply := e.post(d, inform.DefaultKey(), "")
+		if status != http.StatusOK {
+			t.Fatalf("%s: adoption reply = %d", model, status)
+		}
+		return reply
+	}
+	if _, ok := adopted(30, "U7PG2")["system_cfg"]; !ok {
+		t.Error("access point was not sent its settings")
+	}
+	if _, ok := adopted(31, "US8P150")["system_cfg"]; ok {
+		t.Error("switch was sent wifi settings")
+	}
+
+	// An open network cannot be rendered. The access point still adopts.
+	if _, err := e.st.CreateWifiNetwork(ctx, store.WifiNetwork{SSID: "open", Security: store.WifiSecurityOpen, Band: store.WifiBandBoth}); err != nil {
+		t.Fatal(err)
+	}
+	reply := adopted(32, "U7PG2")
+	if _, ok := reply["system_cfg"]; ok {
+		t.Error("an unrenderable configuration was sent")
+	}
+	if len(authKey(t, reply)) == 0 {
+		t.Error("the access point was not given its key")
 	}
 }
 

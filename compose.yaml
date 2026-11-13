@@ -28,9 +28,6 @@ services:
       #   docker compose run --rm -T beenfar /beenfard admin create -username admin
       # (it reads the password from stdin).
       BEENFAR_ADMIN_PASSWORD: ${BEENFAR_ADMIN_PASSWORD:-}
-      # Uncomment to turn on the experimental UniFi settings push (unverified
-      # on hardware; see the README).
-      # BEENFAR_UNIFI_SYSTEM_CFG: "true"
     volumes:
       - beenfar-data:/data
 

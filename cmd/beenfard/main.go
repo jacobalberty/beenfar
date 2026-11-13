@@ -54,10 +54,6 @@ type config struct {
 	// How long an adopted UniFi device must be silent before one on the
 	// default key is taken for factory reset and offered for re-adoption.
 	unifiReadoptAfter time.Duration
-	// Send UniFi devices their wifi, VLAN and RADIUS settings.
-	unifiSystemCfg bool
-	// Adopt access points as soon as they are seen.
-	autoAdopt bool
 }
 
 func parseFlags(args []string) (config, error) {
@@ -76,10 +72,6 @@ func parseFlags(args []string) (config, error) {
 		"silence after which an adopted UniFi device on the default key is offered for re-adoption; 0 turns it off (env BEENFAR_UNIFI_READOPT_AFTER)")
 	fs.BoolVar(&cfg.unifiGCM, "unifi-gcm", cfg.auth.envBool("BEENFAR_UNIFI_GCM", false),
 		"switch UniFi devices to AES-GCM when adopting them (env BEENFAR_UNIFI_GCM)")
-	fs.BoolVar(&cfg.unifiSystemCfg, "unifi-system-cfg", cfg.auth.envBool("BEENFAR_UNIFI_SYSTEM_CFG", false),
-		"send adopted UniFi devices their wifi, VLAN and RADIUS settings (system_cfg); experimental, off by default (env BEENFAR_UNIFI_SYSTEM_CFG)")
-	fs.BoolVar(&cfg.autoAdopt, "auto-adopt", cfg.auth.envBool("BEENFAR_AUTO_ADOPT", true),
-		"adopt access points as soon as they connect; switches and gateways still wait to be adopted (env BEENFAR_AUTO_ADOPT)")
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -139,7 +131,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("auth configuration: %w", err)
 	}
-	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter(), Propagator: tel.TextMapPropagator(), AutoAdopt: cfg.autoAdopt})
+	adapters, err := adapterhost.NewRegistry(adapterhost.Options{Store: ost, Meter: tel.Meter(), Propagator: tel.TextMapPropagator()})
 	if err != nil {
 		return err
 	}
@@ -149,8 +141,7 @@ func run() error {
 		Interval: cfg.unifiInterval,
 		UseGCM:   cfg.unifiGCM,
 
-		ReadoptAfter:     cfg.unifiReadoptAfter,
-		PushSystemConfig: cfg.unifiSystemCfg,
+		ReadoptAfter: cfg.unifiReadoptAfter,
 	})
 	if err != nil {
 		return err

@@ -10,7 +10,7 @@ import (
 // its uplink it has. The UniFi model rules live in go-unifi
 // (inform.Inform.Classify); this maps its answer onto the adapter SDK's kinds.
 // A model go-unifi does not recognise is KindUnknown, which the controller
-// treats as unclassified: not adopted automatically, ports not restricted.
+// treats as unclassified: it is not provisioned and its ports are not restricted.
 func classify(in *inform.Inform) (adapter.DeviceKind, int) {
 	kind, ports := in.Classify()
 	switch kind {

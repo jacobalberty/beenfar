@@ -23,9 +23,6 @@ import (
 type Host struct {
 	name  string
 	store store.Store
-	// onNew, if set, is told about every device report that left the device
-	// pending and unlocked, so the controller can adopt it on its own.
-	onNew func(ctx context.Context, d store.Device)
 }
 
 var _ adapter.Host = (*Host)(nil)
@@ -53,9 +50,6 @@ func (h *Host) ReportDevice(ctx context.Context, d adapter.Discovered) (adapter.
 	})
 	if err != nil {
 		return adapter.Device{}, hostErr(err)
-	}
-	if h.onNew != nil && dev.State == store.DeviceStatePending && !dev.Locked {
-		h.onNew(ctx, dev)
 	}
 	return toDevice(dev), nil
 }

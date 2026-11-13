@@ -86,13 +86,6 @@ type Options struct {
 	Meter metric.Meter
 	// Interval is the inform interval in seconds (default DefaultInterval).
 	Interval int
-	// PushSystemConfig sends adopted devices the wifi, VLAN and RADIUS
-	// settings as a system_cfg fragment (see renderSystemConfig). It is off
-	// by default: the keys are verified against a real device, but whether
-	// a device merges a fragment or replaces its whole configuration with
-	// it is not. Without it, devices are re-keyed and track config
-	// revisions, but their settings are left alone.
-	PushSystemConfig bool
 	// ReadoptAfter is how long an adopted device must have been silent before
 	// one that then speaks the default key is taken for factory reset and
 	// offered for re-adoption (see the package comment). Zero turns that off:
@@ -446,7 +439,7 @@ func (a *Adapter) respond(ctx context.Context, h adapter.Host, p *inform.Packet,
 		reason = "key"
 	}
 	a.pushes.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", reason)))
-	return a.setParam(authKey, version, desired)
+	return a.setParam(ctx, authKey, version, desired, kind)
 }
 
 // forgetting answers a device the controller is forgetting (see Forget). On a
@@ -484,18 +477,24 @@ func (a *Adapter) forgetting(ctx context.Context, h adapter.Host, dev adapter.De
 
 // setParam builds the reply that gives the device authKey and the desired
 // configuration.
-func (a *Adapter) setParam(authKey []byte, version string, desired adapter.DesiredConfig) (inform.Response, error) {
+func (a *Adapter) setParam(ctx context.Context, authKey []byte, version string, desired adapter.DesiredConfig, kind adapter.DeviceKind) (inform.Response, error) {
 	mgmt, err := inform.MgmtConfig{AuthKey: authKey, CfgVersion: version, UseAESGCM: a.opts.UseGCM}.Config()
 	if err != nil {
 		return nil, fmt.Errorf("rendering mgmt_cfg: %w", err)
 	}
 	sp := inform.SetParam{ManagementConfig: mgmt.String(), ConfigVersion: version}
-	if !a.opts.PushSystemConfig {
+	// Access points are provisioned with their wifi, VLAN and RADIUS settings
+	// as soon as they are adopted. Other devices have none to receive.
+	if kind != adapter.KindAccessPoint {
 		return sp, nil
 	}
 	system, err := renderSystemConfig(desired)
 	if err != nil {
-		return nil, fmt.Errorf("rendering system_cfg: %w", err)
+		// A configuration that cannot be rendered (an open network, say) must
+		// not keep the device from finishing its adoption: it still gets its
+		// key and revision, and the error is logged on every push.
+		slog.WarnContext(ctx, "not sending the access point its settings: the configuration cannot be rendered", slog.Any("error", err))
+		return sp, nil
 	}
 	if system.Len() > 0 {
 		sp.SystemConfig = system.String()
