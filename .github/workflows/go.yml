@@ -189,6 +189,19 @@ jobs:
       - run: go build -v ./...
       - run: go test -race -shuffle=on -count=1 -v -covermode=atomic ./...
 
+  e2e:
+    name: end-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      # Builds beenfard and runs it as a subprocess against a fleet of
+      # emulated UniFi devices (unifi-emu). No containers or privileges.
+      - run: go test -tags e2e -count=1 -v ./e2e/...
+
   coverage:
     runs-on: ubuntu-latest
     steps:
