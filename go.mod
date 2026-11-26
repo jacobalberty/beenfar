@@ -10,7 +10,7 @@ require (
 	github.com/jacobalberty/beenfar/api v0.0.0
 	github.com/jacobalberty/go-unifi v0.4.1
 	github.com/jamesbraid/unifi-emu v0.5.5
-	github.com/pressly/goose/v3 v3.30.0
+	github.com/pressly/goose/v3 v3.30.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.23.0
@@ -25,7 +25,7 @@ require (
 	golang.org/x/oauth2 v0.38.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20261110000943-09e21b237f2c
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
@@ -41,7 +41,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
-	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/mfridman/interpolate v0.2.0 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sethvargo/go-retry v0.5.0 // indirect
